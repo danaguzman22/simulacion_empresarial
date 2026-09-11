@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { getCampaignDetail } from "../application/get-campaign-detail";
 import { CampaignStatus } from "./CampaignStatus";
 
@@ -7,11 +8,14 @@ type DetailResult = Extract<
   { status: "found" }
 >;
 
-type CampaignDetailProps = Pick<DetailResult, "campaign" | "canReturnToCompany">;
+type CampaignDetailProps = Pick<DetailResult, "campaign" | "canReturnToCompany"> & {
+  children?: ReactNode;
+};
 
 export function CampaignDetail({
   campaign,
   canReturnToCompany,
+  children,
 }: CampaignDetailProps) {
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
@@ -59,8 +63,9 @@ export function CampaignDetail({
           </dl>
         </article>
 
-        <section aria-label="Próximas secciones de la campaña" className="mt-8 grid gap-5 md:grid-cols-3">
-          {["Partidas", "Miembros", "Sala"].map((title) => (
+        {children}
+        <section aria-label="Próximas secciones de la campaña" className="mt-8 grid gap-5 md:grid-cols-2">
+          {["Miembros", "Sala"].map((title) => (
             <div key={title} className="rounded-3xl border border-dashed border-white/10 p-6">
               <h2 className="text-xl font-black">{title}</h2>
               <p className="mt-3 text-sm text-slate-400">Próximamente</p>

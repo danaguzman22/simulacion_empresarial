@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
-import { getCampaignDetail } from "@/features/campaigns/application/get-campaign-detail";
+import { listCampaignGames } from "@/features/games/application/list-campaign-games";
+import { CampaignGames } from "@/features/games/components/CampaignGames";
 import { CampaignDetail } from "@/features/campaigns/components/CampaignDetail";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ type CampaignPageProps = {
 
 export default async function CampaignPage({ params }: CampaignPageProps) {
   const { id } = await params;
-  const result = await getCampaignDetail(id);
+  const result = await listCampaignGames(id);
 
   if (result.status === "unauthenticated") {
     redirect("/login/master");
@@ -24,6 +25,12 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
     <CampaignDetail
       campaign={result.campaign}
       canReturnToCompany={result.canReturnToCompany}
-    />
+    >
+      <CampaignGames
+        campaignId={result.campaign.id}
+        games={result.games}
+        canCreateGame={result.canCreateGame}
+      />
+    </CampaignDetail>
   );
 }

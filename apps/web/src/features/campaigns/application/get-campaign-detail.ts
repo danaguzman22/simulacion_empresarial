@@ -36,5 +36,6 @@ export async function getCampaignDetail(campaignId: string) {
       companyName: campaign.companyName,
     },
     canReturnToCompany: campaign.companyOwnerId === userId,
+    memberRole: campaign.memberRole,
   } as const;
 }
