@@ -1,8 +1,8 @@
 import "server-only";
 
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { campaigns, campaignMembers } from "@/db/schema";
+import { campaigns, campaignMembers, companies } from "@/db/schema";
 import type { CreateCampaignInput } from "../domain/campaign";
 
 export async function createCampaign(input: CreateCampaignInput) {
@@ -42,4 +42,35 @@ export async function findCampaignsByCompany(companyId: string) {
     .from(campaigns)
     .where(eq(campaigns.companyId, companyId))
     .orderBy(asc(campaigns.createdAt), asc(campaigns.id));
+}
+
+export async function findCampaignByIdForMember(
+  campaignId: string,
+  profileId: string
+) {
+  const [campaign] = await db
+    .select({
+      id: campaigns.id,
+      name: campaigns.name,
+      description: campaigns.description,
+      status: campaigns.status,
+      createdAt: campaigns.createdAt,
+      companyId: companies.id,
+      companyName: companies.name,
+      companyOwnerId: companies.createdBy,
+      memberRole: campaignMembers.role,
+    })
+    .from(campaigns)
+    .innerJoin(
+      campaignMembers,
+      and(
+        eq(campaignMembers.campaignId, campaigns.id),
+        eq(campaignMembers.profileId, profileId)
+      )
+    )
+    .innerJoin(companies, eq(companies.id, campaigns.companyId))
+    .where(eq(campaigns.id, campaignId))
+    .limit(1);
+
+  return campaign ?? null;
 }

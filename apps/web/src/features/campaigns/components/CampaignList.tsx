@@ -1,14 +1,9 @@
 import type { findCampaignsByCompany } from "../repositories/campaign.repository";
+import Link from "next/link";
+import { CampaignStatus } from "./CampaignStatus";
 
 export type CampaignListItem =
   Awaited<ReturnType<typeof findCampaignsByCompany>>[number];
-
-const statusLabels: Record<CampaignListItem["status"], string> = {
-  draft: "Borrador",
-  active: "Activa",
-  completed: "Completada",
-  archived: "Archivada",
-};
 
 export function CampaignList({ campaigns }: { campaigns: CampaignListItem[] }) {
   if (campaigns.length === 0) {
@@ -22,10 +17,12 @@ export function CampaignList({ campaigns }: { campaigns: CampaignListItem[] }) {
   return (
     <ul className="space-y-4">
       {campaigns.map((campaign) => (
-        <li key={campaign.id} className="rounded-3xl border border-white/10 bg-white/[0.05] p-5">
-          <p className="text-xs font-black uppercase tracking-widest text-sky-400">
-            {statusLabels[campaign.status]}
-          </p>
+        <li key={campaign.id}>
+          <Link
+            href={`/master/campanas/${campaign.id}`}
+            className="block rounded-3xl border border-white/10 bg-white/[0.05] p-5 transition hover:border-white/20 hover:bg-white/[0.08] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-400"
+          >
+          <CampaignStatus status={campaign.status} />
           <h3 className="mt-2 break-words text-xl font-black text-white">
             {campaign.name}
           </h3>
@@ -34,6 +31,10 @@ export function CampaignList({ campaigns }: { campaigns: CampaignListItem[] }) {
               {campaign.description}
             </p>
           )}
+          <span className="mt-4 block text-xs font-black uppercase tracking-widest text-sky-300">
+            Abrir campaña →
+          </span>
+          </Link>
         </li>
       ))}
     </ul>
