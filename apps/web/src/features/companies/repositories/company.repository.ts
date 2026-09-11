@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  and,
   desc,
   eq,
 } from "drizzle-orm";
@@ -37,6 +38,24 @@ export async function createCompany(
       .returning();
 
   return company;
+}
+
+export async function findCompanyByIdForOwner(
+  companyId: string,
+  profileId: string
+) {
+  const [company] = await db
+    .select()
+    .from(companies)
+    .where(
+      and(
+        eq(companies.id, companyId),
+        eq(companies.createdBy, profileId)
+      )
+    )
+    .limit(1);
+
+  return company ?? null;
 }
 
 export async function findCompaniesCreatedBy(
