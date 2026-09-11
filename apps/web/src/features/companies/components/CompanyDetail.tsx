@@ -1,6 +1,8 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 type CompanyDetailProps = {
+  children?: ReactNode;
   company: {
     name: string;
     description: string | null;
@@ -10,6 +12,7 @@ type CompanyDetailProps = {
 
 export function CompanyDetail({
   company,
+  children,
 }: CompanyDetailProps) {
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
@@ -44,6 +47,7 @@ export function CompanyDetail({
             </time>
           </p>
         </article>
+        {children}
       </div>
     </main>
   );

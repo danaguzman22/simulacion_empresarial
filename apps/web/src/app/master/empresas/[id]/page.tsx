@@ -1,8 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 
 import {
-  getMasterCompany,
-} from "@/features/companies/application/get-master-company";
+  listCompanyCampaigns,
+} from "@/features/campaigns/application/list-company-campaigns";
+import { CompanyCampaigns } from "@/features/campaigns/components/CompanyCampaigns";
 import {
   CompanyDetail,
 } from "@/features/companies/components/CompanyDetail";
@@ -17,7 +18,7 @@ export default async function CompanyPage({
   params,
 }: CompanyPageProps) {
   const { id } = await params;
-  const result = await getMasterCompany(id);
+  const result = await listCompanyCampaigns(id);
 
   if (result.status === "unauthenticated") {
     redirect("/login/master");
@@ -27,5 +28,12 @@ export default async function CompanyPage({
     notFound();
   }
 
-  return <CompanyDetail company={result.company} />;
+  return (
+    <CompanyDetail company={result.company}>
+      <CompanyCampaigns
+        companyId={result.company.id}
+        campaigns={result.campaigns}
+      />
+    </CompanyDetail>
+  );
 }
