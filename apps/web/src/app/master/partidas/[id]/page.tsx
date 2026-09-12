@@ -1,3 +1,4 @@
+import { GameLifecycle } from "@/features/games/components/GameLifecycle";
 import { notFound, redirect } from "next/navigation";
 import { getGamePreparation } from "@/features/preparation/application/get-game-preparation";
 import { InitialConfiguration } from "@/features/preparation/components/InitialConfiguration";
@@ -24,6 +25,7 @@ export default async function GamePage({ params }: GamePageProps) {
   return (
     <GameDetail game={result.game}>
       <InitialConfiguration gameId={result.game.id} data={result.preparation} />
+      <GameLifecycle gameId={result.game.id} />
     </GameDetail>
   );
 }

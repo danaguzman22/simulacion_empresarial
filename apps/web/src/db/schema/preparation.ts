@@ -270,5 +270,5 @@ export const gamePreparationChanges = pgTable("game_preparation_changes", {
     foreignColumns: [gameStateSets.id, gameStateSets.campaignId],
   }).onDelete("restrict"),
   check("game_preparation_changes_revision_step", sql`${t.previousRevision} >= 0 and ${t.revision} = ${t.previousRevision} + 1`),
-  check("game_preparation_changes_operation_valid", sql`${t.operation} in ('save_values', 'copy_snapshot', 'create_kpi', 'add_kpi', 'remove_kpi', 'set_required', 'edit_kpi', 'delete_kpi')`),
+  check("game_preparation_changes_operation_valid", sql`${t.operation} in ('save_values', 'copy_snapshot', 'create_kpi', 'add_kpi', 'remove_kpi', 'set_required', 'edit_kpi', 'delete_kpi', 'start_game')`),
 ]).enableRLS();
