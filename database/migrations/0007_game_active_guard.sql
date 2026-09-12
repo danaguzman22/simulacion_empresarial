@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "games_one_active_per_campaign_unique" ON "games" USING btree ("campaign_id") WHERE "games"."status" in ('active', 'paused');

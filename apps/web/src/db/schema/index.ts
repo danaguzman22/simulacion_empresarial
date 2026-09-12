@@ -8,3 +8,4 @@ export * from "./campaign-members";
 export * from "./games";
 export * from "./rounds";
 export * from "./rooms";
+export * from "./preparation";

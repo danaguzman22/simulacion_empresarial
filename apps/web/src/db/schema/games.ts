@@ -1,3 +1,5 @@
+import { sql } from "drizzle-orm";
+
 import {
   index,
   integer,
@@ -83,6 +85,9 @@ export const games = pgTable(
   },
 
   (table) => [
+    uniqueIndex("games_id_campaign_unique").on(table.id, table.campaignId),
+    uniqueIndex("games_one_active_per_campaign_unique").on(table.campaignId)
+      .where(sql`${table.status} in ('active', 'paused')`),
     uniqueIndex(
       "games_campaign_sequence_unique"
     ).on(

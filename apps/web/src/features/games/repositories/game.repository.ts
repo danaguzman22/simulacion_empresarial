@@ -78,3 +78,32 @@ export async function findGamesByCampaign(campaignId: string) {
     .where(eq(games.campaignId, campaignId))
     .orderBy(asc(games.sequence));
 }
+
+export async function findGameByIdForMember(gameId: string, profileId: string) {
+  const [game] = await db
+    .select({
+      id: games.id,
+      sequence: games.sequence,
+      name: games.name,
+      description: games.description,
+      type: games.type,
+      status: games.status,
+      createdAt: games.createdAt,
+      campaignId: campaigns.id,
+      campaignName: campaigns.name,
+      memberRole: campaignMembers.role,
+    })
+    .from(games)
+    .innerJoin(campaigns, eq(campaigns.id, games.campaignId))
+    .innerJoin(
+      campaignMembers,
+      and(
+        eq(campaignMembers.campaignId, games.campaignId),
+        eq(campaignMembers.profileId, profileId)
+      )
+    )
+    .where(eq(games.id, gameId))
+    .limit(1);
+
+  return game ?? null;
+}

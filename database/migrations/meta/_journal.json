@@ -36,6 +36,41 @@
       "when": 1789109177540,
       "tag": "0004_game_room_security",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789150435594,
+      "tag": "0005_preparation_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789150455074,
+      "tag": "0006_preparation_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789151033918,
+      "tag": "0007_game_active_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789187254866,
+      "tag": "0008_game_kpi_selection",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789190892852,
+      "tag": "0009_ordinal_kpis",
+      "breakpoints": true
     }
   ]
 }
