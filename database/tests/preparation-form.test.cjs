@@ -44,3 +44,19 @@ for(const id of ['cash','inventory','optional']) {
 }
 assert(controls.some(c=>c.name==='value:local' && !c.disabled && c.type!=='hidden'));
 console.log('PASS: inherited numeric/ordinal inputs disabled; hidden values submitted exactly once, including empty optional KPI; local input editable.');
+controls.length = 0;
+for (const key of [...form.keys()]) form.delete(key);
+const flexibleData = {revision:2,catalogToken:'token',source:{name:'Anterior'},sources:[],
+  predecessor:[{id:'cash'},{id:'inventory'},{id:'optional'},{id:'excluded'}],
+  definitions:definitions.map(d=>({...d,origin:d.id==='local'?'new':d.id==='inventory'?'redefined':'inherited'})),
+  values:[{kpiId:'cash',value:'7000'},{kpiId:'inventory',value:'low'},{kpiId:'local',value:'88'}]};
+visit(exportsObject.PreparationForm({gameId:'game',data:flexibleData}));
+for (const id of ['cash','inventory','optional']) {
+  assert.equal(controls.filter(c=>c.name==='value:'+id).length,1);
+  assert(controls.some(c=>c.name==='value:'+id && c.type==='hidden'));
+}
+assert.equal(form.get('value:inventory'),'low');
+assert(!controls.some(c=>c.name==='value:excluded'));
+assert(controls.some(c=>c.name==='value:local' && c.type!=='hidden' && !c.disabled));
+assert.equal(exportsObject.PreparationForm({gameId:'game',data:{...flexibleData,definitions:flexibleData.definitions.filter(d=>d.origin!=='new')}}),null);
+console.log('PASS: source configuration has no duplicate visible controls; local values remain editable; excluded values are not submitted.');

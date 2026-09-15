@@ -593,6 +593,7 @@ export function KpiManagement({
     data.catalog.filter(
       (kpi) =>
         kpi.active &&
+        !data.predecessor.some(previous => previous.id === kpi.id) &&
         !data.definitions.some(
           (definition) =>
             definition.id ===
@@ -619,7 +620,7 @@ export function KpiManagement({
         KPIs de esta partida
       </h3>
 
-      {data.definitions.map(
+      {data.definitions.filter(definition => !data.predecessor.some(k => k.id === definition.id)).map(
         (definition) => {
           const kpi =
             data.catalog.find(
@@ -661,7 +662,7 @@ export function KpiManagement({
                   : `${definition.unit} · ${definition.precision} decimales`}
               </p>
 
-              {definition.inherited ? <p className="mt-3 text-sm text-slate-400">KPI heredado de {data.source?.name ?? "la partida anterior"}. No se puede quitar ni cambiar su obligatoriedad.</p> : <>
+              <>
               <Operation
                 gameId={gameId}
                 data={data}
@@ -743,7 +744,7 @@ export function KpiManagement({
                   </label>
                 </Operation>
               </details>
-              </>}
+              </>
             </div>
           );
         }

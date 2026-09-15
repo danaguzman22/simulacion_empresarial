@@ -7,7 +7,7 @@ export function GameResetForm({ gameId }: { gameId: string }) {
   const [state, action, pending] = useActionState(resetGameAction, {});
   const operationId = useRef<string | null>(null);
   return <form action={action} className="mt-3" onSubmit={(event) => {
-    if (!window.confirm("¿Reiniciar esta partida?\n\nSe eliminarán los datos recolectados durante esta ejecución y la partida volverá a preparación. Sin origen podrás editar valores y períodos; con origen se conservará la continuidad.\n\nEsta acción no se puede deshacer.")) { event.preventDefault(); return; }
+    if (!window.confirm("¿Reiniciar esta partida?\n\nSe descartará esta ejecución y la partida volverá a su preparación previa al inicio. Se conservarán los KPIs incluidos/excluidos, sus modos y valores iniciales. Podrás configurar nuevamente la preparación.\n\nEsta acción no se puede deshacer.")) { event.preventDefault(); return; }
     operationId.current ??= crypto.randomUUID();
     (event.currentTarget.elements.namedItem("operationId") as HTMLInputElement).value = operationId.current;
   }}>

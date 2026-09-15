@@ -94,6 +94,7 @@ export function PreparationForm({
     );
   }
 
+  if (data.predecessor?.length && !data.definitions.some(d => d.origin === "new")) return null;
   return (
     <form
       action={action}
@@ -257,6 +258,7 @@ export function PreparationForm({
                 Boolean(
                   value.trim()
                 );
+              if (data.predecessor?.some(k => k.id === definition.id)) return <input key={definition.id} type="hidden" name={`value:${definition.id}`} value={value} />;
 
               return (
                 <div
@@ -280,6 +282,7 @@ export function PreparationForm({
                     </span>
                   </div>
 
+                  {definition.origin === "new" && <p className="mt-2 text-sm text-sky-300">Nuevo</p>}
                   {definition.inherited && (
                     <>
                       <p className="mt-2 text-sm text-sky-300">

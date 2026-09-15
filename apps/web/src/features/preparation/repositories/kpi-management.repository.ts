@@ -1,5 +1,5 @@
 ﻿import "server-only";
-import { inheritedKpiIds } from "./inherited-kpis";
+import { predecessorKpis } from "./inherited-kpis";
 
 import {
   randomUUID,
@@ -261,7 +261,7 @@ export async function mutateKpi(
         );
       }
 
-      const inheritedIds = await inheritedKpiIds(tx, game.id);
+      const predecessor = await predecessorKpis(tx, game.id);
       if (input.kpiId && ["remove_kpi", "delete_kpi"].includes(input.operation)) {
         const linked = await tx.select({ id: gameGoals.id }).from(gameGoals).where(
           input.operation === "remove_kpi"
@@ -270,7 +270,6 @@ export async function mutateKpi(
         ).limit(1);
         if (linked.length) throw new PreparationError("Hay metas vinculadas a este KPI. Cambiá o eliminá esas metas antes de quitar el indicador.");
       }
-      if (input.kpiId && inheritedIds.has(input.kpiId) && ["remove_kpi", "set_required", "edit_kpi", "delete_kpi"].includes(input.operation)) throw new PreparationError("Este KPI es heredado de la partida anterior; no se puede quitar ni cambiar su estructura.");
       let definition =
         context.catalog.find(
           (candidate) =>
@@ -933,6 +932,7 @@ export async function mutateKpi(
           const required =
             input.required ??
             currentDefinition.required;
+          const source = predecessor.find(k => k.id === currentDefinition.id);
 
           await tx
             .insert(gameKpis)
@@ -947,21 +947,26 @@ export async function mutateKpi(
                 game.campaignId,
 
               required,
+              origin: source ? "inherited" : "new",
 
               createdBy:
                 actorId,
             });
 
+          if (source && (source.value !== null || source.ordinalKey !== null)) {
+            const state = await preparation(tx, game.id, game.campaignId, actorId);
+            await tx.insert(gameStateValues).values({ gameId: game.id, campaignId: game.campaignId, stateSetId: state.id, kpiDefinitionId: currentDefinition.id, value: source.value, ordinalKey: source.ordinalKey });
+          }
           after = {
             kpiId:
               currentDefinition.id,
 
             required,
+            origin: source ? "inherited" : "new",
           };
         } else {
           if (
-            !association ||
-            association.historicalUsedAt
+            !association
           ) {
             throw new PreparationError(
               "La asociación no existe o tiene uso histórico."

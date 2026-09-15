@@ -1,6 +1,7 @@
 import {
   KpiManagement,
 } from "./KpiManagement";
+import { SourceKpiConfiguration } from "./SourceKpiConfiguration";
 
 import {
   KpiDefinitionForm,
@@ -74,10 +75,11 @@ export function InitialConfiguration({
 
       <p className="mt-3 text-sm">
         {data.source
-          ? `Heredado del cierre de ${data.source.name}. Los KPIs heredados conservan sus valores; los agregados en esta partida pueden configurarse.`
+          ? `Base: cierre de ${data.source.name}. Elegí qué KPIs incluir y si querés heredar o definir sus valores iniciales.`
           : "Sin snapshot de origen. Los valores se configuran en esta preparación."}
       </p>
 
+      <SourceKpiConfiguration gameId={gameId} data={data} />
       {missing.length > 0 && (
         <p className="mt-3 text-sm text-amber-300">
           Preparación incompleta:{" "}
@@ -132,6 +134,7 @@ export function InitialConfiguration({
                       definition.name
                     }
                   </dt>
+                  <p className="text-sm text-sky-300">{definition.origin === "inherited" ? "Heredado" : definition.origin === "redefined" ? "Redefinido" : "Nuevo"}</p>
 
                   <dd className="mt-2 text-slate-300">
                     {shownValue}

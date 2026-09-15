@@ -1,0 +1,3506 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.profiles": {
+      "name": "profiles",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.companies": {
+      "name": "companies",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "companies_created_by_idx": {
+          "name": "companies_created_by_idx",
+          "columns": [
+            {
+              "expression": "created_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "companies_created_by_profiles_id_fk": {
+          "name": "companies_created_by_profiles_id_fk",
+          "tableFrom": "companies",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.campaigns": {
+      "name": "campaigns",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "campaign_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "campaigns_company_id_idx": {
+          "name": "campaigns_company_id_idx",
+          "columns": [
+            {
+              "expression": "company_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campaigns_created_by_idx": {
+          "name": "campaigns_created_by_idx",
+          "columns": [
+            {
+              "expression": "created_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "campaigns_company_id_companies_id_fk": {
+          "name": "campaigns_company_id_companies_id_fk",
+          "tableFrom": "campaigns",
+          "tableTo": "companies",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "campaigns_created_by_profiles_id_fk": {
+          "name": "campaigns_created_by_profiles_id_fk",
+          "tableFrom": "campaigns",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.campaign_members": {
+      "name": "campaign_members",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "campaign_id": {
+          "name": "campaign_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "profile_id": {
+          "name": "profile_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "campaign_member_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "joined_at": {
+          "name": "joined_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "campaign_members_campaign_profile_unique": {
+          "name": "campaign_members_campaign_profile_unique",
+          "columns": [
+            {
+              "expression": "campaign_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "profile_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campaign_members_campaign_id_idx": {
+          "name": "campaign_members_campaign_id_idx",
+          "columns": [
+            {
+              "expression": "campaign_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campaign_members_profile_id_idx": {
+          "name": "campaign_members_profile_id_idx",
+          "columns": [
+            {
+              "expression": "profile_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "campaign_members_campaign_id_campaigns_id_fk": {
+          "name": "campaign_members_campaign_id_campaigns_id_fk",
+          "tableFrom": "campaign_members",
+          "tableTo": "campaigns",
+          "columnsFrom": [
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "campaign_members_profile_id_profiles_id_fk": {
+          "name": "campaign_members_profile_id_profiles_id_fk",
+          "tableFrom": "campaign_members",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "profile_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.games": {
+      "name": "games",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "campaign_id": {
+          "name": "campaign_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sequence": {
+          "name": "sequence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "period_count": {
+          "name": "period_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "period_label": {
+          "name": "period_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "period_duration_seconds": {
+          "name": "period_duration_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "period_revision": {
+          "name": "period_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "type": {
+          "name": "type",
+          "type": "game_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'development'"
+        },
+        "status": {
+          "name": "status",
+          "type": "game_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "games_id_campaign_unique": {
+          "name": "games_id_campaign_unique",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "campaign_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "games_one_active_per_campaign_unique": {
+          "name": "games_one_active_per_campaign_unique",
+          "columns": [
+            {
+              "expression": "campaign_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"games\".\"status\" in ('active', 'paused')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "games_campaign_sequence_unique": {
+          "name": "games_campaign_sequence_unique",
+          "columns": [
+            {
+              "expression": "campaign_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sequence",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "games_campaign_id_idx": {
+          "name": "games_campaign_id_idx",
+          "columns": [
+            {
+              "expression": "campaign_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "games_status_idx": {
+          "name": "games_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "games_campaign_id_campaigns_id_fk": {
+          "name": "games_campaign_id_campaigns_id_fk",
+          "tableFrom": "games",
+          "tableTo": "campaigns",
+          "columnsFrom": [
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "games_period_configuration_valid": {
+          "name": "games_period_configuration_valid",
+          "value": "(\"games\".\"period_count\" is null and \"games\".\"period_label\" is null and \"games\".\"period_duration_seconds\" is null) or (\"games\".\"period_count\" is not null and \"games\".\"period_count\">0 and \"games\".\"period_label\" is not null and length(trim(\"games\".\"period_label\")) between 1 and 80 and \"games\".\"period_duration_seconds\" is not null and \"games\".\"period_duration_seconds\">0)"
+        },
+        "games_period_revision_valid": {
+          "name": "games_period_revision_valid",
+          "value": "\"games\".\"period_revision\">=0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.rounds": {
+      "name": "rounds",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "campaign_id": {
+          "name": "campaign_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sequence": {
+          "name": "sequence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "round_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "duration_seconds": {
+          "name": "duration_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ends_at": {
+          "name": "ends_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "paused_at": {
+          "name": "paused_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "remaining_ms": {
+          "name": "remaining_ms",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "rounds_game_sequence_unique": {
+          "name": "rounds_game_sequence_unique",
+          "columns": [
+            {
+              "expression": "game_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sequence",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "rounds_id_game_campaign_unique": {
+          "name": "rounds_id_game_campaign_unique",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "game_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "campaign_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "rounds_one_execution_unique": {
+          "name": "rounds_one_execution_unique",
+          "columns": [
+            {
+              "expression": "game_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"rounds\".\"status\" in ('active','paused')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "rounds_game_id_idx": {
+          "name": "rounds_game_id_idx",
+          "columns": [
+            {
+              "expression": "game_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "rounds_status_idx": {
+          "name": "rounds_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "rounds_game_id_games_id_fk": {
+          "name": "rounds_game_id_games_id_fk",
+          "tableFrom": "rounds",
+          "tableTo": "games",
+          "columnsFrom": [
+            "game_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "rounds_created_by_profiles_id_fk": {
+          "name": "rounds_created_by_profiles_id_fk",
+          "tableFrom": "rounds",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "rounds_game_campaign_fk": {
+          "name": "rounds_game_campaign_fk",
+          "tableFrom": "rounds",
+          "tableTo": "games",
+          "columnsFrom": [
+            "game_id",
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id",
+            "campaign_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "rounds_duration_positive": {
+          "name": "rounds_duration_positive",
+          "value": "\"rounds\".\"duration_seconds\">0"
+        },
+        "rounds_revision_nonnegative": {
+          "name": "rounds_revision_nonnegative",
+          "value": "\"rounds\".\"revision\">=0"
+        },
+        "rounds_clock_shape": {
+          "name": "rounds_clock_shape",
+          "value": "(\"rounds\".\"status\"='pending' and \"rounds\".\"started_at\" is null and \"rounds\".\"ends_at\" is null and \"rounds\".\"remaining_ms\" is null and \"rounds\".\"completed_at\" is null) or (\"rounds\".\"status\"='active' and \"rounds\".\"started_at\" is not null and \"rounds\".\"ends_at\" is not null and \"rounds\".\"paused_at\" is null and \"rounds\".\"remaining_ms\" is null and \"rounds\".\"completed_at\" is null) or (\"rounds\".\"status\"='paused' and \"rounds\".\"started_at\" is not null and \"rounds\".\"ends_at\" is null and \"rounds\".\"paused_at\" is not null and \"rounds\".\"remaining_ms\" is not null and \"rounds\".\"remaining_ms\">0 and \"rounds\".\"completed_at\" is null) or (\"rounds\".\"status\"='completed' and \"rounds\".\"started_at\" is not null and \"rounds\".\"completed_at\" is not null and \"rounds\".\"ends_at\" is null and \"rounds\".\"remaining_ms\" is null) or \"rounds\".\"status\"='cancelled'"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.round_changes": {
+      "name": "round_changes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "operation_id": {
+          "name": "operation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "round_id": {
+          "name": "round_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "campaign_id": {
+          "name": "campaign_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "operation": {
+          "name": "operation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_hash": {
+          "name": "request_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "transaction_id": {
+          "name": "transaction_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "pg_current_xact_id()::text"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "round_changes_operation_unique": {
+          "name": "round_changes_operation_unique",
+          "columns": [
+            {
+              "expression": "operation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "round_changes_revision_unique": {
+          "name": "round_changes_revision_unique",
+          "columns": [
+            {
+              "expression": "round_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "revision",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "round_changes_actor_id_profiles_id_fk": {
+          "name": "round_changes_actor_id_profiles_id_fk",
+          "tableFrom": "round_changes",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "round_changes_round_fk": {
+          "name": "round_changes_round_fk",
+          "tableFrom": "round_changes",
+          "tableTo": "rounds",
+          "columnsFrom": [
+            "round_id",
+            "game_id",
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id",
+            "game_id",
+            "campaign_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "round_changes_operation_valid": {
+          "name": "round_changes_operation_valid",
+          "value": "\"round_changes\".\"operation\" in ('create','set_duration','start','pause','resume','finish')"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.rooms": {
+      "name": "rooms",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "campaign_id": {
+          "name": "campaign_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "room_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'open'"
+        },
+        "active_game_id": {
+          "name": "active_game_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active_round_id": {
+          "name": "active_round_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "rooms_code_unique": {
+          "name": "rooms_code_unique",
+          "columns": [
+            {
+              "expression": "code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "rooms_campaign_id_idx": {
+          "name": "rooms_campaign_id_idx",
+          "columns": [
+            {
+              "expression": "campaign_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "rooms_status_idx": {
+          "name": "rooms_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "rooms_campaign_id_campaigns_id_fk": {
+          "name": "rooms_campaign_id_campaigns_id_fk",
+          "tableFrom": "rooms",
+          "tableTo": "campaigns",
+          "columnsFrom": [
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "rooms_active_game_id_games_id_fk": {
+          "name": "rooms_active_game_id_games_id_fk",
+          "tableFrom": "rooms",
+          "tableTo": "games",
+          "columnsFrom": [
+            "active_game_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "rooms_active_round_id_rounds_id_fk": {
+          "name": "rooms_active_round_id_rounds_id_fk",
+          "tableFrom": "rooms",
+          "tableTo": "rounds",
+          "columnsFrom": [
+            "active_round_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "rooms_created_by_profiles_id_fk": {
+          "name": "rooms_created_by_profiles_id_fk",
+          "tableFrom": "rooms",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.kpi_definitions": {
+      "name": "kpi_definitions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "campaign_id": {
+          "name": "campaign_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value_type": {
+          "name": "value_type",
+          "type": "kpi_value_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'numeric'"
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit": {
+          "name": "unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "precision": {
+          "name": "precision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 2
+        },
+        "required": {
+          "name": "required",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "allows_negative": {
+          "name": "allows_negative",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "historical_used_at": {
+          "name": "historical_used_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "used_at": {
+          "name": "used_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "kpi_definitions_campaign_key_unique": {
+          "name": "kpi_definitions_campaign_key_unique",
+          "columns": [
+            {
+              "expression": "campaign_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "kpi_definitions_id_campaign_unique": {
+          "name": "kpi_definitions_id_campaign_unique",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "campaign_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "kpi_definitions_campaign_id_campaigns_id_fk": {
+          "name": "kpi_definitions_campaign_id_campaigns_id_fk",
+          "tableFrom": "kpi_definitions",
+          "tableTo": "campaigns",
+          "columnsFrom": [
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "kpi_definitions_created_by_profiles_id_fk": {
+          "name": "kpi_definitions_created_by_profiles_id_fk",
+          "tableFrom": "kpi_definitions",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "kpi_definitions_key_format": {
+          "name": "kpi_definitions_key_format",
+          "value": "\"kpi_definitions\".\"key\" ~ '^[a-z][a-z0-9_]{0,63}$'"
+        },
+        "kpi_definitions_name_nonempty": {
+          "name": "kpi_definitions_name_nonempty",
+          "value": "length(btrim(\"kpi_definitions\".\"name\")) > 0"
+        },
+        "kpi_definitions_unit_nonempty": {
+          "name": "kpi_definitions_unit_nonempty",
+          "value": "length(btrim(\"kpi_definitions\".\"unit\")) > 0"
+        },
+        "kpi_definitions_precision_range": {
+          "name": "kpi_definitions_precision_range",
+          "value": "\"kpi_definitions\".\"precision\" between 0 and 6"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.kpi_ordinal_options": {
+      "name": "kpi_ordinal_options",
+      "schema": "",
+      "columns": {
+        "kpi_definition_id": {
+          "name": "kpi_definition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "kpi_ordinal_options_position_unique": {
+          "name": "kpi_ordinal_options_position_unique",
+          "columns": [
+            {
+              "expression": "kpi_definition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "kpi_ordinal_options_kpi_definition_id_kpi_definitions_id_fk": {
+          "name": "kpi_ordinal_options_kpi_definition_id_kpi_definitions_id_fk",
+          "tableFrom": "kpi_ordinal_options",
+          "tableTo": "kpi_definitions",
+          "columnsFrom": [
+            "kpi_definition_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "kpi_ordinal_options_pk": {
+          "name": "kpi_ordinal_options_pk",
+          "columns": [
+            "kpi_definition_id",
+            "key"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "kpi_ordinal_options_key_format": {
+          "name": "kpi_ordinal_options_key_format",
+          "value": "\"kpi_ordinal_options\".\"key\" ~ '^[a-z][a-z0-9_]{0,63}$'"
+        },
+        "kpi_ordinal_options_label_nonempty": {
+          "name": "kpi_ordinal_options_label_nonempty",
+          "value": "length(btrim(\"kpi_ordinal_options\".\"label\")) > 0"
+        },
+        "kpi_ordinal_options_position_valid": {
+          "name": "kpi_ordinal_options_position_valid",
+          "value": "\"kpi_ordinal_options\".\"position\" >= 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.game_kpis": {
+      "name": "game_kpis",
+      "schema": "",
+      "columns": {
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kpi_definition_id": {
+          "name": "kpi_definition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "campaign_id": {
+          "name": "campaign_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "required": {
+          "name": "required",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "origin": {
+          "name": "origin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'new'"
+        },
+        "historical_used_at": {
+          "name": "historical_used_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "game_kpis_game_kpi_unique": {
+          "name": "game_kpis_game_kpi_unique",
+          "columns": [
+            {
+              "expression": "game_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "kpi_definition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "game_kpis_game_kpi_campaign_unique": {
+          "name": "game_kpis_game_kpi_campaign_unique",
+          "columns": [
+            {
+              "expression": "game_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "kpi_definition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "campaign_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "game_kpis_kpi_idx": {
+          "name": "game_kpis_kpi_idx",
+          "columns": [
+            {
+              "expression": "kpi_definition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "game_kpis_created_by_profiles_id_fk": {
+          "name": "game_kpis_created_by_profiles_id_fk",
+          "tableFrom": "game_kpis",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "game_kpis_game_campaign_fk": {
+          "name": "game_kpis_game_campaign_fk",
+          "tableFrom": "game_kpis",
+          "tableTo": "games",
+          "columnsFrom": [
+            "game_id",
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id",
+            "campaign_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "game_kpis_definition_campaign_fk": {
+          "name": "game_kpis_definition_campaign_fk",
+          "tableFrom": "game_kpis",
+          "tableTo": "kpi_definitions",
+          "columnsFrom": [
+            "kpi_definition_id",
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id",
+            "campaign_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "game_kpis_origin_check": {
+          "name": "game_kpis_origin_check",
+          "value": "\"game_kpis\".\"origin\" in ('inherited','redefined','new')"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.game_state_sets": {
+      "name": "game_state_sets",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "campaign_id": {
+          "name": "campaign_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "phase": {
+          "name": "phase",
+          "type": "game_state_phase",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_state_set_id": {
+          "name": "source_state_set_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "frozen_at": {
+          "name": "frozen_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "game_state_sets_game_phase_unique": {
+          "name": "game_state_sets_game_phase_unique",
+          "columns": [
+            {
+              "expression": "game_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "phase",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "game_state_sets_id_campaign_unique": {
+          "name": "game_state_sets_id_campaign_unique",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "campaign_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "game_state_sets_id_game_campaign_unique": {
+          "name": "game_state_sets_id_game_campaign_unique",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "game_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "campaign_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "game_state_sets_campaign_idx": {
+          "name": "game_state_sets_campaign_idx",
+          "columns": [
+            {
+              "expression": "campaign_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "game_state_sets_source_idx": {
+          "name": "game_state_sets_source_idx",
+          "columns": [
+            {
+              "expression": "source_state_set_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "game_state_sets_source_state_set_id_game_state_sets_id_fk": {
+          "name": "game_state_sets_source_state_set_id_game_state_sets_id_fk",
+          "tableFrom": "game_state_sets",
+          "tableTo": "game_state_sets",
+          "columnsFrom": [
+            "source_state_set_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "game_state_sets_created_by_profiles_id_fk": {
+          "name": "game_state_sets_created_by_profiles_id_fk",
+          "tableFrom": "game_state_sets",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "game_state_sets_updated_by_profiles_id_fk": {
+          "name": "game_state_sets_updated_by_profiles_id_fk",
+          "tableFrom": "game_state_sets",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "game_state_sets_game_campaign_fk": {
+          "name": "game_state_sets_game_campaign_fk",
+          "tableFrom": "game_state_sets",
+          "tableTo": "games",
+          "columnsFrom": [
+            "game_id",
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id",
+            "campaign_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "game_state_sets_source_campaign_fk": {
+          "name": "game_state_sets_source_campaign_fk",
+          "tableFrom": "game_state_sets",
+          "tableTo": "game_state_sets",
+          "columnsFrom": [
+            "source_state_set_id",
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id",
+            "campaign_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "game_state_sets_revision_nonnegative": {
+          "name": "game_state_sets_revision_nonnegative",
+          "value": "\"game_state_sets\".\"revision\" >= 0"
+        },
+        "game_state_sets_source_not_self": {
+          "name": "game_state_sets_source_not_self",
+          "value": "\"game_state_sets\".\"source_state_set_id\" is null or \"game_state_sets\".\"source_state_set_id\" <> \"game_state_sets\".\"id\""
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.game_state_values": {
+      "name": "game_state_values",
+      "schema": "",
+      "columns": {
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "campaign_id": {
+          "name": "campaign_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state_set_id": {
+          "name": "state_set_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kpi_definition_id": {
+          "name": "kpi_definition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ordinal_key": {
+          "name": "ordinal_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "game_state_values_state_kpi_unique": {
+          "name": "game_state_values_state_kpi_unique",
+          "columns": [
+            {
+              "expression": "state_set_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "kpi_definition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "game_state_values_kpi_idx": {
+          "name": "game_state_values_kpi_idx",
+          "columns": [
+            {
+              "expression": "kpi_definition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "game_state_values_state_game_campaign_fk": {
+          "name": "game_state_values_state_game_campaign_fk",
+          "tableFrom": "game_state_values",
+          "tableTo": "game_state_sets",
+          "columnsFrom": [
+            "state_set_id",
+            "game_id",
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id",
+            "game_id",
+            "campaign_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "game_state_values_game_kpi_fk": {
+          "name": "game_state_values_game_kpi_fk",
+          "tableFrom": "game_state_values",
+          "tableTo": "game_kpis",
+          "columnsFrom": [
+            "game_id",
+            "kpi_definition_id",
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "game_id",
+            "kpi_definition_id",
+            "campaign_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "game_state_values_state_campaign_fk": {
+          "name": "game_state_values_state_campaign_fk",
+          "tableFrom": "game_state_values",
+          "tableTo": "game_state_sets",
+          "columnsFrom": [
+            "state_set_id",
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id",
+            "campaign_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "game_state_values_kpi_campaign_fk": {
+          "name": "game_state_values_kpi_campaign_fk",
+          "tableFrom": "game_state_values",
+          "tableTo": "kpi_definitions",
+          "columnsFrom": [
+            "kpi_definition_id",
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id",
+            "campaign_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "game_state_values_ordinal_option_fk": {
+          "name": "game_state_values_ordinal_option_fk",
+          "tableFrom": "game_state_values",
+          "tableTo": "kpi_ordinal_options",
+          "columnsFrom": [
+            "kpi_definition_id",
+            "ordinal_key"
+          ],
+          "columnsTo": [
+            "kpi_definition_id",
+            "key"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "game_state_values_exactly_one_value": {
+          "name": "game_state_values_exactly_one_value",
+          "value": "(\"game_state_values\".\"value\" is not null) <> (\"game_state_values\".\"ordinal_key\" is not null)"
+        },
+        "game_state_values_finite": {
+          "name": "game_state_values_finite",
+          "value": "\"game_state_values\".\"value\"::text not in ('NaN', 'Infinity', '-Infinity')"
+        },
+        "game_state_values_magnitude": {
+          "name": "game_state_values_magnitude",
+          "value": "abs(\"game_state_values\".\"value\") < 1000000000000000000000000::numeric"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.game_preparation_changes": {
+      "name": "game_preparation_changes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "operation_id": {
+          "name": "operation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "campaign_id": {
+          "name": "campaign_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state_set_id": {
+          "name": "state_set_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operation": {
+          "name": "operation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_hash": {
+          "name": "request_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "transaction_id": {
+          "name": "transaction_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "pg_current_xact_id()::text"
+        },
+        "previous_revision": {
+          "name": "previous_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "game_preparation_changes_operation_unique": {
+          "name": "game_preparation_changes_operation_unique",
+          "columns": [
+            {
+              "expression": "operation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "game_preparation_changes_state_revision_unique": {
+          "name": "game_preparation_changes_state_revision_unique",
+          "columns": [
+            {
+              "expression": "state_set_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "revision",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "game_preparation_changes_campaign_idx": {
+          "name": "game_preparation_changes_campaign_idx",
+          "columns": [
+            {
+              "expression": "campaign_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "game_preparation_changes_actor_id_profiles_id_fk": {
+          "name": "game_preparation_changes_actor_id_profiles_id_fk",
+          "tableFrom": "game_preparation_changes",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "game_preparation_changes_state_campaign_fk": {
+          "name": "game_preparation_changes_state_campaign_fk",
+          "tableFrom": "game_preparation_changes",
+          "tableTo": "game_state_sets",
+          "columnsFrom": [
+            "state_set_id",
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id",
+            "campaign_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "game_preparation_changes_revision_step": {
+          "name": "game_preparation_changes_revision_step",
+          "value": "\"game_preparation_changes\".\"previous_revision\" >= 0 and \"game_preparation_changes\".\"revision\" = \"game_preparation_changes\".\"previous_revision\" + 1"
+        },
+        "game_preparation_changes_operation_valid": {
+          "name": "game_preparation_changes_operation_valid",
+          "value": "\"game_preparation_changes\".\"operation\" in ('save_values', 'copy_snapshot', 'create_kpi', 'add_kpi', 'remove_kpi', 'set_required', 'edit_kpi', 'delete_kpi', 'start_game')"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.game_period_changes": {
+      "name": "game_period_changes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operation_id": {
+          "name": "operation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_hash": {
+          "name": "request_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "transaction_id": {
+          "name": "transaction_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "pg_current_xact_id()::text"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "game_period_changes_operation_unique": {
+          "name": "game_period_changes_operation_unique",
+          "columns": [
+            {
+              "expression": "operation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "game_period_changes_revision_unique": {
+          "name": "game_period_changes_revision_unique",
+          "columns": [
+            {
+              "expression": "game_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "revision",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "game_period_changes_game_id_games_id_fk": {
+          "name": "game_period_changes_game_id_games_id_fk",
+          "tableFrom": "game_period_changes",
+          "tableTo": "games",
+          "columnsFrom": [
+            "game_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "game_period_changes_actor_id_profiles_id_fk": {
+          "name": "game_period_changes_actor_id_profiles_id_fk",
+          "tableFrom": "game_period_changes",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.game_kpi_changes": {
+      "name": "game_kpi_changes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "operation_id": {
+          "name": "operation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "campaign_id": {
+          "name": "campaign_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state_set_id": {
+          "name": "state_set_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "round_id": {
+          "name": "round_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kpi_definition_id": {
+          "name": "kpi_definition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operation": {
+          "name": "operation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'update'"
+        },
+        "request_hash": {
+          "name": "request_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "before": {
+          "name": "before",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "after": {
+          "name": "after",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "transaction_id": {
+          "name": "transaction_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "pg_current_xact_id()::text"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "game_kpi_changes_operation_unique": {
+          "name": "game_kpi_changes_operation_unique",
+          "columns": [
+            {
+              "expression": "operation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "game_kpi_changes_state_revision_unique": {
+          "name": "game_kpi_changes_state_revision_unique",
+          "columns": [
+            {
+              "expression": "state_set_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "revision",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "game_kpi_changes_game_round_idx": {
+          "name": "game_kpi_changes_game_round_idx",
+          "columns": [
+            {
+              "expression": "game_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "round_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "game_kpi_changes_game_kpi_idx": {
+          "name": "game_kpi_changes_game_kpi_idx",
+          "columns": [
+            {
+              "expression": "game_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "kpi_definition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "game_kpi_changes_actor_id_profiles_id_fk": {
+          "name": "game_kpi_changes_actor_id_profiles_id_fk",
+          "tableFrom": "game_kpi_changes",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "game_kpi_changes_game_campaign_fk": {
+          "name": "game_kpi_changes_game_campaign_fk",
+          "tableFrom": "game_kpi_changes",
+          "tableTo": "games",
+          "columnsFrom": [
+            "game_id",
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id",
+            "campaign_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "game_kpi_changes_state_game_campaign_fk": {
+          "name": "game_kpi_changes_state_game_campaign_fk",
+          "tableFrom": "game_kpi_changes",
+          "tableTo": "game_state_sets",
+          "columnsFrom": [
+            "state_set_id",
+            "game_id",
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id",
+            "game_id",
+            "campaign_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "game_kpi_changes_round_game_campaign_fk": {
+          "name": "game_kpi_changes_round_game_campaign_fk",
+          "tableFrom": "game_kpi_changes",
+          "tableTo": "rounds",
+          "columnsFrom": [
+            "round_id",
+            "game_id",
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id",
+            "game_id",
+            "campaign_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "game_kpi_changes_kpi_game_campaign_fk": {
+          "name": "game_kpi_changes_kpi_game_campaign_fk",
+          "tableFrom": "game_kpi_changes",
+          "tableTo": "game_kpis",
+          "columnsFrom": [
+            "game_id",
+            "kpi_definition_id",
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "game_id",
+            "kpi_definition_id",
+            "campaign_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "game_kpi_changes_definition_campaign_fk": {
+          "name": "game_kpi_changes_definition_campaign_fk",
+          "tableFrom": "game_kpi_changes",
+          "tableTo": "kpi_definitions",
+          "columnsFrom": [
+            "kpi_definition_id",
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id",
+            "campaign_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "game_kpi_changes_operation_valid": {
+          "name": "game_kpi_changes_operation_valid",
+          "value": "\"game_kpi_changes\".\"operation\" = 'update'"
+        },
+        "game_kpi_changes_revision_positive": {
+          "name": "game_kpi_changes_revision_positive",
+          "value": "\"game_kpi_changes\".\"revision\" > 0"
+        },
+        "game_kpi_changes_before_object": {
+          "name": "game_kpi_changes_before_object",
+          "value": "jsonb_typeof(\"game_kpi_changes\".\"before\") = 'object'"
+        },
+        "game_kpi_changes_after_object": {
+          "name": "game_kpi_changes_after_object",
+          "value": "jsonb_typeof(\"game_kpi_changes\".\"after\") = 'object'"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.game_lifecycle_changes": {
+      "name": "game_lifecycle_changes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "operation_id": {
+          "name": "operation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "campaign_id": {
+          "name": "campaign_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operation": {
+          "name": "operation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "transaction_id": {
+          "name": "transaction_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "pg_current_xact_id()::text"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "game_lifecycle_changes_operation_unique": {
+          "name": "game_lifecycle_changes_operation_unique",
+          "columns": [
+            {
+              "expression": "operation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "game_lifecycle_changes_actor_id_profiles_id_fk": {
+          "name": "game_lifecycle_changes_actor_id_profiles_id_fk",
+          "tableFrom": "game_lifecycle_changes",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "game_lifecycle_changes_game_fk": {
+          "name": "game_lifecycle_changes_game_fk",
+          "tableFrom": "game_lifecycle_changes",
+          "tableTo": "games",
+          "columnsFrom": [
+            "game_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "game_lifecycle_changes_campaign_fk": {
+          "name": "game_lifecycle_changes_campaign_fk",
+          "tableFrom": "game_lifecycle_changes",
+          "tableTo": "campaigns",
+          "columnsFrom": [
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.game_goals": {
+      "name": "game_goals",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "campaign_id": {
+          "name": "campaign_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "goal_type": {
+          "name": "goal_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kpi_definition_id": {
+          "name": "kpi_definition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "operator": {
+          "name": "operator",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "numeric_target": {
+          "name": "numeric_target",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ordinal_target_key": {
+          "name": "ordinal_target_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_during_round_id": {
+          "name": "created_during_round_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_round_sequence": {
+          "name": "created_round_sequence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_period_label": {
+          "name": "created_period_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fulfilled": {
+          "name": "fulfilled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "evaluated_by": {
+          "name": "evaluated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "evaluated_at": {
+          "name": "evaluated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "observation": {
+          "name": "observation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "suggested_fulfilled": {
+          "name": "suggested_fulfilled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "game_goals_game_id_games_id_fk": {
+          "name": "game_goals_game_id_games_id_fk",
+          "tableFrom": "game_goals",
+          "tableTo": "games",
+          "columnsFrom": [
+            "game_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "game_goals_campaign_id_campaigns_id_fk": {
+          "name": "game_goals_campaign_id_campaigns_id_fk",
+          "tableFrom": "game_goals",
+          "tableTo": "campaigns",
+          "columnsFrom": [
+            "campaign_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "game_goals_created_by_profiles_id_fk": {
+          "name": "game_goals_created_by_profiles_id_fk",
+          "tableFrom": "game_goals",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "game_goals_updated_by_profiles_id_fk": {
+          "name": "game_goals_updated_by_profiles_id_fk",
+          "tableFrom": "game_goals",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "game_goals_created_during_round_id_rounds_id_fk": {
+          "name": "game_goals_created_during_round_id_rounds_id_fk",
+          "tableFrom": "game_goals",
+          "tableTo": "rounds",
+          "columnsFrom": [
+            "created_during_round_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "game_goals_evaluated_by_profiles_id_fk": {
+          "name": "game_goals_evaluated_by_profiles_id_fk",
+          "tableFrom": "game_goals",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "evaluated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "game_goals_selection_fk": {
+          "name": "game_goals_selection_fk",
+          "tableFrom": "game_goals",
+          "tableTo": "game_kpis",
+          "columnsFrom": [
+            "game_id",
+            "kpi_definition_id"
+          ],
+          "columnsTo": [
+            "game_id",
+            "kpi_definition_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "game_goals_ordinal_fk": {
+          "name": "game_goals_ordinal_fk",
+          "tableFrom": "game_goals",
+          "tableTo": "kpi_ordinal_options",
+          "columnsFrom": [
+            "kpi_definition_id",
+            "ordinal_target_key"
+          ],
+          "columnsTo": [
+            "kpi_definition_id",
+            "key"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "game_goals_type_check": {
+          "name": "game_goals_type_check",
+          "value": "\"game_goals\".\"goal_type\" in ('generic','kpi')"
+        },
+        "game_goals_title_check": {
+          "name": "game_goals_title_check",
+          "value": "length(btrim(\"game_goals\".\"title\")) between 1 and 160"
+        },
+        "game_goals_description_check": {
+          "name": "game_goals_description_check",
+          "value": "length(\"game_goals\".\"description\") <= 4000"
+        },
+        "game_goals_observation_check": {
+          "name": "game_goals_observation_check",
+          "value": "length(\"game_goals\".\"observation\") <= 4000"
+        },
+        "game_goals_revision_check": {
+          "name": "game_goals_revision_check",
+          "value": "\"game_goals\".\"revision\" > 0"
+        },
+        "game_goals_target_check": {
+          "name": "game_goals_target_check",
+          "value": "(\"game_goals\".\"goal_type\"='generic' and \"game_goals\".\"kpi_definition_id\" is null and \"game_goals\".\"operator\" is null and \"game_goals\".\"numeric_target\" is null and \"game_goals\".\"ordinal_target_key\" is null) or (\"game_goals\".\"goal_type\"='kpi' and \"game_goals\".\"kpi_definition_id\" is not null and \"game_goals\".\"operator\" is not null and \"game_goals\".\"operator\" in ('>=','<=','=','>','<','!=') and ((\"game_goals\".\"numeric_target\" is not null and \"game_goals\".\"ordinal_target_key\" is null and \"game_goals\".\"numeric_target\"::text not in ('NaN','Infinity','-Infinity') and abs(\"game_goals\".\"numeric_target\")<1e24 and \"game_goals\".\"numeric_target\"=round(\"game_goals\".\"numeric_target\",12)) or (\"game_goals\".\"numeric_target\" is null and \"game_goals\".\"ordinal_target_key\" is not null and \"game_goals\".\"operator\"='=')))"
+        },
+        "game_goals_evaluation_check": {
+          "name": "game_goals_evaluation_check",
+          "value": "(\"game_goals\".\"fulfilled\" is null and \"game_goals\".\"evaluated_by\" is null and \"game_goals\".\"evaluated_at\" is null and \"game_goals\".\"observation\" is null and \"game_goals\".\"suggested_fulfilled\" is null) or (\"game_goals\".\"fulfilled\" is not null and \"game_goals\".\"evaluated_by\" is not null and \"game_goals\".\"evaluated_at\" is not null)"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.game_goal_changes": {
+      "name": "game_goal_changes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "operation_id": {
+          "name": "operation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "campaign_id": {
+          "name": "campaign_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "goal_id": {
+          "name": "goal_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operation": {
+          "name": "operation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_hash": {
+          "name": "request_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "before": {
+          "name": "before",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "after": {
+          "name": "after",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "round_id": {
+          "name": "round_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "game_goal_changes_operation_unique": {
+          "name": "game_goal_changes_operation_unique",
+          "columns": [
+            {
+              "expression": "operation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "game_goal_changes_game_idx": {
+          "name": "game_goal_changes_game_idx",
+          "columns": [
+            {
+              "expression": "game_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "game_goal_changes_actor_id_profiles_id_fk": {
+          "name": "game_goal_changes_actor_id_profiles_id_fk",
+          "tableFrom": "game_goal_changes",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.game_results": {
+      "name": "game_results",
+      "schema": "",
+      "columns": {
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "fulfilled_count": {
+          "name": "fulfilled_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "evaluated_count": {
+          "name": "evaluated_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "game_results_game_id_games_id_fk": {
+          "name": "game_results_game_id_games_id_fk",
+          "tableFrom": "game_results",
+          "tableTo": "games",
+          "columnsFrom": [
+            "game_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "game_results_created_by_profiles_id_fk": {
+          "name": "game_results_created_by_profiles_id_fk",
+          "tableFrom": "game_results",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "game_results_fulfilled_count_check": {
+          "name": "game_results_fulfilled_count_check",
+          "value": "\"game_results\".\"fulfilled_count\" >= 0"
+        },
+        "game_results_evaluated_count_check": {
+          "name": "game_results_evaluated_count_check",
+          "value": "\"game_results\".\"evaluated_count\" >= \"game_results\".\"fulfilled_count\""
+        }
+      },
+      "isRLSEnabled": true
+    }
+  },
+  "enums": {
+    "public.campaign_status": {
+      "name": "campaign_status",
+      "schema": "public",
+      "values": [
+        "draft",
+        "active",
+        "completed",
+        "archived"
+      ]
+    },
+    "public.campaign_member_role": {
+      "name": "campaign_member_role",
+      "schema": "public",
+      "values": [
+        "master",
+        "co_master",
+        "observer"
+      ]
+    },
+    "public.game_type": {
+      "name": "game_type",
+      "schema": "public",
+      "values": [
+        "onboarding",
+        "development",
+        "final",
+        "custom"
+      ]
+    },
+    "public.game_status": {
+      "name": "game_status",
+      "schema": "public",
+      "values": [
+        "draft",
+        "ready",
+        "active",
+        "paused",
+        "evaluation",
+        "completed",
+        "cancelled"
+      ]
+    },
+    "public.round_status": {
+      "name": "round_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "active",
+        "paused",
+        "completed",
+        "cancelled"
+      ]
+    },
+    "public.room_status": {
+      "name": "room_status",
+      "schema": "public",
+      "values": [
+        "open",
+        "active",
+        "closed"
+      ]
+    },
+    "public.game_state_phase": {
+      "name": "game_state_phase",
+      "schema": "public",
+      "values": [
+        "preparation",
+        "initial",
+        "current",
+        "final"
+      ]
+    },
+    "public.kpi_value_type": {
+      "name": "kpi_value_type",
+      "schema": "public",
+      "values": [
+        "numeric",
+        "ordinal"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "id": "4528a861-1838-480d-91bf-c2db30496519",
+  "prevId": "758f6186-887f-4734-acdb-fa45a089e1fa"
+}

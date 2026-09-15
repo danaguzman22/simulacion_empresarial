@@ -1,5 +1,5 @@
 import "server-only";
-import { inheritedKpiIds } from "./inherited-kpis";
+import { inheritedKpiIds, predecessorKpis } from "./inherited-kpis";
 
 import { createHash } from "node:crypto";
 import {
@@ -243,6 +243,7 @@ export async function selectionContext(
       )
       .map((definition) => ({
         ...definition,
+        origin: selected.find(k => k.kpiDefinitionId === definition.id)!.origin,
 
         required:
           selected.find(
@@ -478,6 +479,7 @@ export async function readPreparation(
           : [];
 
       const inheritedIds = await inheritedKpiIds(tx, game.id);
+      const predecessor = await predecessorKpis(tx, game.id);
       const sources: {
         id: string;
         name: string;
@@ -485,6 +487,11 @@ export async function readPreparation(
       }[] = [];
 
       return {
+        predecessor: predecessor.map(previous => {
+          const definition = context.catalog.find(k => k.id === previous.id)!;
+          const selected = definitions.find(k => k.id === previous.id);
+          return { ...previous, name: definition.name, unit: definition.unit, precision: definition.precision, valueType: definition.valueType, allowsNegative: definition.allowsNegative, ordinalOptions: definition.ordinalOptions, included: !!selected, origin: selected?.origin ?? "inherited" as const };
+        }),
         revision:
           state?.revision ?? 0,
 
@@ -561,8 +568,10 @@ export async function readPreparation(
               allowsNegative,
               valueType,
               ordinalOptions,
+              origin,
             }) => ({
               inherited: inheritedIds.has(id),
+              origin,
               id,
               key,
               name,

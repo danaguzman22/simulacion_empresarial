@@ -33,7 +33,7 @@ export async function resetGameAction(_previous: GameLifecycleActionState, form:
     if (!actorId || !UUID_PATTERN.test(gameId) || !UUID_PATTERN.test(operationId)) throw new GameLifecycleError("Los datos de reinicio no son válidos.");
     const result = await resetGame(actorId, { gameId, operationId });
     revalidatePath(`/master/partidas/${gameId}`);
-    return { success: result.inherited ? "Ejecución descartada. Se restauraron los valores del final de origen; permanecen protegidos." : "Ejecución descartada. Podés editar los valores de preparación y reconfigurar los períodos." };
+    return { success: result.inherited ? "Ejecución descartada. Se conservó la preparación elegida: KPIs, modos y valores iniciales. Podés configurarla nuevamente." : "Ejecución descartada. Podés editar los valores de preparación y reconfigurar los períodos." };
   } catch (error) {
     if (error instanceof GameLifecycleError || error instanceof PreparationError) return { error: error.message };
     console.error("Error reiniciando partida", error);

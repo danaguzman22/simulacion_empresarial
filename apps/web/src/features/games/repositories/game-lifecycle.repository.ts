@@ -78,22 +78,14 @@ export async function resetGame(actorId: string, input: { gameId: string; operat
     if (!preparation || !initial) throw new GameLifecycleError("No hay una ejecución inicial para reiniciar.");
     const sourceId = preparation.sourceStateSetId ?? initial.sourceStateSetId;
     if (preparation.sourceStateSetId !== initial.sourceStateSetId) throw new GameLifecycleError("Los snapshots tienen orígenes inconsistentes; revisá la continuidad.");
-    let sourceValues: typeof gameStateValues.$inferSelect[] = [];
-    if (sourceId) {
-      const [source] = await tx.select().from(gameStateSets).where(eq(gameStateSets.id, sourceId)).for("share");
-      const [sourceGame] = source ? await tx.select().from(games).where(eq(games.id, source.gameId)) : [];
-      if (!source || source.phase !== "final" || !source.frozenAt || source.campaignId !== game.campaignId || sourceGame?.status !== "completed" || sourceGame.sequence >= game.sequence) throw new GameLifecycleError("El origen debe ser un final congelado de una partida anterior completada.");
-      sourceValues = await tx.select().from(gameStateValues).where(eq(gameStateValues.stateSetId, sourceId));
-      const initialValues = await tx.select().from(gameStateValues).where(eq(gameStateValues.stateSetId, initial.id));
-      const preservesSource = sourceValues.every(v => initialValues.some(w => v.kpiDefinitionId === w.kpiDefinitionId && v.value === w.value && v.ordinalKey === w.ordinalKey));
-      if (!initial.frozenAt || !preparation.frozenAt || !preservesSource) throw new GameLifecycleError("El initial no coincide con el final de origen; no se puede romper la continuidad.");
-      // Restore this game's complete initial state, including its local KPIs.
-      sourceValues = initialValues;
-    }
-    const discarded = states.filter(s => s.phase !== "preparation" && (!sourceId || s.phase !== "initial"));
+    const initialValues = await tx.select().from(gameStateValues).where(eq(gameStateValues.stateSetId, initial.id));
+    const preparedValues = await tx.select().from(gameStateValues).where(eq(gameStateValues.stateSetId, preparation.id));
+    if (!initial.frozenAt || !preparation.frozenAt || initialValues.length !== preparedValues.length || initialValues.some(v => !preparedValues.some(w => w.kpiDefinitionId === v.kpiDefinitionId && w.value === v.value && w.ordinalKey === v.ordinalKey))) throw new GameLifecycleError("La preparaci\u00f3n y el estado inicial no coinciden; revis\u00e1 los datos antes de reiniciar.");
+    const configuration = await tx.select().from(gameKpis).where(eq(gameKpis.gameId, game.id));
+    const discarded = states.filter(s => s.phase !== "preparation");
     const discardedIds = discarded.map(s => s.id);
     const discardedValues = discardedIds.length ? await tx.select().from(gameStateValues).where(inArray(gameStateValues.stateSetId, discardedIds)) : [];
-    await lifecycleAudit(tx, actorId, { operationId: input.operationId, gameId: game.id, campaignId: game.campaignId, operation: "reset", details: { sourceStateSetId: sourceId, mode: sourceId ? "inherited" : "editable", discardedStates: discarded, discardedValues } });
+    await lifecycleAudit(tx, actorId, { operationId: input.operationId, gameId: game.id, campaignId: game.campaignId, operation: "reset", details: { sourceStateSetId: sourceId, mode: sourceId ? "inherited" : "editable", discardedStates: discarded, discardedValues, configuration } });
     await lifecycleContext(tx, game.id, "reset");
     await resetGoals(tx, game.id, actorId);
     await tx.delete(gameKpiChanges).where(eq(gameKpiChanges.gameId, game.id));
@@ -104,14 +96,9 @@ export async function resetGame(actorId: string, input: { gameId: string; operat
       await tx.delete(gameStateSets).where(inArray(gameStateSets.id, discardedIds));
     }
     await tx.update(games).set({ status: "ready", completedAt: null, startedAt: null, updatedAt: new Date() }).where(eq(games.id, game.id));
-    if (sourceId) {
-      const [current] = await tx.insert(gameStateSets).values({ gameId: game.id, campaignId: game.campaignId, phase: "current", sourceStateSetId: sourceId, createdBy: actorId, updatedBy: actorId }).returning();
-      if (sourceValues.length) await tx.insert(gameStateValues).values(sourceValues.map(v => ({ gameId: game.id, campaignId: game.campaignId, stateSetId: current.id, kpiDefinitionId: v.kpiDefinitionId, value: v.value, ordinalKey: v.ordinalKey })));
-    } else {
-      const revision = preparation.revision + 1;
-      await tx.update(gameStateSets).set({ frozenAt: null, revision, updatedBy: actorId, updatedAt: new Date() }).where(eq(gameStateSets.id, preparation.id));
-      await tx.insert(gamePreparationChanges).values({ operationId: input.operationId, campaignId: game.campaignId, stateSetId: preparation.id, actorId, operation: "save_values", requestHash: hash({ actorId, ...input, operation: "reset_preparation" }), previousRevision: preparation.revision, revision, details: { lifecycleOperation: "reset", valuesUnchanged: true } });
-    }
+    const revision = preparation.revision + 1;
+    await tx.update(gameStateSets).set({ frozenAt: null, revision, updatedBy: actorId, updatedAt: new Date() }).where(eq(gameStateSets.id, preparation.id));
+    await tx.insert(gamePreparationChanges).values({ operationId: input.operationId, campaignId: game.campaignId, stateSetId: preparation.id, actorId, operation: "save_values", requestHash: hash({ actorId, ...input, operation: "reset_preparation" }), previousRevision: preparation.revision, revision, details: { lifecycleOperation: "reset", valuesUnchanged: true, configuration } });
     return { replayed: false, inherited: !!sourceId };
 
   });

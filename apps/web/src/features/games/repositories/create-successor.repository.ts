@@ -19,7 +19,7 @@ export async function createSuccessorGame(tx: Transaction, actorId: string, prev
   await tx.insert(gamePeriodChanges).values({ gameId: created.id, operationId: randomUUID(), actorId, revision: 1, requestHash: hash({ operationId: input.operationId, source: previous.id }), details: { sourceGameId: previous.id } });
  }
  const [prep] = await tx.insert(gameStateSets).values({ gameId: created.id, campaignId: previous.campaignId, phase: "preparation", sourceStateSetId: source.id, createdBy: actorId, updatedBy: actorId }).returning();
- if (selected.length) await tx.insert(gameKpis).values(selected.map(k => ({ gameId: created.id, campaignId: previous.campaignId, kpiDefinitionId: k.kpiDefinitionId, required: k.required, createdBy: actorId })));
+ if (selected.length) await tx.insert(gameKpis).values(selected.map(k => ({ gameId: created.id, campaignId: previous.campaignId, kpiDefinitionId: k.kpiDefinitionId, required: k.required, origin: "inherited" as const, createdBy: actorId })));
  if (values.length) await tx.insert(gameStateValues).values(values.map(v => ({ gameId: created.id, campaignId: previous.campaignId, stateSetId: prep.id, kpiDefinitionId: v.kpiDefinitionId, value: v.value, ordinalKey: v.ordinalKey })));
  await tx.update(gameStateSets).set({ revision: 1 }).where(eq(gameStateSets.id, prep.id));
  await tx.insert(gamePreparationChanges).values({ operationId: input.operationId, campaignId: previous.campaignId, stateSetId: prep.id, actorId, operation: "save_values", requestHash: hash({ actorId, ...input }), previousRevision: 0, revision: 1, details: { sourceStateSetId: source.id, sourceGameId: previous.id } });

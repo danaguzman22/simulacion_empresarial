@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, desc, lt, eq, inArray, max, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { games, gameKpis, gameStateSets, gameStateValues, gamePreparationChanges, gameLifecycleChanges, rounds } from "@/db/schema";
+import { games, gameStateSets, gameStateValues, gamePreparationChanges, gameLifecycleChanges, rounds } from "@/db/schema";
 import { access, selectionContext, hash } from "@/features/preparation/repositories/preparation.repository";
 import { PreparationError } from "@/features/preparation/domain/preparation";
 import { canStartGame, validateStartValues } from "../domain/start-game";
@@ -47,12 +47,13 @@ export async function startGame(actorId: string, input: StartGameInput) {
       if (previousGame.status !== "completed") throw new PreparationError("La partida anterior debe finalizarse antes de iniciar esta partida.");
       const [previousFinal] = await tx.select().from(gameStateSets).where(and(eq(gameStateSets.gameId, previousGame.id), eq(gameStateSets.phase, "final")));
       if (!previousFinal || !previousFinal.frozenAt) throw new PreparationError("La partida anterior no tiene un snapshot final válido.");
-      const previousKpis = await tx.select({ id: gameKpis.kpiDefinitionId }).from(gameKpis).where(eq(gameKpis.gameId, previousGame.id));
-      const currentKpis = await tx.select({ id: gameKpis.kpiDefinitionId }).from(gameKpis).where(eq(gameKpis.gameId, game.id));
-      if (previousKpis.some((row) => !currentKpis.some((currentRow) => currentRow.id === row.id))) throw new PreparationError("La estructura de KPIs no coincide con la partida anterior.");
       sourceStateSetId = previousFinal.id;
       const inheritedValues = await tx.select().from(gameStateValues).where(eq(gameStateValues.stateSetId, previousFinal.id));
-      if (prep.sourceStateSetId !== previousFinal.id || inheritedValues.some(v => !values.some(w => w.kpiDefinitionId === v.kpiDefinitionId && w.value === v.value && w.ordinalKey === v.ordinalKey))) throw new PreparationError("La preparación no conserva los valores del final de origen.");
+      const inherited = context.associations.filter(k => k.gameId === game.id && k.origin === "inherited");
+      if (prep.sourceStateSetId !== previousFinal.id || inherited.some(k => {
+        const source = inheritedValues.find(v => v.kpiDefinitionId === k.kpiDefinitionId), own = values.find(v => v.kpiDefinitionId === k.kpiDefinitionId);
+        return source?.value !== own?.value || source?.ordinalKey !== own?.ordinalKey;
+      })) throw new PreparationError("La preparación no conserva los valores marcados como heredados.");
       await tx.insert(gameLifecycleChanges).values({ operationId: input.operationId, gameId: game.id, campaignId: game.campaignId, actorId, operation: "create_from_previous", details: { previousGameId: previousGame.id, sourceStateSetId: previousFinal.id } });
     }
     if (previousGame && restarting && previousGame.status !== "completed") throw new PreparationError("La partida anterior debe finalizarse antes de iniciar esta partida.");

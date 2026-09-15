@@ -73,6 +73,7 @@ export const gameKpis = pgTable("game_kpis", {
   kpiDefinitionId: uuid("kpi_definition_id").notNull(),
   campaignId: uuid("campaign_id").notNull(),
   required: boolean("required").notNull().default(false),
+  origin: text("origin").$type<"inherited" | "redefined" | "new">().notNull().default("new"),
   historicalUsedAt: timestamp("historical_used_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
@@ -85,6 +86,7 @@ export const gameKpis = pgTable("game_kpis", {
     t.gameId,
     t.kpiDefinitionId
   ),
+  check("game_kpis_origin_check", sql`${t.origin} in ('inherited','redefined','new')`),
   uniqueIndex("game_kpis_game_kpi_campaign_unique").on(
     t.gameId,
     t.kpiDefinitionId,
