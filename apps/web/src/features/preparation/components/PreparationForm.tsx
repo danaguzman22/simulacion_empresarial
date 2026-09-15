@@ -280,9 +280,18 @@ export function PreparationForm({
                     </span>
                   </div>
 
+                  {definition.inherited && (
+                    <>
+                      <p className="mt-2 text-sm text-sky-300">
+                        Heredado de {data.source?.name ?? "la partida anterior"}. Valor protegido.
+                      </p>
+                      <input type="hidden" name={`value:${definition.id}`} value={value} />
+                    </>
+                  )}
                   {definition.valueType ===
                   "ordinal" ? (
                     <select
+                      disabled={definition.inherited}
                       name={`value:${definition.id}`}
                       value={
                         value
@@ -323,6 +332,7 @@ export function PreparationForm({
                     </select>
                   ) : (
                     <input
+                      disabled={definition.inherited}
                       name={`value:${definition.id}`}
                       inputMode="decimal"
                       value={

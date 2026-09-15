@@ -1,4 +1,5 @@
 ﻿import "server-only";
+import { inheritedKpiIds } from "./inherited-kpis";
 
 import {
   randomUUID,
@@ -259,6 +260,8 @@ export async function mutateKpi(
         );
       }
 
+      const inheritedIds = await inheritedKpiIds(tx, game.id);
+      if (input.kpiId && inheritedIds.has(input.kpiId) && ["remove_kpi", "set_required", "edit_kpi", "delete_kpi"].includes(input.operation)) throw new PreparationError("Este KPI es heredado de la partida anterior; no se puede quitar ni cambiar su estructura.");
       let definition =
         context.catalog.find(
           (candidate) =>

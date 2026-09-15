@@ -29,6 +29,7 @@ export const gameStatusEnum =
     "ready",
     "active",
     "paused",
+    "evaluation",
     "completed",
     "cancelled",
   ]);

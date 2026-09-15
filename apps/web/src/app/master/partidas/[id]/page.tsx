@@ -1,8 +1,11 @@
+import { GamePeriodConfiguration } from "@/features/rounds/components/GamePeriodConfiguration";
+import { GameRounds } from "@/features/rounds/components/GameRounds";
 import { GameLifecycle } from "@/features/games/components/GameLifecycle";
 import { notFound, redirect } from "next/navigation";
 import { getGamePreparation } from "@/features/preparation/application/get-game-preparation";
 import { InitialConfiguration } from "@/features/preparation/components/InitialConfiguration";
 import { GameDetail } from "@/features/games/components/GameDetail";
+import { GameKpiControls } from "@/features/kpis/components/GameKpiControls";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +28,10 @@ export default async function GamePage({ params }: GamePageProps) {
   return (
     <GameDetail game={result.game}>
       <InitialConfiguration gameId={result.game.id} data={result.preparation} />
+      <GamePeriodConfiguration gameId={result.game.id} />
       <GameLifecycle gameId={result.game.id} />
+      {(result.game.status === "active" || result.game.status === "evaluation") && <GameRounds gameId={result.game.id} />}
+      {(result.game.status === "active" || result.game.status === "evaluation") && <GameKpiControls gameId={result.game.id} />}
     </GameDetail>
   );
 }

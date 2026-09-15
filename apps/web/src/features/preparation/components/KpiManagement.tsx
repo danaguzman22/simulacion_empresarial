@@ -661,6 +661,7 @@ export function KpiManagement({
                   : `${definition.unit} · ${definition.precision} decimales`}
               </p>
 
+              {definition.inherited ? <p className="mt-3 text-sm text-slate-400">KPI heredado de {data.source?.name ?? "la partida anterior"}. No se puede quitar ni cambiar su obligatoriedad.</p> : <>
               <Operation
                 gameId={gameId}
                 data={data}
@@ -742,6 +743,7 @@ export function KpiManagement({
                   </label>
                 </Operation>
               </details>
+              </>}
             </div>
           );
         }

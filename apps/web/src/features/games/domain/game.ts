@@ -19,6 +19,7 @@ export const gameStatusLabels: Record<GameStatus, string> = {
   ready: "Lista",
   active: "Activa",
   paused: "Pausada",
+  evaluation: "Pendiente de evaluación",
   completed: "Completada",
   cancelled: "Cancelada",
 };

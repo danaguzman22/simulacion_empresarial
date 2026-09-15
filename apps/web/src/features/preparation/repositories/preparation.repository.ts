@@ -1,4 +1,5 @@
 import "server-only";
+import { inheritedKpiIds } from "./inherited-kpis";
 
 import { createHash } from "node:crypto";
 import {
@@ -476,6 +477,7 @@ export async function readPreparation(
               )
           : [];
 
+      const inheritedIds = await inheritedKpiIds(tx, game.id);
       const sources: {
         id: string;
         name: string;
@@ -560,6 +562,7 @@ export async function readPreparation(
               valueType,
               ordinalOptions,
             }) => ({
+              inherited: inheritedIds.has(id),
               id,
               key,
               name,
@@ -785,6 +788,7 @@ export async function writePreparation(
         }
       }
 
+      const inheritedIds = await inheritedKpiIds(tx, game.id);
       const nextMap =
         new Map(beforeMap);
 
@@ -836,6 +840,7 @@ export async function writePreparation(
             definition
           );
 
+        if (inheritedIds.has(definition.id) && value !== (beforeMap.get(definition.id) ?? null)) throw new PreparationError("El valor heredado no puede modificarse; proviene del final de la partida anterior.");
         if (value === null) {
           nextMap.delete(
             definition.id

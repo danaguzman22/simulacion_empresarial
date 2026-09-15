@@ -1,6 +1,8 @@
 import "server-only";
 
-import { and, asc, eq, max } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
+import { createSuccessorGame } from "./create-successor.repository";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { campaigns, campaignMembers, games } from "@/db/schema";
 import { canCreateGame } from "../domain/game-access";
@@ -40,16 +42,16 @@ export async function createGame(input: CreateGameInput) {
       return { status: "forbidden" } as const;
     }
 
-    const [last] = await tx
-      .select({ sequence: max(games.sequence) })
-      .from(games)
-      .where(eq(games.campaignId, campaign.id));
-
+    const [last] = await tx.select().from(games).where(eq(games.campaignId, campaign.id)).orderBy(desc(games.sequence)).limit(1).for("update");
+    if (last) {
+      const game = await createSuccessorGame(tx, input.profileId, last, { name: input.name.trim(), description: input.description?.trim() || null, type: input.type, operationId: randomUUID() });
+      return { status: "created", game } as const;
+    }
     const [game] = await tx
       .insert(games)
       .values({
         campaignId: campaign.id,
-        sequence: nextGameSequence(last.sequence),
+        sequence: nextGameSequence(null),
         name: input.name.trim(),
         description: input.description?.trim() || null,
         type: input.type,

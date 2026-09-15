@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 
 import {
+  check,
   index,
   integer,
   pgTable,
@@ -42,6 +43,10 @@ export const games = pgTable(
       .notNull(),
 
     description: text("description"),
+    periodCount: integer("period_count"),
+    periodLabel: text("period_label"),
+    periodDurationSeconds: integer("period_duration_seconds"),
+    periodRevision: integer("period_revision").notNull().default(0),
 
     type: gameTypeEnum("type")
       .default("development")
@@ -85,6 +90,8 @@ export const games = pgTable(
   },
 
   (table) => [
+    check("games_period_configuration_valid", sql`(${table.periodCount} is null and ${table.periodLabel} is null and ${table.periodDurationSeconds} is null) or (${table.periodCount} is not null and ${table.periodCount}>0 and ${table.periodLabel} is not null and length(trim(${table.periodLabel})) between 1 and 80 and ${table.periodDurationSeconds} is not null and ${table.periodDurationSeconds}>0)`),
+    check("games_period_revision_valid", sql`${table.periodRevision}>=0`),
     uniqueIndex("games_id_campaign_unique").on(table.id, table.campaignId),
     uniqueIndex("games_one_active_per_campaign_unique").on(table.campaignId)
       .where(sql`${table.status} in ('active', 'paused')`),

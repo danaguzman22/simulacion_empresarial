@@ -74,7 +74,7 @@ export function InitialConfiguration({
 
       <p className="mt-3 text-sm">
         {data.source
-          ? `Origen: cierre de Partida ${data.source.sequence} — ${data.source.name}. Los valores son una copia independiente.`
+          ? `Heredado del cierre de ${data.source.name}. Los KPIs heredados conservan sus valores; los agregados en esta partida pueden configurarse.`
           : "Sin snapshot de origen. Los valores se configuran en esta preparación."}
       </p>
 

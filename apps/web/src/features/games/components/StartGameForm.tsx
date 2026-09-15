@@ -1,7 +1,7 @@
-﻿"use client";
+"use client";
 import { useActionState, useRef } from "react";
 import { startGameAction } from "../application/start-game";
-export function StartGameForm({ gameId, revision, catalogToken }: { gameId: string; revision: number; catalogToken: string }) {
+export function StartGameForm({ gameId, revision, catalogToken, periodRevision }: { gameId: string; revision: number; catalogToken: string; periodRevision: number }) {
   const [state, action, pending] = useActionState(startGameAction, {});
   const operationId = useRef<string | null>(null);
   return <form action={action} className="mt-5 space-y-4" onSubmit={e => {
@@ -10,6 +10,7 @@ export function StartGameForm({ gameId, revision, catalogToken }: { gameId: stri
   }}>
     <input type="hidden" name="gameId" value={gameId} />
     <input type="hidden" name="operationId" defaultValue="" />
+    <input type="hidden" name="periodRevision" value={periodRevision} />
     <input type="hidden" name="revision" value={revision} />
     <input type="hidden" name="catalogToken" value={catalogToken} />
     <fieldset disabled={pending} className="space-y-4">

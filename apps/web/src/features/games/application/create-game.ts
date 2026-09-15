@@ -1,5 +1,6 @@
 "use server";
 
+import { PreparationError } from "@/features/preparation/domain/preparation";
 import { revalidatePath } from "next/cache";
 import { getAuthenticatedUserId } from "@/features/auth/application/get-authenticated-user-id";
 import { isGameType, validateGameName } from "../domain/game";
@@ -46,6 +47,7 @@ export async function createGameAction(
     revalidatePath(`/master/campanas/${campaignId}`);
     return { success: "Partida creada correctamente." };
   } catch (error) {
+    if (error instanceof PreparationError) return { error: error.message };
     console.error("Error creando partida:", error);
     return { error: "No se pudo crear la partida. Intentá nuevamente." };
   }

@@ -61,7 +61,7 @@ export function GameDetail({ game, children }: GameDetailProps) {
         {children}
 
         <section aria-label="Próximas secciones de la partida" className="mt-8 grid gap-5 md:grid-cols-2">
-          {["Rondas", "Sala activa"].map((title) => (
+          {["Sala activa"].map((title) => (
             <div key={title} className="rounded-3xl border border-dashed border-white/10 p-6">
               <h2 className="text-xl font-black">{title}</h2>
               <p className="mt-3 text-sm text-slate-400">Próximamente</p>
