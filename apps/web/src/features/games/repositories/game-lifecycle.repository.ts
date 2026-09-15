@@ -1,4 +1,6 @@
 import "server-only";
+import { persistGoalResult, resetGoals, deleteGoals } from "@/features/goals/repositories/goal.repository";
+import { GoalError } from "@/features/goals/domain/goal";
 
 import { createSuccessorGame } from "./create-successor.repository";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
@@ -47,6 +49,7 @@ export async function finishGame(actorId: string, input: { gameId: string; opera
     const [existingFinal] = await tx.select().from(gameStateSets).where(and(eq(gameStateSets.gameId, game.id), eq(gameStateSets.phase, "final"))).for("update");
     if (existingFinal) throw new GameLifecycleError("La partida ya tiene un snapshot final.");
     const values = await tx.select().from(gameStateValues).where(eq(gameStateValues.stateSetId, current.id));
+    try { await persistGoalResult(tx, game.id, actorId); } catch (error) { if (error instanceof GoalError) throw new GameLifecycleError(error.message); throw error; }
     const now = new Date();
     const [final] = await tx.insert(gameStateSets).values({ gameId: game.id, campaignId: game.campaignId, phase: "final", createdBy: actorId, updatedBy: actorId }).returning({ id: gameStateSets.id });
     if (values.length) await tx.insert(gameStateValues).values(values.map((value) => ({ gameId: game.id, campaignId: game.campaignId, stateSetId: final.id, kpiDefinitionId: value.kpiDefinitionId, value: value.value, ordinalKey: value.ordinalKey })));
@@ -92,6 +95,7 @@ export async function resetGame(actorId: string, input: { gameId: string; operat
     const discardedValues = discardedIds.length ? await tx.select().from(gameStateValues).where(inArray(gameStateValues.stateSetId, discardedIds)) : [];
     await lifecycleAudit(tx, actorId, { operationId: input.operationId, gameId: game.id, campaignId: game.campaignId, operation: "reset", details: { sourceStateSetId: sourceId, mode: sourceId ? "inherited" : "editable", discardedStates: discarded, discardedValues } });
     await lifecycleContext(tx, game.id, "reset");
+    await resetGoals(tx, game.id, actorId);
     await tx.delete(gameKpiChanges).where(eq(gameKpiChanges.gameId, game.id));
     await tx.delete(roundChanges).where(eq(roundChanges.gameId, game.id));
     await tx.delete(rounds).where(eq(rounds.gameId, game.id));
@@ -125,6 +129,7 @@ export async function deleteGame(actorId: string, input: { gameId: string; opera
     if (game.status === "completed") throw new GameLifecycleError("Una partida completada no se puede eliminar.");
     await lifecycleContext(tx, game.id, "delete");
     await lifecycleAudit(tx, actorId, { operationId: input.operationId, gameId: game.id, campaignId: game.campaignId, operation: "delete", details: { deletedGameId: game.id, sequence: game.sequence } });
+    await deleteGoals(tx, game.id);
     await tx.delete(gameKpiChanges).where(eq(gameKpiChanges.gameId, game.id));
     await tx.delete(roundChanges).where(eq(roundChanges.gameId, game.id));
     await tx.delete(gamePeriodChanges).where(eq(gamePeriodChanges.gameId, game.id));

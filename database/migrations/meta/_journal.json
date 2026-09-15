@@ -148,6 +148,13 @@
       "when": 1789414245078,
       "tag": "0020_game_kpi_inheritance",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789438992279,
+      "tag": "0021_game_goals",
+      "breakpoints": true
     }
   ]
 }

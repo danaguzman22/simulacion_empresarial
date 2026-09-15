@@ -1,4 +1,5 @@
 import { GamePeriodConfiguration } from "@/features/rounds/components/GamePeriodConfiguration";
+import { GameGoals } from "@/features/goals/components/GameGoals";
 import { GameRounds } from "@/features/rounds/components/GameRounds";
 import { GameLifecycle } from "@/features/games/components/GameLifecycle";
 import { notFound, redirect } from "next/navigation";
@@ -29,6 +30,7 @@ export default async function GamePage({ params }: GamePageProps) {
     <GameDetail game={result.game}>
       <InitialConfiguration gameId={result.game.id} data={result.preparation} />
       <GamePeriodConfiguration gameId={result.game.id} />
+      <GameGoals gameId={result.game.id} />
       <GameLifecycle gameId={result.game.id} />
       {(result.game.status === "active" || result.game.status === "evaluation") && <GameRounds gameId={result.game.id} />}
       {(result.game.status === "active" || result.game.status === "evaluation") && <GameKpiControls gameId={result.game.id} />}

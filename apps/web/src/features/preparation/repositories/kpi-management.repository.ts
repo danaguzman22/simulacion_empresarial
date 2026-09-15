@@ -17,6 +17,7 @@ import { db } from "@/db";
 import {
   games,
   gameKpis,
+  gameGoals,
   kpiDefinitions,
   kpiOrdinalOptions,
   gameStateSets,
@@ -261,6 +262,14 @@ export async function mutateKpi(
       }
 
       const inheritedIds = await inheritedKpiIds(tx, game.id);
+      if (input.kpiId && ["remove_kpi", "delete_kpi"].includes(input.operation)) {
+        const linked = await tx.select({ id: gameGoals.id }).from(gameGoals).where(
+          input.operation === "remove_kpi"
+            ? and(eq(gameGoals.kpiDefinitionId, input.kpiId), eq(gameGoals.gameId, game.id))
+            : eq(gameGoals.kpiDefinitionId, input.kpiId)
+        ).limit(1);
+        if (linked.length) throw new PreparationError("Hay metas vinculadas a este KPI. Cambiá o eliminá esas metas antes de quitar el indicador.");
+      }
       if (input.kpiId && inheritedIds.has(input.kpiId) && ["remove_kpi", "set_required", "edit_kpi", "delete_kpi"].includes(input.operation)) throw new PreparationError("Este KPI es heredado de la partida anterior; no se puede quitar ni cambiar su estructura.");
       let definition =
         context.catalog.find(
