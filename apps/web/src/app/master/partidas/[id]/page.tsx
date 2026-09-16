@@ -1,4 +1,5 @@
 import { GamePeriodConfiguration } from "@/features/rounds/components/GamePeriodConfiguration";
+import { GameSituations } from "@/features/situations/components/GameSituations";
 import { GameGoals } from "@/features/goals/components/GameGoals";
 import { GameRounds } from "@/features/rounds/components/GameRounds";
 import { GameLifecycle } from "@/features/games/components/GameLifecycle";
@@ -32,6 +33,7 @@ export default async function GamePage({ params }: GamePageProps) {
       <GamePeriodConfiguration gameId={result.game.id} />
       <GameGoals gameId={result.game.id} />
       <GameLifecycle gameId={result.game.id} />
+      {["active","paused","evaluation","completed"].includes(result.game.status) && <GameSituations gameId={result.game.id} />}
       {(result.game.status === "active" || result.game.status === "evaluation") && <GameRounds gameId={result.game.id} />}
       {(result.game.status === "active" || result.game.status === "evaluation") && <GameKpiControls gameId={result.game.id} />}
     </GameDetail>

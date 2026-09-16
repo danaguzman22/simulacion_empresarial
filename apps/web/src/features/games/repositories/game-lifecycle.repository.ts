@@ -3,6 +3,7 @@ import { persistGoalResult, resetGoals, deleteGoals } from "@/features/goals/rep
 import { GoalError } from "@/features/goals/domain/goal";
 
 import { createSuccessorGame } from "./create-successor.repository";
+import { gameSituations } from "@/db/schema";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { campaignMembers, campaigns, gameKpiChanges, gameKpis, gameLifecycleChanges, gamePeriodChanges, gamePreparationChanges, gameStateSets, gameStateValues, games, roundChanges, rounds } from "@/db/schema";
@@ -89,6 +90,7 @@ export async function resetGame(actorId: string, input: { gameId: string; operat
     await lifecycleContext(tx, game.id, "reset");
     await resetGoals(tx, game.id, actorId);
     await tx.delete(gameKpiChanges).where(eq(gameKpiChanges.gameId, game.id));
+    await tx.delete(gameSituations).where(eq(gameSituations.gameId, game.id));
     await tx.delete(roundChanges).where(eq(roundChanges.gameId, game.id));
     await tx.delete(rounds).where(eq(rounds.gameId, game.id));
     if (discardedIds.length) {
@@ -118,6 +120,7 @@ export async function deleteGame(actorId: string, input: { gameId: string; opera
     await lifecycleAudit(tx, actorId, { operationId: input.operationId, gameId: game.id, campaignId: game.campaignId, operation: "delete", details: { deletedGameId: game.id, sequence: game.sequence } });
     await deleteGoals(tx, game.id);
     await tx.delete(gameKpiChanges).where(eq(gameKpiChanges.gameId, game.id));
+    await tx.delete(gameSituations).where(eq(gameSituations.gameId, game.id));
     await tx.delete(roundChanges).where(eq(roundChanges.gameId, game.id));
     await tx.delete(gamePeriodChanges).where(eq(gamePeriodChanges.gameId, game.id));
     const stateIds = await tx.select({ id: gameStateSets.id }).from(gameStateSets).where(eq(gameStateSets.gameId, game.id));

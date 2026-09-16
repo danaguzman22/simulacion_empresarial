@@ -14,3 +14,4 @@ export * from "./game-period-changes";
 export * from "./game-kpi-changes";
 export * from "./game-lifecycle-changes";
 export * from "./goals";
+export * from "./situations";

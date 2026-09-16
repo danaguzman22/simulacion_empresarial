@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
-import { check, foreignKey, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { check, foreignKey, index, integer, jsonb, numeric, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { gameSituations } from "./situations";
 import { games } from "./games";
 import { gameKpis, kpiDefinitions, gameStateSets } from "./preparation";
 import { rounds } from "./rounds";
@@ -8,6 +9,10 @@ import { profiles } from "./profiles";
 export const gameKpiChanges = pgTable("game_kpi_changes", {
   id: uuid("id").defaultRandom().primaryKey(),
   operationId: uuid("operation_id").notNull(),
+  source: text("source").$type<"manual" | "situation">().notNull().default("manual"),
+  situationId: uuid("situation_id").references(() => gameSituations.id, { onDelete: "restrict" }),
+  effectType: text("effect_type").$type<"numeric_add">(),
+  amount: numeric("amount"),
   gameId: uuid("game_id").notNull(),
   campaignId: uuid("campaign_id").notNull(),
   stateSetId: uuid("state_set_id").notNull(),
@@ -23,7 +28,9 @@ export const gameKpiChanges = pgTable("game_kpi_changes", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   uniqueIndex("game_kpi_changes_operation_unique").on(t.operationId),
-  uniqueIndex("game_kpi_changes_state_revision_unique").on(t.stateSetId, t.revision),
+  uniqueIndex("game_kpi_changes_state_revision_unique").on(t.stateSetId, t.revision, t.kpiDefinitionId),
+  uniqueIndex("game_kpi_changes_situation_kpi_unique").on(t.situationId, t.kpiDefinitionId),
+  check("game_kpi_changes_source_valid",sql`(${t.source}='manual' and ${t.situationId} is null and ${t.effectType} is null and ${t.amount} is null) or (${t.source}='situation' and ${t.situationId} is not null and ${t.effectType}='numeric_add' and ${t.amount} is not null and ${t.amount}::text not in ('NaN','Infinity','-Infinity'))`),
   index("game_kpi_changes_game_round_idx").on(t.gameId, t.roundId, t.createdAt),
   index("game_kpi_changes_game_kpi_idx").on(t.gameId, t.kpiDefinitionId, t.createdAt),
   foreignKey({ name: "game_kpi_changes_game_campaign_fk", columns: [t.gameId, t.campaignId], foreignColumns: [games.id, games.campaignId] }).onDelete("restrict"),

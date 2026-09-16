@@ -18,12 +18,14 @@ if (parsed.hostname !== "127.0.0.1" || !parsed.pathname.startsWith("/preparation
 const sql = postgres(url, { prepare: false, max: 8, onnotice: () => {} });
 const db = drizzle(sql);
 const cache = new Map();
+// This is the historical 0008/0009 upgrade suite; use its matching application/schema.
+// Current lifecycle/KPI behavior is exercised by start-game, inheritance and situations.
 function load(file) {
   file = path.resolve(file);
   if (cache.has(file)) return cache.get(file);
   const exports = {};
   cache.set(file, exports);
-  const code = ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+  const code = ts.transpileModule(require('node:child_process').execFileSync('git',['show','fd285158feaae61264c2563377771169b60d8d45:'+path.relative(root,file).split(path.sep).join('/')],{cwd:root,encoding:'utf8'}), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
   vm.runInNewContext(code, { exports, Date, console, require: (name) => {
     if (name === "server-only") return {};
     if (name === "@/db") return { db };

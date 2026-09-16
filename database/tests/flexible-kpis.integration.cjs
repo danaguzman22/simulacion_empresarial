@@ -24,7 +24,7 @@ function load(file) {
   if (cache.has(file)) return cache.get(file);
   const exports = {};
   cache.set(file, exports);
-  const code = ts.transpileModule((legacy ? require('node:child_process').execFileSync('git',['show','HEAD:'+path.relative(root,file).split(path.sep).join('/')],{cwd:root,encoding:'utf8'}) : fs.readFileSync(file,"utf8")), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+  const code = ts.transpileModule((legacy ? require('node:child_process').execFileSync('git',['show','d730e1f053ef29e182ddfc862580ff165b82c650:'+path.relative(root,file).split(path.sep).join('/')],{cwd:root,encoding:'utf8'}) : fs.readFileSync(file,"utf8")), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
   vm.runInNewContext(code, { exports, Date, console, require: (name) => {
     if (name === "server-only") return {};
     if (name === "@/db") return { db };
@@ -71,6 +71,7 @@ async function main() {
  await migrate('0022_flexible_kpi_preparation.sql');legacy=false;cache.clear();modules();
  assert.deepEqual(await sql`SELECT * FROM game_state_sets ORDER BY id`,oldStates);assert.deepEqual(await sql`SELECT * FROM game_state_values ORDER BY id`,oldValues);assert.deepEqual(await sql`SELECT * FROM game_preparation_changes ORDER BY id`,oldAudit);
  assert.deepEqual(await sql`SELECT * FROM game_kpi_changes ORDER BY id`,oldOperationalAudit);
+ for(const file of fs.readdirSync(root+'/database/migrations').filter(f=>f.endsWith('.sql')&&Number(f.slice(0,4))>22).sort())await migrate(file);
  assert((await read(first)).definitions.every(k=>k.origin==='new'));assert((await read(second)).definitions.every(k=>k.origin==='inherited'));assert.equal((await read(second)).predecessor.length,3);
  const finalBefore=await rows(first,'final');assert.deepEqual(await rows(second,'preparation'),finalBefore);
  await assert.rejects(config(second,a,false,'inherited','',observer));
