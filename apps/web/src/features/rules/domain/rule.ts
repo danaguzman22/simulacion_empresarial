@@ -14,3 +14,10 @@ export function validateRule(input:RuleDefinition,definitions:Target[]){
  });
  return {...input,name:input.name.trim(),description:input.description.trim(),displayMessage:input.displayMessage.trim(),effects};
 }
+
+export function effectAmount(direction:string,value:string){
+ const magnitude=value.trim();
+ if(!["increase","decrease"].includes(direction)||!/^\d+(?:\.\d+)?$/.test(magnitude)||magnitude.length>64)throw new RuleError("Ingresá un valor sin signo y elegí Aumentar o Disminuir.");
+ return direction==="decrease"?`-${magnitude}`:magnitude;
+}
+export function effectFields(amount:string){return {direction:amount.startsWith("-")?"decrease":"increase",magnitude:amount.replace(/^[+-]/,"")};}

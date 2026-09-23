@@ -39,3 +39,16 @@ export const gameRuleExecutions=pgTable("game_rule_executions",{
  foreignKey({name:"game_rule_executions_state_fk",columns:[t.stateSetId,t.gameId,t.campaignId],foreignColumns:[gameStateSets.id,gameStateSets.gameId,gameStateSets.campaignId]}).onDelete("restrict"),
  check("game_rule_executions_valid",sql`${t.previousRevision}>=0 and ${t.revision}=${t.previousRevision}+1 and ${t.effectCount}>0 and ((${t.reason}='timer' and ${t.actorId} is null) or (${t.reason}='manual' and ${t.actorId} is not null))`),
 ]).enableRLS();
+
+// Historical identifiers deliberately have no FK to deletable runtime/configuration rows.
+// Reset marks discarded records; authorized game Delete removes them; successor does not copy them.
+export const gameRuleChanges=pgTable("game_rule_changes",{
+ id:uuid("id").defaultRandom().primaryKey(),ruleId:uuid("rule_id").notNull(),effectId:uuid("effect_id").notNull(),
+ gameId:uuid("game_id").notNull(),campaignId:uuid("campaign_id").notNull(),kpiDefinitionId:uuid("kpi_definition_id").notNull(),
+ actorId:uuid("actor_id").notNull().references(()=>profiles.id,{onDelete:"restrict"}),revision:integer("revision").notNull(),
+ discardedByResetId:uuid("discarded_by_reset_id"),
+ reason:text("reason").notNull(),beforeAmount:numeric("before_amount").notNull(),afterAmount:numeric("after_amount").notNull(),
+ createdAt:timestamp("created_at",{withTimezone:true}).defaultNow().notNull(),
+},t=>[uniqueIndex("game_rule_changes_effect_revision_unique").on(t.effectId,t.revision),
+ check("game_rule_changes_valid",sql`${t.revision}>0 and length(trim(${t.reason})) between 1 and 2000`),
+]).enableRLS();

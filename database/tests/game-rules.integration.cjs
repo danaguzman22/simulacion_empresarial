@@ -106,6 +106,11 @@ async function main() {
  const successor=(await games.createGame({campaignId:a.campaign,profileId:co,name:'Successor',type:'custom'})).game.id;
  assert.equal((await ruleRead(successor)).rules.length,2);assert.equal((await ruleRead(successor)).executions.length,0);assert((await ruleRead(successor)).rules.every(r=>r.id!==id&&r.id!==disabled));
  d=await prep.readPreparation(successor,master);const configure=module('preparation/repositories/configure-source-kpi.repository');await assert.rejects(configure.configureSourceKpi(master,{gameId:successor,kpiId:a.cash,operationId:randomUUID(),expectedRevision:d.revision,catalogToken:d.catalogToken,included:false,origin:'inherited',value:''}),/regla/);
+ // Forward upgrade must preserve existing rule amounts and executions.
+ const before25={};for(const table of ['game_rules','game_rule_effects','game_rule_executions','game_kpi_changes'])before25[table]=await sql.unsafe('select to_jsonb(t) row from '+table+' t order by 1');
+ await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/0025_rule_effect_editing.sql','utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
+ for(const table of Object.keys(before25))assert.deepEqual(await sql.unsafe('select to_jsonb(t) row from '+table+' t order by 1'),before25[table]);
+ console.log('PASS: populated 0024 -> 0025 preserves rule amounts, executions and KPI history.');
  // Multiple rules touch the same KPI, with independent audited revisions in one close.
  const b=await fixture();await add(b.game,definition(b.cash,'-5000',0));await add(b.game,definition(b.cash,'-2000',1));await add(b.game,definition(b.cash,'100',2));
  await startGame(b.game);await roundAction(b.game,'start');
@@ -151,7 +156,102 @@ async function main() {
  await assert.rejects(add(multi.game,definition(a.cash)));
  await startGame(multi.game);await roundAction(multi.game,'start');const multiRevision=(await current(multi.game)).revision;await roundAction(multi.game,'finish');
  assert.equal(await value(multi.game,multi.cash),'123135');assert.equal(await value(multi.game,lead),'18.5');assert.equal((await current(multi.game)).revision,multiRevision+1);assert.equal((await ruleRead(multi.game)).executions.length,1);
- for(const table of ['game_rules','game_rule_effects','game_rule_executions'])for(const role of ['anon','authenticated'])assert.equal((await sql`select has_table_privilege(${role},${table},'SELECT,INSERT,UPDATE,DELETE') allowed`)[0].allowed,false);
+
+ // 0025: only amounts may change at runtime; past execution amounts stay immutable.
+ const live=await fixture(600,3);const liveId=await add(live.game,definition(live.cash));await startGame(live.game);
+ const runtimeEdit=async(amount,extra={},actor=master)=>{const r=(await ruleRead(live.game)).rules.find(r=>r.id===liveId);return rules.mutateRule(actor,{gameId:live.game,ruleId:liveId,operation:'update',expectedRevision:r.revision,runtimeEffects:[{kpiId:live.cash,amount}],reason:'Revisar costo',...extra});};
+ async function step(sequence,operation){const r=(await rounds.readRounds(live.game,master)).rounds.find(r=>r.sequence===sequence);return rounds.mutateRound(master,{gameId:live.game,roundId:r.id,operation,operationId:randomUUID(),expectedRevision:r.revision});}
+ await step(1,'start');await step(1,'finish');
+ const oldHistory=JSON.stringify((await ruleRead(live.game)).executions);
+ await step(2,'start');await assert.rejects(runtimeEdit('-3000',{reason:''}),/motivo/);
+ for(const actor of [co,observer]){await assert.rejects(runtimeEdit('-3000',{},actor));assert.equal((await ruleRead(live.game,actor)).canEditEffects,false);}
+ const staleRevision=(await ruleRead(live.game)).rules[0].revision;
+ await runtimeEdit('-3000');await assert.rejects(runtimeEdit('2000',{expectedRevision:staleRevision}),/cambi/);
+ await assert.rejects(runtimeEdit('-1',{runtimeEffects:[{kpiId:live.inventory,amount:'1'}]}));
+ await assert.rejects(runtimeEdit('-1',{runtimeEffects:[]}));
+ await assert.rejects(runtimeEdit('-1',{definition:{...definition(live.cash),name:'Forbidden'}}));
+ await assert.rejects(sql`update game_rule_effects set amount=-2000 where rule_id=${liveId}`);
+ await assert.rejects(sql.begin(async tx=>{await tx`select set_config('nexus.rule_actor',${master},true),set_config('nexus.rule_reason','Direct edit',true)`;await tx`update game_rule_effects set amount=-2000 where rule_id=${liveId}`;}));
+ await step(2,'finish');assert.equal(await value(live.game,live.cash),'120135');
+ assert.equal(JSON.stringify((await ruleRead(live.game)).executions.slice(0,1)),oldHistory);
+ await sql`update games set status='paused' where id=${live.game}`;
+ await assert.rejects(runtimeEdit('2000',{reason:'  '}));await runtimeEdit('2000');
+ await sql`update games set status='active' where id=${live.game}`;
+ await step(3,'start');await step(3,'finish');assert.equal(await value(live.game,live.cash),'122135');
+ const changes=await sql`select * from game_rule_changes where rule_id=${liveId} order by revision`;
+ assert.deepEqual(changes.map(c=>[c.before_amount,c.after_amount]),[['-5000','-3000'],['-3000','2000']]);assert(changes.every(c=>c.reason==='Revisar costo'&&c.actor_id===master));
+ await assert.rejects(sql`update game_rule_changes set reason='Changed' where rule_id=${liveId}`);
+ await assert.rejects(sql`delete from game_rule_changes where rule_id=${liveId}`);
+ await assert.rejects(runtimeEdit('1'));await lifecycle.finishGame(master,{gameId:live.game,operationId:randomUUID()});await assert.rejects(runtimeEdit('1'));
+ const nextLive=(await games.createGame({campaignId:live.campaign,profileId:co,name:'Next',type:'custom'})).game.id;
+ assert.equal((await ruleRead(nextLive)).rules[0].effects[0].amount,'2000');assert.equal((await sql`select count(*)::int n from game_rule_changes where game_id=${nextLive}`)[0].n,0);
+ await lifecycle.deleteGame(master,{gameId:nextLive,operationId:randomUUID()});
+ await assert.rejects(lifecycle.resetGame(master,{gameId:live.game,operationId:randomUUID()}));
+
+ const resetEdit=await fixture();const resetId=await add(resetEdit.game,definition(resetEdit.cash));await startGame(resetEdit.game);
+ await rules.mutateRule(master,{gameId:resetEdit.game,ruleId:resetId,operation:'update',expectedRevision:0,runtimeEffects:[{kpiId:resetEdit.cash,amount:'-3000'}],reason:'Acuerdo con proveedor'});
+ const resetOperation=randomUUID();
+ // A failure after restoration must roll back amounts, audit markers and the complete Reset.
+ await sql.unsafe("CREATE FUNCTION fail_reset_rule_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.details->>'lifecycleOperation'='reset' THEN RAISE EXCEPTION 'injected reset failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER fail_reset_rule_test BEFORE INSERT ON game_preparation_changes FOR EACH ROW EXECUTE FUNCTION fail_reset_rule_test();");
+ await assert.rejects(lifecycle.resetGame(master,{gameId:resetEdit.game,operationId:resetOperation}));
+ assert.equal((await ruleRead(resetEdit.game)).rules[0].effects[0].amount,'-3000');assert.equal((await sql`select status from games where id=${resetEdit.game}`)[0].status,'active');
+ assert.equal((await sql`select discarded_by_reset_id from game_rule_changes where rule_id=${resetId}`)[0].discarded_by_reset_id,null);
+ await sql.unsafe('DROP TRIGGER fail_reset_rule_test ON game_preparation_changes; DROP FUNCTION fail_reset_rule_test();');
+ await lifecycle.resetGame(master,{gameId:resetEdit.game,operationId:resetOperation});assert.equal((await ruleRead(resetEdit.game)).rules[0].effects[0].amount,'-5000');
+ const archived=(await sql`select * from game_rule_changes where rule_id=${resetId}`)[0];assert.equal(archived.discarded_by_reset_id,resetOperation);assert.equal(archived.reason,'Acuerdo con proveedor');assert.equal(archived.before_amount,'-5000');assert.equal(archived.after_amount,'-3000');
+ const afterResetRevision=(await ruleRead(resetEdit.game)).rules[0].revision;assert.equal(afterResetRevision,2);
+ assert.equal((await lifecycle.resetGame(master,{gameId:resetEdit.game,operationId:resetOperation})).replayed,true);assert.equal((await ruleRead(resetEdit.game)).rules[0].revision,afterResetRevision);
+ // A later run must restore its own preparation, not the discarded previous run.
+ await edit(resetEdit.game,resetId,definition(resetEdit.cash,'-7000'));await startGame(resetEdit.game);
+ for(const amount of ['-1000','2000']){const r=(await ruleRead(resetEdit.game)).rules[0];await rules.mutateRule(master,{gameId:resetEdit.game,ruleId:resetId,operation:'update',expectedRevision:r.revision,runtimeEffects:[{kpiId:resetEdit.cash,amount}],reason:'Segunda ejecucion'});}
+ const secondReset=randomUUID();await lifecycle.resetGame(master,{gameId:resetEdit.game,operationId:secondReset});assert.equal((await ruleRead(resetEdit.game)).rules[0].effects[0].amount,'-7000');
+ const archivedRuns=await sql`select discarded_by_reset_id from game_rule_changes where rule_id=${resetId} order by revision`;
+ assert.deepEqual(archivedRuns.map(r=>r.discarded_by_reset_id),[resetOperation,secondReset,secondReset]);
+ await assert.rejects(sql`update game_rule_changes set discarded_by_reset_id=null where rule_id=${resetId}`);
+ await lifecycle.deleteGame(master,{gameId:resetEdit.game,operationId:randomUUID()});assert.equal((await sql`select count(*)::int n from game_rule_changes where rule_id=${resetId}`)[0].n,0);
+ // Normal completion must retain the runtime amount for the successor.
+ const completedEdit=await fixture();const completedRule=await add(completedEdit.game,definition(completedEdit.cash));await startGame(completedEdit.game);
+ await rules.mutateRule(master,{gameId:completedEdit.game,ruleId:completedRule,operation:'update',expectedRevision:0,runtimeEffects:[{kpiId:completedEdit.cash,amount:'-3000'}],reason:'Acuerdo con proveedor'});
+ await roundAction(completedEdit.game,'start');await roundAction(completedEdit.game,'finish');await lifecycle.finishGame(master,{gameId:completedEdit.game,operationId:randomUUID()});
+ const inheritedEdit=(await games.createGame({campaignId:completedEdit.campaign,profileId:co,name:'Next',type:'custom'})).game.id;
+ assert.equal((await ruleRead(inheritedEdit)).rules[0].effects[0].amount,'-3000');assert.equal((await ruleRead(inheritedEdit)).executions.length,0);
+ assert.equal((await sql`select count(*)::int n from game_rule_changes where game_id=${inheritedEdit}`)[0].n,0);
+ console.log('PASS: Reset -5000 -> -3000 -> -5000; discarded audit; replay; full rollback; second-run baseline; completed successor inherits -3000.');
+
+ // Delete cleans both discarded history (above) and the current run, atomically.
+ const deleteEdit=await fixture(),deleteRule=await add(deleteEdit.game,definition(deleteEdit.cash));await startGame(deleteEdit.game);
+ await rules.mutateRule(master,{gameId:deleteEdit.game,ruleId:deleteRule,operation:'update',expectedRevision:0,runtimeEffects:[{kpiId:deleteEdit.cash,amount:'-3000'}],reason:'Delete test'});
+ await sql.unsafe("CREATE FUNCTION fail_game_delete_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected delete failure'; END $$; CREATE TRIGGER zz_fail_game_delete_test BEFORE DELETE ON games FOR EACH ROW EXECUTE FUNCTION fail_game_delete_test();");
+ await assert.rejects(lifecycle.deleteGame(master,{gameId:deleteEdit.game,operationId:randomUUID()}));
+ assert.equal((await sql`select count(*)::int n from game_rule_changes where game_id=${deleteEdit.game}`)[0].n,1);
+ assert.equal((await ruleRead(deleteEdit.game)).rules[0].effects[0].amount,'-3000');
+ await sql.unsafe('DROP TRIGGER zz_fail_game_delete_test ON games; DROP FUNCTION fail_game_delete_test();');
+ await lifecycle.deleteGame(master,{gameId:deleteEdit.game,operationId:randomUUID()});assert.equal((await sql`select count(*)::int n from game_rule_changes where game_id=${deleteEdit.game}`)[0].n,0);
+ assert.equal((await sql`select count(*)::int n from game_rule_changes c left join games g on g.id=c.game_id where g.id is null`)[0].n,0);
+ // A pending lazy close always uses the amount in force before expiry.
+ for(const status of ['active','paused']){
+  const late=await fixture(1,2),lateRule=await add(late.game,definition(late.cash));await startGame(late.game);await roundAction(late.game,'start');await sql`select pg_sleep(1.1)`;
+  if(status==='paused')await sql`update games set status='paused' where id=${late.game}`;
+  const request={gameId:late.game,ruleId:lateRule,operation:'update',expectedRevision:0,runtimeEffects:[{kpiId:late.cash,amount:'-3000'}],reason:'Too late'};
+  await assert.rejects(rules.mutateRule(master,request),/venció/);
+  await assert.rejects(sql.begin(async tx=>{await tx`select set_config('nexus.rule_actor',${master},true),set_config('nexus.rule_reason','Too late',true)`;await tx`update game_rules set revision=revision+1,updated_by=${master} where id=${lateRule}`;}),/RULE_EDIT_ROUND_EXPIRED/);
+  assert.equal((await ruleRead(late.game)).rules[0].revision,0);assert.equal((await sql`select count(*)::int n from game_rule_changes where game_id=${late.game}`)[0].n,0);
+  if(status==='paused')await sql`update games set status='active' where id=${late.game}`;
+  await rounds.readRounds(late.game,master);assert.equal(await value(late.game,late.cash),'123135');assert.equal((await ruleRead(late.game)).executions[0].effects[0].amount,'-5000');
+  await rules.mutateRule(master,request);assert.equal((await ruleRead(late.game)).rules[0].effects[0].amount,'-3000');
+ }
+ // Expiry during the edit transaction also rolls back and returns a controlled error.
+ const crossing=await fixture(1,2),crossingRule=await add(crossing.game,definition(crossing.cash));await startGame(crossing.game);await roundAction(crossing.game,'start');
+ await sql.unsafe('CREATE FUNCTION delay_rule_edit_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(1.1); RETURN NEW; END $$; CREATE TRIGGER zz_delay_rule_edit_test AFTER UPDATE ON game_rule_effects FOR EACH ROW EXECUTE FUNCTION delay_rule_edit_test();');
+ await assert.rejects(rules.mutateRule(master,{gameId:crossing.game,ruleId:crossingRule,operation:'update',expectedRevision:0,runtimeEffects:[{kpiId:crossing.cash,amount:'-3000'}],reason:'Crossing deadline'}),/venció/);
+ await sql.unsafe('DROP TRIGGER zz_delay_rule_edit_test ON game_rule_effects; DROP FUNCTION delay_rule_edit_test();');
+ assert.equal((await ruleRead(crossing.game)).rules[0].revision,0);assert.equal((await sql`select count(*)::int n from game_rule_changes where game_id=${crossing.game}`)[0].n,0);
+ await rounds.readRounds(crossing.game,master);assert.equal(await value(crossing.game,crossing.cash),'123135');
+ console.log('PASS: Delete leaves no rule-change orphans; rollback restores history; expired active/paused edit rejected; late-commit rollback; lazy close uses original amount.');
+ const formFixture=await fixture(),formDomain=module('rules/domain/rule');
+ for(const [direction,expected]of [['increase','5000'],['decrease','-5000']]){const rid=await add(formFixture.game,definition(formFixture.cash,formDomain.effectAmount(direction,'5000')));assert.equal((await ruleRead(formFixture.game)).rules.find(r=>r.id===rid).effects[0].amount,expected);}
+ console.log('PASS 0025: active/paused amount edits; reason; roles; stale revision; targets/structure protected; next close; immutable past amounts; Reset/Delete history and successor.');
+ for(const table of ['game_rules','game_rule_effects','game_rule_executions','game_rule_changes'])for(const role of ['anon','authenticated'])assert.equal((await sql`select has_table_privilege(${role},${table},'SELECT,INSERT,UPDATE,DELETE') allowed`)[0].allowed,false);
  console.log('PASS: rule configuration/roles; manual/timer; shared KPI revisions; rollback; 0023/manual coexistence; reset/delete; successor; automatic authorship; RLS.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>sql.end());

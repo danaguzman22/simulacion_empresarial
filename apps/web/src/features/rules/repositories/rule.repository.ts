@@ -20,14 +20,30 @@ export async function validateGameRules(tx:Transaction,gameId:string,campaignId:
   if(selected.some(e=>!values.some(v=>v.kpiDefinitionId===e.kpiDefinitionId&&v.value!==null)))throw new RuleError(`Configurá los valores iniciales usados por "${r.name}".`);
  }
 }
-export async function mutateRule(actorId:string,input:{gameId:string;ruleId:string;operation:"create"|"update"|"delete";expectedRevision?:number;definition?:RuleDefinition}){
+export async function mutateRule(actorId:string,input:{gameId:string;ruleId:string;operation:"create"|"update"|"delete";expectedRevision?:number;definition?:RuleDefinition;reason?:string;runtimeEffects?:Array<{kpiId:string;amount:string}>}){
  return db.transaction(async tx=>{
   const {game,role}=await access(tx,input.gameId,actorId,true);if(role!=="master")throw new RuleError("Solo Master puede configurar reglas.");
   const [prep]=await tx.select().from(gameStateSets).where(and(eq(gameStateSets.gameId,game.id),eq(gameStateSets.phase,"preparation"))).for("update");
-  if(!["draft","ready"].includes(game.status)||!prep||prep.frozenAt)throw new RuleError("Las reglas solo se configuran antes de iniciar la partida.");
+  const runtime=["active","paused"].includes(game.status);
+  if(!runtime&&(!["draft","ready"].includes(game.status)||!prep||prep.frozenAt))throw new RuleError("Las reglas solo se configuran antes de iniciar la partida.");
   await tx.execute(sql`select set_config('nexus.rule_actor',${actorId},true)`);
   const [old]=await tx.select().from(gameRules).where(eq(gameRules.id,input.ruleId)).for("update");
   if(old&&old.gameId!==game.id)throw new RuleError("Regla inválida.");
+  if(runtime){
+   const expired=await tx.select({id:rounds.id}).from(rounds).where(and(eq(rounds.gameId,game.id),eq(rounds.status,"active"),sql`${rounds.endsAt} <= clock_timestamp()`));
+   if(expired.length)throw new RuleError("El período ya venció. Actualizá los datos para procesar su cierre antes de editar la regla.");
+   if(input.operation!=="update"||!old||old.revision!==input.expectedRevision)throw new RuleError("La regla cambió. Actualizá los datos.");
+   const reason=input.reason?.trim();if(!reason||reason.length>2000)throw new RuleError("Indicá el motivo del cambio (hasta 2000 caracteres).");
+   const saved=await tx.select().from(gameRuleEffects).where(eq(gameRuleEffects.ruleId,old.id));
+   const incoming=input.runtimeEffects??input.definition?.effects??[];
+   const definition=validateRule({...old,effects:incoming},(await selectionContext(tx,game.campaignId,game.id)).definitions);
+   if(saved.length!==definition.effects.length||saved.some(e=>!definition.effects.some(n=>n.kpiId===e.kpiDefinitionId)))throw new RuleError("Durante la partida solo podés cambiar los importes de los efectos existentes.");
+   if(input.definition&&Object.entries(input.definition).some(([key,value])=>key!=="effects"&&old[key as keyof typeof old]!==value))throw new RuleError("La estructura de la regla está bloqueada.");
+   await tx.execute(sql`select set_config('nexus.rule_reason',${reason},true)`);
+   await tx.update(gameRules).set({revision:old.revision+1,updatedBy:actorId}).where(eq(gameRules.id,old.id));
+   for(const effect of definition.effects)await tx.update(gameRuleEffects).set({amount:effect.amount}).where(and(eq(gameRuleEffects.ruleId,old.id),eq(gameRuleEffects.kpiDefinitionId,effect.kpiId)));
+   return {replayed:false};
+  }
   if(input.operation==="delete"&&!old)return {replayed:true};
   if(input.operation!=="create"&&(!old||old.revision!==input.expectedRevision))throw new RuleError("La regla cambió. Actualizá los datos.");
   if(input.operation==="delete"){await tx.delete(gameRuleEffects).where(eq(gameRuleEffects.ruleId,old!.id));await tx.delete(gameRules).where(eq(gameRules.id,old!.id));return {replayed:false};}
@@ -42,6 +58,10 @@ export async function mutateRule(actorId:string,input:{gameId:string;ruleId:stri
   else await tx.insert(gameRules).values({...fields,id:input.ruleId,gameId:game.id,campaignId:game.campaignId,createdBy:actorId,updatedBy:actorId});
   if(effects.length)await tx.insert(gameRuleEffects).values(effects.map(e=>({ruleId:input.ruleId,gameId:game.id,campaignId:game.campaignId,kpiDefinitionId:e.kpiId,amount:e.amount})));
   return {replayed:false};
+ }).catch(error=>{
+  const cause=error?.cause??error;
+  if(cause?.message==="RULE_EDIT_ROUND_EXPIRED")throw new RuleError("El período ya venció. Actualizá los datos para procesar su cierre antes de editar la regla.");
+  throw error;
  });
 }
 export async function copyGameRules(tx:Transaction,previousId:string,gameId:string,campaignId:string,actorId:string){
@@ -58,7 +78,7 @@ export async function readRules(gameId:string,actorId:string){
   const rules=await tx.select().from(gameRules).where(eq(gameRules.gameId,game.id)).orderBy(asc(gameRules.position),asc(gameRules.id));const effects=await tx.select().from(gameRuleEffects).where(eq(gameRuleEffects.gameId,game.id));
   const executions=await tx.select({execution:gameRuleExecutions,sequence:rounds.sequence,name:gameRules.name,message:gameRules.displayMessage}).from(gameRuleExecutions).innerJoin(rounds,eq(rounds.id,gameRuleExecutions.roundId)).innerJoin(gameRules,eq(gameRules.id,gameRuleExecutions.ruleId)).where(eq(gameRuleExecutions.gameId,game.id)).orderBy(asc(gameRuleExecutions.revision));
   const changes=await tx.select({change:gameKpiChanges,name:kpiDefinitions.name,unit:kpiDefinitions.unit}).from(gameKpiChanges).innerJoin(kpiDefinitions,eq(kpiDefinitions.id,gameKpiChanges.kpiDefinitionId)).where(and(eq(gameKpiChanges.gameId,game.id),eq(gameKpiChanges.source,"rule")));
-  return {gameId,canEdit:role==="master"&&["draft","ready"].includes(game.status)&&!!prep&&!prep.frozenAt,periodLabel:game.periodLabel??"Ronda",
+  return {gameId,canEditEffects:role==="master"&&["active","paused"].includes(game.status),canEdit:role==="master"&&["draft","ready"].includes(game.status)&&!!prep&&!prep.frozenAt,periodLabel:game.periodLabel??"Ronda",
    kpis:context.definitions.filter(d=>d.valueType==="numeric").map(d=>({id:d.id,name:d.name,unit:d.unit})),
    rules:rules.map(r=>({...r,createdAt:r.createdAt.toISOString(),updatedAt:r.updatedAt.toISOString(),effects:effects.filter(e=>e.ruleId===r.id).map(e=>({kpiId:e.kpiDefinitionId,amount:e.amount}))})),
    executions:executions.map(({execution:e,sequence,name,message})=>({id:e.id,name,message,sequence,reason:e.reason,executedAt:e.executedAt.toISOString(),effects:changes.filter(c=>c.change.ruleExecutionId===e.id).map(({change:c,name,unit})=>({id:c.id,name,unit,amount:c.amount!,before:(c.before as {value:string}).value,after:(c.after as {value:string}).value}))}))};
