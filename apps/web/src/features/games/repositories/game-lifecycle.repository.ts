@@ -1,3 +1,4 @@
+import { gameRules,gameRuleEffects,gameRuleExecutions } from "@/db/schema";
 import "server-only";
 import { persistGoalResult, resetGoals, deleteGoals } from "@/features/goals/repositories/goal.repository";
 import { GoalError } from "@/features/goals/domain/goal";
@@ -90,6 +91,7 @@ export async function resetGame(actorId: string, input: { gameId: string; operat
     await lifecycleContext(tx, game.id, "reset");
     await resetGoals(tx, game.id, actorId);
     await tx.delete(gameKpiChanges).where(eq(gameKpiChanges.gameId, game.id));
+    await tx.delete(gameRuleExecutions).where(eq(gameRuleExecutions.gameId,game.id));
     await tx.delete(gameSituations).where(eq(gameSituations.gameId, game.id));
     await tx.delete(roundChanges).where(eq(roundChanges.gameId, game.id));
     await tx.delete(rounds).where(eq(rounds.gameId, game.id));
@@ -120,12 +122,15 @@ export async function deleteGame(actorId: string, input: { gameId: string; opera
     await lifecycleAudit(tx, actorId, { operationId: input.operationId, gameId: game.id, campaignId: game.campaignId, operation: "delete", details: { deletedGameId: game.id, sequence: game.sequence } });
     await deleteGoals(tx, game.id);
     await tx.delete(gameKpiChanges).where(eq(gameKpiChanges.gameId, game.id));
+    await tx.delete(gameRuleExecutions).where(eq(gameRuleExecutions.gameId,game.id));
     await tx.delete(gameSituations).where(eq(gameSituations.gameId, game.id));
     await tx.delete(roundChanges).where(eq(roundChanges.gameId, game.id));
     await tx.delete(gamePeriodChanges).where(eq(gamePeriodChanges.gameId, game.id));
     const stateIds = await tx.select({ id: gameStateSets.id }).from(gameStateSets).where(eq(gameStateSets.gameId, game.id));
     if (stateIds.length) await tx.delete(gamePreparationChanges).where(inArray(gamePreparationChanges.stateSetId, stateIds.map((state) => state.id)));
     await tx.delete(gameStateValues).where(eq(gameStateValues.gameId, game.id));
+    await tx.delete(gameRuleEffects).where(eq(gameRuleEffects.gameId,game.id));
+    await tx.delete(gameRules).where(eq(gameRules.gameId,game.id));
     await tx.delete(gameKpis).where(eq(gameKpis.gameId, game.id));
     await tx.delete(gameStateSets).where(eq(gameStateSets.gameId, game.id));
     await tx.delete(rounds).where(eq(rounds.gameId, game.id));

@@ -1,3 +1,4 @@
+import { assertNoRuleDependency } from "@/features/rules/repositories/rule.repository";
 import "server-only";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -22,6 +23,7 @@ export async function configureSourceKpi(actorId:string,input:SourceKpiInput) {
   const association=context.associations.find(k=>k.gameId===game.id&&k.kpiDefinitionId===input.kpiId);
   const [beforeValue]=await tx.select().from(gameStateValues).where(and(eq(gameStateValues.stateSetId,state.id),eq(gameStateValues.kpiDefinitionId,input.kpiId)));
   if(!input.included){
+   await assertNoRuleDependency(tx,game.id,input.kpiId);
    const [goal]=await tx.select({id:gameGoals.id}).from(gameGoals).where(and(eq(gameGoals.gameId,game.id),eq(gameGoals.kpiDefinitionId,input.kpiId))).limit(1);
    if(goal)throw new PreparationError("Este KPI está siendo utilizado por una meta de la partida. Eliminá o modificá la meta antes de quitar el KPI.");
    await tx.delete(gameStateValues).where(and(eq(gameStateValues.stateSetId,state.id),eq(gameStateValues.kpiDefinitionId,input.kpiId)));

@@ -19,9 +19,8 @@ export async function planNumericEffects(tx: Transaction, gameId: string, campai
 }
 
 export async function applyNumericEffects(tx: Transaction, plan: Awaited<ReturnType<typeof planNumericEffects>>, context: {
-  gameId:string;campaignId:string;stateSetId:string;roundId:string;actorId:string;revision:number;requestHash:string;
-  source:"situation";situationId:string;
-}) {
+  gameId:string;campaignId:string;stateSetId:string;roundId:string;actorId:string|null;revision:number;requestHash:string;
+} & ({source:"situation";situationId:string;actorId:string}|{source:"rule";ruleExecutionId:string})) {
   if (!plan.length) return;
   for (const effect of plan) await tx.update(gameStateValues).set({value:effect.after,updatedAt:new Date()}).where(and(eq(gameStateValues.id,effect.rowId),eq(gameStateValues.stateSetId,context.stateSetId)));
   await tx.update(gameStateSets).set({revision:context.revision,updatedBy:context.actorId,updatedAt:new Date()}).where(eq(gameStateSets.id,context.stateSetId));

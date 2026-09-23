@@ -11,6 +11,6 @@ export async function roundAction(_previous:{error?:string;success?:string},form
  if(!UUID_PATTERN.test(operationId)||!["start","pause","resume","finish"].includes(operation))throw new RoundError("Operación inválida.");
  const input:RoundInput={gameId,operationId,operation:operation as RoundInput["operation"]};
  {input.roundId=String(form.get("roundId"));const revision=String(form.get("revision"));if(!UUID_PATTERN.test(input.roundId)||!/^\d+$/.test(revision)||!Number.isSafeInteger(Number(revision))||Number(revision)>=2147483647)throw new RoundError("Revisión inválida.");input.expectedRevision=Number(revision);}
- await mutateRound(actorId,input);revalidatePath(`/master/partidas/${gameId}`);return {success:"Ronda actualizada."};
+ const result=await mutateRound(actorId,input);revalidatePath(`/master/partidas/${gameId}`);return {success:"expired" in result&&result.expired?"El período venció y su cierre fue procesado. Actualizá los datos antes de continuar.":"Ronda actualizada."};
  }catch(error){if(error instanceof RoundError||error instanceof PreparationError)return {error:error.message};console.error("Error de ronda",error);return {error:"No se pudo realizar la operación. Actualizá los datos antes de reintentar."};}
 }

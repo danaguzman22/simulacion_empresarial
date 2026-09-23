@@ -1,3 +1,4 @@
+import { copyGameRules } from "@/features/rules/repositories/rule.repository";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
@@ -24,5 +25,6 @@ export async function createSuccessorGame(tx: Transaction, actorId: string, prev
  await tx.update(gameStateSets).set({ revision: 1 }).where(eq(gameStateSets.id, prep.id));
  await tx.insert(gamePreparationChanges).values({ operationId: input.operationId, campaignId: previous.campaignId, stateSetId: prep.id, actorId, operation: "save_values", requestHash: hash({ actorId, ...input }), previousRevision: 0, revision: 1, details: { sourceStateSetId: source.id, sourceGameId: previous.id } });
  await tx.insert(gameLifecycleChanges).values({ operationId: input.operationId, gameId: created.id, campaignId: previous.campaignId, actorId, operation: "create_from_previous", details: { subjectGameId: created.id, previousGameId: previous.id, sourceStateSetId: source.id } });
+ await copyGameRules(tx,previous.id,created.id,previous.campaignId,actorId);
  return { id: created.id };
 }

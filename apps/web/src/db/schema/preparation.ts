@@ -116,10 +116,11 @@ export const gameStateSets = pgTable("game_state_sets", {
   frozenAt: timestamp("frozen_at", { withTimezone: true }),
   revision: integer("revision").notNull().default(0),
   createdBy: uuid("created_by").notNull().references(() => profiles.id, { onDelete: "restrict" }),
-  updatedBy: uuid("updated_by").notNull().references(() => profiles.id, { onDelete: "restrict" }),
+  updatedBy: uuid("updated_by").references(() => profiles.id, { onDelete: "restrict" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
+  check("game_state_sets_author_valid", sql`${t.updatedBy} is not null or ${t.phase}='current'`),
   uniqueIndex("game_state_sets_game_phase_unique").on(t.gameId, t.phase),
   uniqueIndex("game_state_sets_id_campaign_unique").on(t.id, t.campaignId),
   uniqueIndex("game_state_sets_id_game_campaign_unique").on(t.id, t.gameId, t.campaignId),

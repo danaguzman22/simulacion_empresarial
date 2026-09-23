@@ -1,3 +1,6 @@
+import { completeRound,moveToEvaluationIfComplete } from "./complete-round";
+import { RuleError } from "@/features/rules/domain/rule";
+import { gameStateSets } from "@/db/schema";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { and, asc, eq, sql } from "drizzle-orm";
@@ -17,20 +20,18 @@ async function audit(tx:Transaction,row:Round,actorId:string|null,operation:stri
 }
 async function finishExpired(tx:Transaction,gameId:string){
  const expired=await tx.select().from(rounds).where(and(eq(rounds.gameId,gameId),eq(rounds.status,"active"),sql`${rounds.endsAt} <= clock_timestamp()`)).for("update");
- for(const old of expired){const [row]=await tx.update(rounds).set({status:"completed",revision:old.revision+1}).where(eq(rounds.id,old.id)).returning();await audit(tx,row,null,"finish",randomUUID(),hash({roundId:old.id,endsAt:old.endsAt,reason:"timer"}),old,"timer");}
- await moveToEvaluationIfComplete(tx,gameId);
-}
-async function moveToEvaluationIfComplete(tx:Transaction,gameId:string){
- const [state]=await tx.select({status:games.status}).from(games).where(eq(games.id,gameId)).for("update");
- if(!state||state.status!=="active")return;
- const rows=await tx.select({status:rounds.status}).from(rounds).where(eq(rounds.gameId,gameId));
- if(rows.length>0&&rows.every(row=>row.status==="completed"))await tx.update(games).set({status:"evaluation"}).where(and(eq(games.id,gameId),eq(games.status,"active")));
+ for(const old of expired)await completeRound(tx,old,{actorId:null,reason:"timer",operationId:randomUUID(),requestHash:hash({roundId:old.id,endsAt:old.endsAt,reason:"timer"})});
+ await moveToEvaluationIfComplete(tx,gameId);return expired;
 }
 export async function readRounds(gameId:string,actorId:string){
- return db.transaction(async tx=>{const {game,role}=await lock(tx,gameId,actorId,false);await finishExpired(tx,gameId);const [latestGame]=await tx.select({status:games.status,periodLabel:games.periodLabel}).from(games).where(eq(games.id,gameId));
+ try{return await readRoundState(gameId,actorId,true,null);}catch(error){if(error instanceof RuleError)return readRoundState(gameId,actorId,false,error.message);throw error;}
+}
+async function readRoundState(gameId:string,actorId:string,processExpiry:boolean,closeError:string|null){
+ return db.transaction(async tx=>{const {game,role}=await lock(tx,gameId,actorId,false);if(processExpiry)await finishExpired(tx,gameId);const [latestGame]=await tx.select({status:games.status,periodLabel:games.periodLabel}).from(games).where(eq(games.id,gameId));
  const rows=await tx.select().from(rounds).where(eq(rounds.gameId,gameId)).orderBy(asc(rounds.sequence));
  const time=await tx.execute<{now:Date}>(sql`select clock_timestamp() as now`);
- return {periodLabel:latestGame?.periodLabel??game.periodLabel??"Ronda",gameStatus:latestGame?.status??game.status,canManage:latestGame?.status==="active"&&canWritePreparation(role),serverNow:new Date(time[0].now).toISOString(),rounds:rows.map(r=>({...r,createdAt:r.createdAt.toISOString(),updatedAt:r.updatedAt.toISOString(),startedAt:r.startedAt?.toISOString()??null,endsAt:r.endsAt?.toISOString()??null,pausedAt:r.pausedAt?.toISOString()??null,completedAt:r.completedAt?.toISOString()??null}))};
+ const [current]=await tx.select({revision:gameStateSets.revision}).from(gameStateSets).where(and(eq(gameStateSets.gameId,gameId),eq(gameStateSets.phase,"current")));
+ return {closeError,currentRevision:current?.revision??0,periodLabel:latestGame?.periodLabel??game.periodLabel??"Ronda",gameStatus:latestGame?.status??game.status,canManage:latestGame?.status==="active"&&canWritePreparation(role),serverNow:new Date(time[0].now).toISOString(),rounds:rows.map(r=>({...r,createdAt:r.createdAt.toISOString(),updatedAt:r.updatedAt.toISOString(),startedAt:r.startedAt?.toISOString()??null,endsAt:r.endsAt?.toISOString()??null,pausedAt:r.pausedAt?.toISOString()??null,completedAt:r.completedAt?.toISOString()??null}))};
  });
 }
 export type RoundInput={gameId:string;roundId?:string;operationId:string;operation:RoundOperation;expectedRevision?:number};
@@ -39,9 +40,13 @@ export async function mutateRound(actorId:string,input:RoundInput){
  return db.transaction(async tx=>{const {game}=await lock(tx,input.gameId,actorId,true);
  const [replay]=await tx.select().from(roundChanges).where(eq(roundChanges.operationId,input.operationId));
  if(replay){if(replay.requestHash!==requestHash||replay.actorId!==actorId||replay.gameId!==game.id)throw new RoundError("Identificador de operación utilizado con otros datos.");return {replayed:true};}
- await finishExpired(tx,game.id);
- if(game.status!=="active")throw new RoundError("La partida debe estar activa.");
+ const expired=await finishExpired(tx,game.id);
+ // Commit expiry before checking the submitted revision. The requested command
+ // was not executed; only a matching operation ID above is an actual replay.
+ if(expired.length)return {replayed:false,expired:true};
+
  const [old]=await tx.select().from(rounds).where(and(eq(rounds.id,input.roundId!),eq(rounds.gameId,game.id))).for("update");
+ if(game.status!=="active")throw new RoundError("La partida debe estar activa.");
  if(!old||old.revision!==input.expectedRevision)throw new RoundError("La ronda cambió. Actualizá los datos antes de continuar.");
  assertTransition(old.status,input.operation);
  if(input.operation==="start"||input.operation==="resume"){
@@ -49,10 +54,11 @@ export async function mutateRound(actorId:string,input:RoundInput){
  if(conflicts.length)throw new RoundError("Ya hay una ronda en curso o pausada.");
  if(input.operation==="start"){const earlier=await tx.select({id:rounds.id}).from(rounds).where(and(eq(rounds.gameId,game.id),sql`${rounds.sequence} < ${old.sequence}`,sql`${rounds.status} <> 'completed'`));if(earlier.length)throw new RoundError("Primero deben finalizar las rondas anteriores.");}
  }
- const change=input.operation==="pause"?{status:"paused" as const}:input.operation==="finish"?{status:"completed" as const,completedAt:new Date()}:{status:"active" as const};
+ if(input.operation==="finish"){await completeRound(tx,old,{actorId,operationId:input.operationId,requestHash,reason:"manual"});return {replayed:false};}
+ const change=input.operation==="pause"?{status:"paused" as const}:{status:"active" as const};
  const [row]=await tx.update(rounds).set({...change,revision:old.revision+1}).where(eq(rounds.id,old.id)).returning();
- await audit(tx,row,actorId,input.operation,input.operationId,requestHash,old,input.operation==="finish"?"manual":undefined);
- if(input.operation==="finish")await moveToEvaluationIfComplete(tx,game.id);
+ await audit(tx,row,actorId,input.operation,input.operationId,requestHash,old);
+
  return {replayed:false};
  });
 }

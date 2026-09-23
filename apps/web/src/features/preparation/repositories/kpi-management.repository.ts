@@ -1,3 +1,4 @@
+import { assertNoRuleDependency } from "@/features/rules/repositories/rule.repository";
 ﻿import "server-only";
 import { predecessorKpis } from "./inherited-kpis";
 
@@ -263,6 +264,7 @@ export async function mutateKpi(
 
       const predecessor = await predecessorKpis(tx, game.id);
       if (input.kpiId && ["remove_kpi", "delete_kpi"].includes(input.operation)) {
+        await assertNoRuleDependency(tx,input.operation==="delete_kpi"?null:game.id,input.kpiId);
         const linked = await tx.select({ id: gameGoals.id }).from(gameGoals).where(
           input.operation === "remove_kpi"
             ? and(eq(gameGoals.kpiDefinitionId, input.kpiId), eq(gameGoals.gameId, game.id))

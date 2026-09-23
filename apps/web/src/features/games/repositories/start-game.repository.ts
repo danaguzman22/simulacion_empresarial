@@ -1,3 +1,4 @@
+import { validateGameRules } from "@/features/rules/repositories/rule.repository";
 import "server-only";
 import { and, asc, desc, lt, eq, inArray, max, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -59,6 +60,7 @@ export async function startGame(actorId: string, input: StartGameInput) {
     if (previousGame && restarting && previousGame.status !== "completed") throw new PreparationError("La partida anterior debe finalizarse antes de iniciar esta partida.");
     if (restarting) values = await tx.select().from(gameStateValues).where(eq(gameStateValues.stateSetId, existingInitial!.id));
     validateStartValues(context.definitions, values);
+    await validateGameRules(tx,game.id,game.campaignId);
     const now = new Date();
     if (restarting) await tx.execute(sql`set local nexus.lifecycle_operation = 'restart'`);
     const ids: Partial<Record<"initial" | "current", string>> = {};

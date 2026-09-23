@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { check, foreignKey, index, integer, jsonb, numeric, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { gameSituations } from "./situations";
+import { gameRuleExecutions } from "./game-rules";
 import { games } from "./games";
 import { gameKpis, kpiDefinitions, gameStateSets } from "./preparation";
 import { rounds } from "./rounds";
@@ -9,7 +10,8 @@ import { profiles } from "./profiles";
 export const gameKpiChanges = pgTable("game_kpi_changes", {
   id: uuid("id").defaultRandom().primaryKey(),
   operationId: uuid("operation_id").notNull(),
-  source: text("source").$type<"manual" | "situation">().notNull().default("manual"),
+  source: text("source").$type<"manual" | "situation" | "rule">().notNull().default("manual"),
+  ruleExecutionId: uuid("rule_execution_id").references(()=>gameRuleExecutions.id,{onDelete:"restrict"}),
   situationId: uuid("situation_id").references(() => gameSituations.id, { onDelete: "restrict" }),
   effectType: text("effect_type").$type<"numeric_add">(),
   amount: numeric("amount"),
@@ -18,7 +20,7 @@ export const gameKpiChanges = pgTable("game_kpi_changes", {
   stateSetId: uuid("state_set_id").notNull(),
   roundId: uuid("round_id").notNull(),
   kpiDefinitionId: uuid("kpi_definition_id").notNull(),
-  actorId: uuid("actor_id").notNull().references(() => profiles.id, { onDelete: "restrict" }),
+  actorId: uuid("actor_id").references(() => profiles.id, { onDelete: "restrict" }),
   revision: integer("revision").notNull(),
   operation: text("operation").notNull().default("update"),
   requestHash: text("request_hash").notNull(),
@@ -30,7 +32,8 @@ export const gameKpiChanges = pgTable("game_kpi_changes", {
   uniqueIndex("game_kpi_changes_operation_unique").on(t.operationId),
   uniqueIndex("game_kpi_changes_state_revision_unique").on(t.stateSetId, t.revision, t.kpiDefinitionId),
   uniqueIndex("game_kpi_changes_situation_kpi_unique").on(t.situationId, t.kpiDefinitionId),
-  check("game_kpi_changes_source_valid",sql`(${t.source}='manual' and ${t.situationId} is null and ${t.effectType} is null and ${t.amount} is null) or (${t.source}='situation' and ${t.situationId} is not null and ${t.effectType}='numeric_add' and ${t.amount} is not null and ${t.amount}::text not in ('NaN','Infinity','-Infinity'))`),
+  uniqueIndex("game_kpi_changes_rule_kpi_unique").on(t.ruleExecutionId,t.kpiDefinitionId),
+  check("game_kpi_changes_source_valid",sql`(${t.source}='manual' and ${t.actorId} is not null and ${t.ruleExecutionId} is null and ${t.situationId} is null and ${t.effectType} is null and ${t.amount} is null) or (${t.source}='situation' and ${t.actorId} is not null and ${t.ruleExecutionId} is null and ${t.situationId} is not null and ${t.effectType}='numeric_add' and ${t.amount} is not null and ${t.amount}::text not in ('NaN','Infinity','-Infinity')) or (${t.source}='rule' and ${t.ruleExecutionId} is not null and ${t.situationId} is null and ${t.effectType} is not null and ${t.effectType}='numeric_add' and ${t.amount} is not null and ${t.amount}::text not in ('NaN','Infinity','-Infinity'))`),
   index("game_kpi_changes_game_round_idx").on(t.gameId, t.roundId, t.createdAt),
   index("game_kpi_changes_game_kpi_idx").on(t.gameId, t.kpiDefinitionId, t.createdAt),
   foreignKey({ name: "game_kpi_changes_game_campaign_fk", columns: [t.gameId, t.campaignId], foreignColumns: [games.id, games.campaignId] }).onDelete("restrict"),

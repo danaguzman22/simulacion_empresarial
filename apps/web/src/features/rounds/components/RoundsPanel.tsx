@@ -13,16 +13,17 @@ function Action({gameId,round,operation,label,confirmText,remainingText,children
  </form>;
 }
 export function RoundsPanel({gameId,initial}:{gameId:string;initial:Data}){
- const router=useRouter();const gameStatus=useRef(initial.gameStatus);
+ const router=useRouter();const gameStatus=useRef(initial.gameStatus),currentRevision=useRef(initial.currentRevision);
  const [data,setData]=useState(initial),[now,setNow]=useState(Date.parse(initial.serverNow)),[error,setError]=useState(false);
  const allPeriodsCompleted=(data.gameStatus==="active"||data.gameStatus==="evaluation")&&data.rounds.length>0&&data.rounds.every(round=>round.status==="completed");
  const clock=useRef({server:Date.parse(initial.serverNow),client:0});
  useEffect(()=>{let stopped=false,busy=false;clock.current.client=performance.now();
- const refresh=async()=>{if(busy)return;busy=true;const sent=performance.now();try{const next=await getRounds(gameId);if(!stopped){const received=performance.now();clock.current={server:Date.parse(next.serverNow)+(received-sent)/2,client:received};setNow(clock.current.server);setData(next);setError(false);if(gameStatus.current!==next.gameStatus){gameStatus.current=next.gameStatus;router.refresh();}}}catch{if(!stopped)setError(true);}finally{busy=false;}};
+ const refresh=async()=>{if(busy)return;busy=true;const sent=performance.now();try{const next=await getRounds(gameId);if(!stopped){const received=performance.now();clock.current={server:Date.parse(next.serverNow)+(received-sent)/2,client:received};setNow(clock.current.server);setData(next);setError(false);if(gameStatus.current!==next.gameStatus||currentRevision.current!==next.currentRevision){gameStatus.current=next.gameStatus;currentRevision.current=next.currentRevision;router.refresh();}}}catch{if(!stopped)setError(true);}finally{busy=false;}};
  void refresh();const poll=setInterval(()=>{void refresh();},3000);const tick=setInterval(()=>setNow(clock.current.server+performance.now()-clock.current.client),1000);const visible=()=>{if(document.visibilityState==="visible")void refresh();};document.addEventListener("visibilitychange",visible);
  return()=>{stopped=true;clearInterval(poll);clearInterval(tick);document.removeEventListener("visibilitychange",visible);};
  },[gameId,router]);
  return <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.05] p-6" aria-labelledby="rounds-title"><h2 id="rounds-title" className="text-2xl font-black">Períodos</h2>
+ {data.closeError&&<p role="alert" className="mt-3 text-red-300">{data.closeError}</p>}
  {error&&<p role="alert" className="mt-3 text-amber-300">No se pudo sincronizar. El reloj sigue calculándose desde el último dato del servidor; las acciones se validarán nuevamente.</p>}
  <div className="mt-4 space-y-4">{data.rounds.map(r=>{const expired=r.status==="active"&&remainingMilliseconds(r,now)<=0;const seconds=Math.ceil(remainingMilliseconds(r,now)/1000);const earlierDone=data.rounds.filter(x=>x.sequence<r.sequence).every(x=>x.status==="completed");const otherBusy=data.rounds.some(x=>x.id!==r.id&&(x.status==="active"||x.status==="paused"));return <article key={r.id} className="rounded-2xl border border-white/10 p-5">
  <h3 className="text-xl font-bold">{data.periodLabel} {r.sequence}</h3><p>{expired?"Finalizada (sincronizando)":roundLabels[r.status]}</p><p className="text-sm text-slate-400">Duración: {String(Math.floor(r.durationSeconds/60)).padStart(2,"0")}:{String(r.durationSeconds%60).padStart(2,"0")}</p>

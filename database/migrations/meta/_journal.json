@@ -169,6 +169,13 @@
       "when": 1789513899102,
       "tag": "0023_situations",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1789535298210,
+      "tag": "0024_game_rules",
+      "breakpoints": true
     }
   ]
 }

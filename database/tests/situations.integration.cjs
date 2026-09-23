@@ -18,12 +18,14 @@ if (parsed.hostname !== "127.0.0.1" || !parsed.pathname.startsWith("/preparation
 const sql = postgres(url, { prepare: false, max: 8, onnotice: () => {} });
 const db = drizzle(sql);
 const cache = new Map();
+let legacyCode = true;
 function load(file) {
   file = path.resolve(file);
   if (cache.has(file)) return cache.get(file);
   const exports = {};
   cache.set(file, exports);
-  const code = ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+  const source = legacyCode ? require('node:child_process').execFileSync('git',['show','aa3ae6e1ae34957beb36f1a0f949a500e4e11590:'+path.relative(root,file).replaceAll('\\','/')],{cwd:root,encoding:'utf8'}) : fs.readFileSync(file,'utf8');
+  const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
   vm.runInNewContext(code, { exports, Date, console, require: (name) => {
     if (name === "server-only") return {};
     if (name === "@/db") return { db };
@@ -42,7 +44,9 @@ async function main() {
  for(const id of [master,co,observer])await sql`INSERT INTO auth.users VALUES(${id},'goals@test.test','{}')`;
  await sql`INSERT INTO companies(id,name,created_by) VALUES(${company},'Goals',${master})`;
  const module=name=>load(base+'/src/features/'+name+'.ts');
- const goals=module('goals/repositories/goal.repository'),games=module('games/repositories/game.repository'),lifecycle=module('games/repositories/game-lifecycle.repository'),start=module('games/repositories/start-game.repository'),prep=module('preparation/repositories/preparation.repository'),manage=module('preparation/repositories/kpi-management.repository'),periods=module('rounds/repositories/period-configuration.repository'),rounds=module('rounds/repositories/round.repository');
+ let goals,games,lifecycle,start,prep,manage,periods,rounds;
+ function reload(){goals=module('goals/repositories/goal.repository');games=module('games/repositories/game.repository');lifecycle=module('games/repositories/game-lifecycle.repository');start=module('games/repositories/start-game.repository');prep=module('preparation/repositories/preparation.repository');manage=module('preparation/repositories/kpi-management.repository');periods=module('rounds/repositories/period-configuration.repository');rounds=module('rounds/repositories/round.repository');}
+ reload();
  const generic={title:'Meta repetible',description:null,goalType:'generic',kpiDefinitionId:null,operator:null,numericTarget:null,ordinalTargetKey:null};
  async function fixture() {
   const campaign=randomUUID();await sql`INSERT INTO campaigns(id,company_id,name,created_by) VALUES(${campaign},${company},'Campaign',${master})`;
@@ -78,6 +82,8 @@ async function main() {
  for(const table of Object.keys(preserved))assert.deepEqual(await sql.unsafe("select to_jsonb(t)"+(table==='game_kpi_changes'?" - ARRAY['source','situation_id','effect_type','amount']":"")+" row from "+table+" t order by 1"),preserved[table]);
  assert.equal((await sql`select count(*)::int n from game_situations`)[0].n,0);
  console.log('PASS: real 0022 -> 0023 upgrade preserves snapshots, values, operational/preparation audits, goals and results.');
+ for(const file of fs.readdirSync(root+'/database/migrations').filter(f=>f.endsWith('.sql')&&Number(f.slice(0,4))>23).sort())await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/'+file,'utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
+ legacyCode=false;cache.clear();reload();
  const situations=module('situations/repositories/situation.repository'),operational=module('kpis/repositories/game-kpi.repository');
  const state=async game=>(await sql`select * from game_state_sets where game_id=${game} and phase='current'`)[0];
  const value=async(game,kpi)=>(await sql`select v.value from game_state_values v join game_state_sets s on s.id=v.state_set_id where s.game_id=${game} and s.phase='current' and v.kpi_definition_id=${kpi}`)[0]?.value;
