@@ -1,3 +1,4 @@
+import { gameRoleCards } from "@/db/schema";
 import { gameRules,gameRuleEffects,gameRuleExecutions } from "@/db/schema";
 import "server-only";
 import { persistGoalResult, resetGoals, deleteGoals } from "@/features/goals/repositories/goal.repository";
@@ -134,6 +135,7 @@ export async function deleteGame(actorId: string, input: { gameId: string; opera
     await tx.delete(gameKpis).where(eq(gameKpis.gameId, game.id));
     await tx.delete(gameStateSets).where(eq(gameStateSets.gameId, game.id));
     await tx.delete(rounds).where(eq(rounds.gameId, game.id));
+    await tx.delete(gameRoleCards).where(eq(gameRoleCards.gameId, game.id));
     await tx.delete(games).where(eq(games.id, game.id));
     return { replayed: false, campaignId: game.campaignId };
   });

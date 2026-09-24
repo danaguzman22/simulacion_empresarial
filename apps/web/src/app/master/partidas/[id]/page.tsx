@@ -1,3 +1,4 @@
+import { RoleCards } from "@/features/cards/components/RoleCards";
 import { GamePeriodConfiguration } from "@/features/rounds/components/GamePeriodConfiguration";
 import { GameRules } from "@/features/rules/components/GameRules";
 import { GameRecords } from "@/features/records/components/GameRecords";
@@ -33,6 +34,7 @@ export default async function GamePage({ params }: GamePageProps) {
     <GameDetail game={result.game}>
       <InitialConfiguration gameId={result.game.id} data={result.preparation} />
       <GamePeriodConfiguration gameId={result.game.id} />
+      <RoleCards scope={{ kind: "game", id: result.game.id }} />
       <GameRules gameId={result.game.id} />
       <GameGoals gameId={result.game.id} />
       <GameLifecycle gameId={result.game.id} />

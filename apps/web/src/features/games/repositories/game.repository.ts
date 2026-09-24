@@ -1,3 +1,4 @@
+import { copyCampaignCards } from "@/features/cards/repositories/card.repository";
 import "server-only";
 
 import { randomUUID } from "node:crypto";
@@ -62,6 +63,7 @@ export async function createGame(input: CreateGameInput) {
       throw new Error("No se pudo obtener la partida creada.");
     }
 
+    await copyCampaignCards(tx, campaign.id, game.id, input.profileId);
     return { status: "created", game } as const;
   }, { isolationLevel: "read committed" });
 }

@@ -17,3 +17,4 @@ export * from "./goals";
 export * from "./situations";
 
 export * from "./game-rules";
+export * from "./role-cards";

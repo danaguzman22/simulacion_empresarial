@@ -19,12 +19,14 @@ const sql = postgres(url, { prepare: false, max: 8, onnotice: () => {} });
 const db = drizzle(sql);
 const cache = new Map();
 let legacyCode = true;
+let beforeCards = true; // Historical application code until the 0026 schema is installed.
 function load(file) {
   file = path.resolve(file);
   if (cache.has(file)) return cache.get(file);
   const exports = {};
   cache.set(file, exports);
-  const source=legacyCode?require('node:child_process').execFileSync('git',['show','9ef4b9d61b3f3779fbc6520ce93eed826ed3bf74:'+path.relative(root,file).replaceAll('\\','/')],{cwd:root,encoding:'utf8'}):fs.readFileSync(file,'utf8');
+  const codeRevision=legacyCode?'9ef4b9d61b3f3779fbc6520ce93eed826ed3bf74':beforeCards?'dac0f1269fdad0a6662958bcd65df9ec27f01f76':null;
+  const source=codeRevision?require('node:child_process').execFileSync('git',['show',codeRevision+':'+path.relative(root,file).replaceAll('\\','/')],{cwd:root,encoding:'utf8'}):fs.readFileSync(file,'utf8');
   const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
   vm.runInNewContext(code, { exports, Date, console, require: (name) => {
     if (name === "server-only") return {};
@@ -111,6 +113,10 @@ async function main() {
  await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/0025_rule_effect_editing.sql','utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
  for(const table of Object.keys(before25))assert.deepEqual(await sql.unsafe('select to_jsonb(t) row from '+table+' t order by 1'),before25[table]);
  console.log('PASS: populated 0024 -> 0025 preserves rule amounts, executions and KPI history.');
+ await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/0026_role_cards.sql','utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
+ await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/0027_card_responsibilities_modifiers.sql','utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
+ await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/0028_card_structure.sql','utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
+ beforeCards=false;cache.clear();reload();
  // Multiple rules touch the same KPI, with independent audited revisions in one close.
  const b=await fixture();await add(b.game,definition(b.cash,'-5000',0));await add(b.game,definition(b.cash,'-2000',1));await add(b.game,definition(b.cash,'100',2));
  await startGame(b.game);await roundAction(b.game,'start');

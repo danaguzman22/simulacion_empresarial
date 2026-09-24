@@ -1,3 +1,4 @@
+import { RoleCards } from "@/features/cards/components/RoleCards";
 import { notFound, redirect } from "next/navigation";
 import { listCampaignGames } from "@/features/games/application/list-campaign-games";
 import { CampaignGames } from "@/features/games/components/CampaignGames";
@@ -26,6 +27,7 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
       campaign={result.campaign}
       canReturnToCompany={result.canReturnToCompany}
     >
+      <RoleCards scope={{ kind: "campaign", id: result.campaign.id }} />
       <CampaignGames
         campaignId={result.campaign.id}
         games={result.games}
