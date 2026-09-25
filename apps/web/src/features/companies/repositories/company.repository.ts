@@ -1,4 +1,6 @@
 import "server-only";
+import { institutionAccessSql, requireInstitutionMember } from "@/features/institutions/repositories/institution-access";
+import { canCreateSimulation, InstitutionError, validId } from "@/features/institutions/domain/institution";
 
 import {
   and,
@@ -18,26 +20,14 @@ import type {
   CreateCompanyInput,
 } from "../domain/company";
 
-export async function createCompany(
-  input: CreateCompanyInput
-) {
-  const [company] =
-    await db
-      .insert(companies)
-      .values({
-        name:
-          input.name.trim(),
-
-        description:
-          input.description
-            ?.trim() || null,
-
-        createdBy:
-          input.createdBy,
-      })
-      .returning();
-
-  return company;
+export async function createCompany(input: CreateCompanyInput) {
+  validId(input.institutionId);
+  return db.transaction(async tx => {
+    const member = await requireInstitutionMember(tx, input.institutionId, input.createdBy, true);
+    if (!canCreateSimulation(member.role)) throw new InstitutionError("No tenés permiso docente para crear empresas en esta institución.");
+    const [company] = await tx.insert(companies).values({ name: input.name.trim(), description: input.description?.trim() || null, createdBy: input.createdBy, institutionId: input.institutionId }).returning();
+    return company;
+  });
 }
 
 export async function findCompanyByIdForOwner(
@@ -50,7 +40,7 @@ export async function findCompanyByIdForOwner(
     .where(
       and(
         eq(companies.id, companyId),
-        eq(companies.createdBy, profileId)
+        eq(companies.createdBy, profileId), institutionAccessSql(companies.id, profileId)
       )
     )
     .limit(1);
@@ -65,10 +55,7 @@ export async function findCompaniesCreatedBy(
     .select()
     .from(companies)
     .where(
-      eq(
-        companies.createdBy,
-        profileId
-      )
+      and(eq(companies.createdBy, profileId), institutionAccessSql(companies.id, profileId))
     )
     .orderBy(
       desc(

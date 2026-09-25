@@ -1,3 +1,4 @@
+import { requireCampaignInstitution } from "@/features/institutions/repositories/institution-access";
 import { builtInModifiers, effectiveModifiers, validateStructure, validateModifierDefinition, type Restriction } from "../domain/card-structure";
 import "server-only";
 import { and, asc, eq, sql } from "drizzle-orm";
@@ -19,12 +20,14 @@ async function context(tx: Transaction, scope: CardScope, actor: string, write: 
   const query = tx.select({ role: campaignMembers.role }).from(campaignMembers).where(and(eq(campaignMembers.campaignId, scope.id), eq(campaignMembers.profileId, actor)));
   const [member] = write ? await query.for("share") : await query;
   if (!member || !["master", "co_master", "observer"].includes(member.role)) throw new CardError("No tenés acceso a estas fichas.");
+  await requireCampaignInstitution(tx, scope.id, actor, write);
   return { campaignId: scope.id, role: member.role, editable: true };
 }
 function visibleRestrictions(column: typeof gameRoleCards.restrictions | typeof campaignRoleCards.restrictions, privateAccess: boolean) {
   return privateAccess ? column : sql<Restriction[]>`coalesce((select jsonb_agg(r) from jsonb_array_elements(${column}) r where r->>'visibility'='public'), '[]'::jsonb)`;
 }
 const publicColumns = {
+  secretRevealLimit: gameRoleCards.secretRevealLimit, secretRevealSeconds: gameRoleCards.secretRevealSeconds,
   configuredModifiers: gameRoleCards.configuredModifiers, abilities: gameRoleCards.abilities, weaknesses: gameRoleCards.weaknesses,
   selectedResponsibilities: gameRoleCards.selectedResponsibilities, ana: gameRoleCards.ana, vis: gameRoleCards.vis, neg: gameRoleCards.neg, ope: gameRoleCards.ope, ada: gameRoleCards.ada,
   id: gameRoleCards.id, revision: gameRoleCards.revision, name: gameRoleCards.name, department: gameRoleCards.department,
@@ -100,7 +103,7 @@ function copiedFields(c: typeof campaignRoleCards.$inferSelect) {
 export async function copyCampaignCards(tx: Transaction, campaignId: string, gameId: string, actor: string, sourceId?: string) {
   const sources = await tx.select().from(campaignRoleCards).where(sourceId ? and(eq(campaignRoleCards.campaignId, campaignId), eq(campaignRoleCards.id, sourceId)) : eq(campaignRoleCards.campaignId, campaignId));
   if (sourceId && !sources.length) throw new CardError("Ficha base no disponible.");
-  if (sources.length) await tx.insert(gameRoleCards).values(sources.map(c => ({ ...copiedFields(c), campaignId, gameId, sourceCardId: c.id, createdBy: actor, updatedBy: actor }))).onConflictDoNothing({ target: [gameRoleCards.gameId, gameRoleCards.sourceCardId] });
+  if (sources.length) await tx.insert(gameRoleCards).values(sources.map(c => ({ ...copiedFields(c), secretRevealLimit: 2, secretRevealSeconds: 10, campaignId, gameId, sourceCardId: c.id, createdBy: actor, updatedBy: actor }))).onConflictDoNothing({ target: [gameRoleCards.gameId, gameRoleCards.sourceCardId] });
 }
 export async function addCardToGame(gameId: string, actor: string, sourceId: string) {
   validId(sourceId);
@@ -112,7 +115,7 @@ export async function addCardToGame(gameId: string, actor: string, sourceId: str
 }
 export async function copySuccessorCards(tx: Transaction, previousId: string, gameId: string, campaignId: string, actor: string) {
   const cards = await tx.select().from(gameRoleCards).where(and(eq(gameRoleCards.gameId, previousId), eq(gameRoleCards.campaignId, campaignId)));
-  if (cards.length) await tx.insert(gameRoleCards).values(cards.map(c => ({ ...copiedFields(c), privateInformation: c.privateInformation, individualObjective: c.individualObjective, secretObjective: c.secretObjective, sourceCardId: c.sourceCardId, gameId, campaignId, createdBy: actor, updatedBy: actor })));
+  if (cards.length) await tx.insert(gameRoleCards).values(cards.map(c => ({ ...copiedFields(c), secretRevealLimit: c.secretRevealLimit ?? 2, secretRevealSeconds: c.secretRevealSeconds ?? 10, privateInformation: c.privateInformation, individualObjective: c.individualObjective, secretObjective: c.secretObjective, sourceCardId: c.sourceCardId, gameId, campaignId, createdBy: actor, updatedBy: actor })));
 }
 
 async function rememberResponsibility(tx: Transaction, actor: string, label: string) {

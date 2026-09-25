@@ -7,6 +7,7 @@ type Company = {
   name: string;
   description: string | null;
   createdAt: Date;
+  institutionId: string | null;
 };
 
 type CompanyListProps = {
@@ -45,8 +46,9 @@ export function CompanyList({
 
       {companies.map(
         (company) => (
+          <div key={company.id}>
+          {!company.institutionId && <p className="mb-2 text-sm text-amber-300">Pendiente de vinculación institucional · Acceso legado</p>}
           <CompanyCard
-            key={company.id}
             id={company.id}
             name={company.name}
             description={
@@ -56,6 +58,7 @@ export function CompanyList({
               company.createdAt
             }
           />
+          </div>
         )
       )}
 

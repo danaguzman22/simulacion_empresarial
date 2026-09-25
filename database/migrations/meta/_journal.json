@@ -204,6 +204,27 @@
       "when": 1790207394089,
       "tag": "0028_card_structure",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1790282900983,
+      "tag": "0029_student_assignments",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1790288308496,
+      "tag": "0030_institutions",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1790300035630,
+      "tag": "0031_card_secret_reveals",
+      "breakpoints": true
     }
   ]
 }

@@ -116,6 +116,11 @@ async function main() {
  await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/0026_role_cards.sql','utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
  await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/0027_card_responsibilities_modifiers.sql','utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
  await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/0028_card_structure.sql','utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
+ await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/0029_student_assignments.sql','utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
+ await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/0030_institutions.sql','utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
+ const institution=await require('./institution-fixture.cjs')(sql,[master,co,observer],master);
+ await sql.begin(async tx=>{await tx`select set_config('nexus.institution_actor',${master},true)`;await tx`update companies set institution_id=${institution} where id=${company}`;});
+ await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/0031_card_secret_reveals.sql','utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
  beforeCards=false;cache.clear();reload();
  // Multiple rules touch the same KPI, with independent audited revisions in one close.
  const b=await fixture();await add(b.game,definition(b.cash,'-5000',0));await add(b.game,definition(b.cash,'-2000',1));await add(b.game,definition(b.cash,'100',2));

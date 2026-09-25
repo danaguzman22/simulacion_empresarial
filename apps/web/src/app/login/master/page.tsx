@@ -23,17 +23,17 @@ export default function MasterLoginPage() {
           </p>
 
           <h1 className="mt-3 text-4xl font-black tracking-tight">
-            Acceso Master
+            Acceso a NEXUS
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-slate-400">
-            Iniciá sesión para administrar
-            tus simulaciones empresariales.
+            Iniciá sesión con tu cuenta. Después verás los accesos que tenés habilitados.
           </p>
         </header>
 
         <section className="rounded-3xl border border-white/10 bg-white/[0.05] p-6 shadow-2xl">
           <MasterLoginForm />
+          <Link className="mt-4 block text-sky-300" href="/login/alumno">Crear una cuenta</Link>
         </section>
 
       </div>

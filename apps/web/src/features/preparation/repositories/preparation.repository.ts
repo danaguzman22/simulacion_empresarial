@@ -1,3 +1,4 @@
+import { institutionAccessSql, requireCampaignInstitution } from "@/features/institutions/repositories/institution-access";
 import "server-only";
 import { inheritedKpiIds, predecessorKpis } from "./inherited-kpis";
 
@@ -13,6 +14,7 @@ import {
 import { db } from "@/db";
 import {
   campaigns,
+  companies,
   campaignMembers,
   games,
   gameKpis,
@@ -335,9 +337,9 @@ export async function access(
           )
         )
       )
-      .where(
-        eq(games.id, gameId)
-      );
+      .innerJoin(campaigns, eq(campaigns.id, games.campaignId))
+      .innerJoin(companies, eq(companies.id, campaigns.companyId))
+      .where(and(eq(games.id, gameId), institutionAccessSql(companies.id, actorId)));
 
   const [found] = write
     ? await query.for(
@@ -363,6 +365,7 @@ export async function access(
     );
   }
 
+  if (write) await requireCampaignInstitution(tx, found.game.campaignId, actorId, true);
   return found;
 }
 

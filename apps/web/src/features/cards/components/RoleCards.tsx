@@ -1,3 +1,4 @@
+import { RevealConfigurationForm } from "@/features/secrets/components/RevealConfigurationForm";
 import { CardStructureView } from "./CardStructureView";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -28,6 +29,7 @@ export async function RoleCards({ scope }: { scope: CardScope }) {
         <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">{selectedResponsibilities(card).map(label => <li key={label} className="whitespace-pre-wrap break-words">{label}</li>)}</ul>
         <CardStructureView card={card} />
         <section className="mt-4"><h4 className="font-bold">Objetivos</h4><p className="mt-2 text-xs text-slate-400">Objetivo público</p><p className="whitespace-pre-wrap text-sm">{card.individualObjective || "Sin configurar."}</p>{data.canReadPrivate&&<><p className="mt-2 text-xs text-slate-400">Objetivo secreto · Solo Master</p><p className="whitespace-pre-wrap text-sm">{card.secretObjective || "Sin configurar."}</p></>}</section>
+        {scope.kind === "game" && <section className="mt-4"><h4 className="font-bold">Revelaciones del objetivo secreto</h4><p className="text-sm text-slate-400">{card.secretRevealLimit == null ? "Sin configurar para esta partida." : `${card.secretRevealLimit} usos compartidos por departamento, de ${card.secretRevealSeconds} segundos.`}</p>{data.canEdit && <RevealConfigurationForm key={`${card.id}:${card.revision}:reveals`} gameId={scope.id} card={card} />}</section>}
         {data.canEdit && <details className="mt-4"><summary className="cursor-pointer text-sky-300">Editar ficha</summary><CardForm key={`${card.id}:${card.revision}`} scope={scope} card={card} catalogue={data.responsibilityCatalogue} modifierCatalogue={data.modifierCatalogue} /></details>}
       </article>;
     })}</div>

@@ -1,4 +1,5 @@
-import { gameRoleCards } from "@/db/schema";
+import { requireCampaignInstitution } from "@/features/institutions/repositories/institution-access";
+import { cardSecretReveals, gameRoleCards } from "@/db/schema";
 import { gameRules,gameRuleEffects,gameRuleExecutions } from "@/db/schema";
 import "server-only";
 import { persistGoalResult, resetGoals, deleteGoals } from "@/features/goals/repositories/goal.repository";
@@ -26,6 +27,7 @@ async function replayLifecycle(tx: Transaction, actorId: string, input: { gameId
  await tx.select({ id: campaigns.id }).from(campaigns).where(eq(campaigns.id, audit.campaignId)).for("update");
  const [member] = await tx.select().from(campaignMembers).where(and(eq(campaignMembers.campaignId, audit.campaignId), eq(campaignMembers.profileId, actorId))).for("share");
  if (!member || (operation === "finish" ? !["master", "co_master"].includes(member.role) : member.role !== "master")) throw new GameLifecycleError("No tenés permiso para esta operación.");
+ await requireCampaignInstitution(tx, audit.campaignId, actorId, true);
  return audit;
 }
 async function lifecycleContext(tx: Transaction, gameId: string, operation: "reset" | "delete") {
@@ -90,6 +92,7 @@ export async function resetGame(actorId: string, input: { gameId: string; operat
     const discardedValues = discardedIds.length ? await tx.select().from(gameStateValues).where(inArray(gameStateValues.stateSetId, discardedIds)) : [];
     await lifecycleAudit(tx, actorId, { operationId: input.operationId, gameId: game.id, campaignId: game.campaignId, operation: "reset", details: { sourceStateSetId: sourceId, mode: sourceId ? "inherited" : "editable", discardedStates: discarded, discardedValues, configuration } });
     await lifecycleContext(tx, game.id, "reset");
+    await tx.update(cardSecretReveals).set({ discardedAt: sql`clock_timestamp()` }).where(and(eq(cardSecretReveals.gameId, game.id), sql`${cardSecretReveals.discardedAt} is null`));
     await resetGoals(tx, game.id, actorId);
     await tx.delete(gameKpiChanges).where(eq(gameKpiChanges.gameId, game.id));
     await tx.delete(gameRuleExecutions).where(eq(gameRuleExecutions.gameId,game.id));

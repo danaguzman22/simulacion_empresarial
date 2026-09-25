@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 type CompanyDetailProps = {
   children?: ReactNode;
   company: {
+    institutionId: string | null;
     name: string;
     description: string | null;
     createdAt: Date;
@@ -34,6 +35,7 @@ export function CompanyDetail({
             </h1>
           </header>
 
+          {!company.institutionId && <p className="mt-4 text-amber-300">Pendiente de vinculación institucional. El acceso legado conserva las simulaciones existentes; no admite nuevas campañas ni asignaciones de alumnos.</p>}
           {company.description && (
             <p className="mt-4 max-w-2xl whitespace-pre-wrap break-words text-sm leading-6 text-slate-400">
               {company.description}

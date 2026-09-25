@@ -1,3 +1,4 @@
+import { institutionAccessSql, requireCampaignInstitution } from "@/features/institutions/repositories/institution-access";
 import { copyCampaignCards } from "@/features/cards/repositories/card.repository";
 import "server-only";
 
@@ -5,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import { createSuccessorGame } from "./create-successor.repository";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { campaigns, campaignMembers, games } from "@/db/schema";
+import { campaigns, campaignMembers, games, companies } from "@/db/schema";
 import { canCreateGame } from "../domain/game-access";
 import { nextGameSequence, type GameType } from "../domain/game";
 
@@ -43,6 +44,7 @@ export async function createGame(input: CreateGameInput) {
       return { status: "forbidden" } as const;
     }
 
+    await requireCampaignInstitution(tx, campaign.id, input.profileId, true);
     const [last] = await tx.select().from(games).where(eq(games.campaignId, campaign.id)).orderBy(desc(games.sequence)).limit(1).for("update");
     if (last) {
       const game = await createSuccessorGame(tx, input.profileId, last, { name: input.name.trim(), description: input.description?.trim() || null, type: input.type, operationId: randomUUID() });
@@ -68,7 +70,7 @@ export async function createGame(input: CreateGameInput) {
   }, { isolationLevel: "read committed" });
 }
 
-export async function findGamesByCampaign(campaignId: string) {
+export async function findGamesByCampaign(campaignId: string, actorId: string) {
   return db
     .select({
       id: games.id,
@@ -79,7 +81,10 @@ export async function findGamesByCampaign(campaignId: string) {
       status: games.status,
     })
     .from(games)
-    .where(eq(games.campaignId, campaignId))
+    .innerJoin(campaigns, eq(campaigns.id, games.campaignId))
+    .innerJoin(companies, eq(companies.id, campaigns.companyId))
+    .innerJoin(campaignMembers, and(eq(campaignMembers.campaignId, games.campaignId), eq(campaignMembers.profileId, actorId)))
+    .where(and(eq(games.campaignId, campaignId), institutionAccessSql(companies.id, actorId)))
     .orderBy(asc(games.sequence));
 }
 
@@ -106,7 +111,8 @@ export async function findGameByIdForMember(gameId: string, profileId: string) {
         eq(campaignMembers.profileId, profileId)
       )
     )
-    .where(eq(games.id, gameId))
+    .innerJoin(companies, eq(companies.id, campaigns.companyId))
+    .where(and(eq(games.id, gameId), institutionAccessSql(companies.id, profileId)))
     .limit(1);
 
   return game ?? null;

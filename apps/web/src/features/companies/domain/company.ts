@@ -1,4 +1,5 @@
 export type CreateCompanyInput = {
+  institutionId: string;
   name: string;
   description: string | null;
   createdBy: string;

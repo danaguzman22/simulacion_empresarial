@@ -1,3 +1,5 @@
+import { institutionAccessSql, requireCompanyInstitution } from "@/features/institutions/repositories/institution-access";
+import { InstitutionError } from "@/features/institutions/domain/institution";
 import "server-only";
 
 import { and, asc, eq } from "drizzle-orm";
@@ -7,6 +9,8 @@ import type { CreateCampaignInput } from "../domain/campaign";
 
 export async function createCampaign(input: CreateCampaignInput) {
   return db.transaction(async (tx) => {
+    const company = await requireCompanyInstitution(tx, input.companyId, input.createdBy, true);
+    if (company.createdBy !== input.createdBy || !company.institutionId) throw new InstitutionError("Vinculá la empresa a una institución antes de crear nuevas campañas.");
     const [campaign] = await tx
       .insert(campaigns)
       .values({
@@ -31,7 +35,7 @@ export async function createCampaign(input: CreateCampaignInput) {
   });
 }
 
-export async function findCampaignsByCompany(companyId: string) {
+export async function findCampaignsByCompany(companyId: string, actorId: string) {
   return db
     .select({
       id: campaigns.id,
@@ -40,7 +44,8 @@ export async function findCampaignsByCompany(companyId: string) {
       status: campaigns.status,
     })
     .from(campaigns)
-    .where(eq(campaigns.companyId, companyId))
+    .innerJoin(companies, eq(companies.id, campaigns.companyId))
+    .where(and(eq(campaigns.companyId, companyId), eq(companies.createdBy, actorId), institutionAccessSql(companies.id, actorId)))
     .orderBy(asc(campaigns.createdAt), asc(campaigns.id));
 }
 
@@ -69,7 +74,7 @@ export async function findCampaignByIdForMember(
       )
     )
     .innerJoin(companies, eq(companies.id, campaigns.companyId))
-    .where(eq(campaigns.id, campaignId))
+    .where(and(eq(campaigns.id, campaignId), institutionAccessSql(companies.id, profileId)))
     .limit(1);
 
   return campaign ?? null;

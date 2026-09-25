@@ -45,7 +45,8 @@ async function main() {
  for(const file of fs.readdirSync(root+'/database/migrations').filter(f=>f.endsWith('.sql')).sort()) await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/'+file,'utf8').replace(/^\uFEFF/,'').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
  const master=randomUUID(),co=randomUUID(),observer=randomUUID(),company=randomUUID();
  for(const id of [master,co,observer])await sql`INSERT INTO auth.users VALUES(${id},'goals@test.test','{}')`;
- await sql`INSERT INTO companies(id,name,created_by) VALUES(${company},'Goals',${master})`;
+ const institution=await require('./institution-fixture.cjs')(sql,[master,co,observer],master);
+ await sql`INSERT INTO companies(id,name,created_by,institution_id) VALUES(${company},'Goals',${master},${institution})`;
  const module=name=>load(base+'/src/features/'+name+'.ts');
  let goals,games,lifecycle,start,prep,manage,periods,rounds;
  function reload(){goals=module('goals/repositories/goal.repository');games=module('games/repositories/game.repository');lifecycle=module('games/repositories/game-lifecycle.repository');start=module('games/repositories/start-game.repository');prep=module('preparation/repositories/preparation.repository');manage=module('preparation/repositories/kpi-management.repository');periods=module('rounds/repositories/period-configuration.repository');rounds=module('rounds/repositories/round.repository');}

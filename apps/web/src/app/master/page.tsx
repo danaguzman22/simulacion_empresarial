@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { teachingInstitutions } from "@/features/institutions/repositories/institution.repository";
+import { isTeacherAccount } from "@/features/auth/repositories/teacher-access.repository";
 import {
   redirect,
 } from "next/navigation";
@@ -33,6 +36,8 @@ export default async function MasterPage() {
     redirect("/login/master");
   }
 
+  if (!await isTeacherAccount(userId)) redirect("/acceso");
+  const institutions = await teachingInstitutions(userId);
   const companies =
     await listMasterCompanies(
       userId
@@ -43,6 +48,7 @@ export default async function MasterPage() {
       <div className="mx-auto max-w-6xl">
 
         <MasterHeader />
+        <Link href="/acceso" className="text-sky-300">Cambiar experiencia / Mis instituciones</Link>
 
         <section className="mt-10 grid gap-8 lg:grid-cols-[380px_1fr]">
 
@@ -64,7 +70,7 @@ export default async function MasterPage() {
               </p>
 
               <div className="mt-6">
-                <CreateCompanyForm />
+                <CreateCompanyForm institutions={institutions} />
               </div>
 
             </div>

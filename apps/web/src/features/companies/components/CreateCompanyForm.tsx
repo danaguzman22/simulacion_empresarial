@@ -12,7 +12,7 @@ import {
 const initialState:
   CreateCompanyState = {};
 
-export function CreateCompanyForm() {
+export function CreateCompanyForm({ institutions = [] }: { institutions?: { id: string; name: string }[] }) {
 
   const [
     state,
@@ -29,6 +29,8 @@ export function CreateCompanyForm() {
       className="space-y-5"
     >
 
+      <label className="block">Institución<select required name="institutionId" className="mt-2 w-full rounded bg-slate-900 p-3"><option value="">Seleccionar institución</option>{institutions.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select></label>
+      {!institutions.length && <p className="text-amber-300">Necesitás habilitación docente en una institución para crear empresas nuevas.</p>}
       <div>
         <label
           htmlFor="name"
@@ -78,7 +80,7 @@ export function CreateCompanyForm() {
 
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || !institutions.length}
         className="w-full rounded-2xl bg-white px-5 py-3.5 font-black text-slate-950 transition hover:bg-slate-200 disabled:cursor-wait disabled:opacity-50"
       >
         {pending

@@ -1,3 +1,4 @@
+import { getAuthenticatedUserId } from "@/features/auth/application/get-authenticated-user-id";
 import "server-only";
 
 import { getCampaignDetail } from "@/features/campaigns/application/get-campaign-detail";
@@ -11,7 +12,9 @@ export async function listCampaignGames(campaignId: string) {
     return { status: "not-found" } as const;
   }
 
-  const games = await findGamesByCampaign(result.campaign.id);
+  const actorId = await getAuthenticatedUserId();
+  if (!actorId) return { status: "unauthenticated" } as const;
+  const games = await findGamesByCampaign(result.campaign.id, actorId);
   return {
     ...result,
     games,

@@ -69,6 +69,7 @@ async function main() {
  await sql`update game_role_cards set ana=3,vis=1,neg=0,ope=-1,ada=null,revision=revision+1 where id=${legacyCard}`;
  const oldRows={};for(const table of ['campaign_role_cards','game_role_cards'])oldRows[table]=await sql.unsafe('select to_jsonb(t) row from '+table+' t order by id');
  await migrate('0028_card_structure.sql');
+ await migrate('0029_student_assignments.sql');
  for(const table of Object.keys(oldRows)) {
   const after=await sql.unsafe("select to_jsonb(t)-'configured_modifiers'-'abilities'-'weaknesses'-'restrictions'"+(table==='campaign_role_cards'?"-'private_information'-'individual_objective'-'secret_objective'":"")+" row from "+table+" t order by id");
   assert.deepEqual(after,oldRows[table]);
@@ -76,9 +77,13 @@ async function main() {
  console.log('PASS upgrade 0027 -> 0028: every original column preserved, including zero modifiers.');
 
 
+ await sql`insert into campaign_members(campaign_id,profile_id,role) values(${legacyCampaign},${legacyActor},'master')`;
+ await migrate('0030_institutions.sql');
+ await migrate('0031_card_secret_reveals.sql');
  const master=randomUUID(),co=randomUUID(),observer=randomUUID(),company=randomUUID();
  for(const id of [master,co,observer])await sql`INSERT INTO auth.users VALUES(${id},'goals@test.test','{}')`;
- await sql`INSERT INTO companies(id,name,created_by) VALUES(${company},'Goals',${master})`;
+ const institution=await require('./institution-fixture.cjs')(sql,[master,co,observer],master);
+ await sql`INSERT INTO companies(id,name,created_by,institution_id) VALUES(${company},'Goals',${master},${institution})`;
  const module=name=>load(base+'/src/features/'+name+'.ts');
  let goals,games,lifecycle,start,prep,manage,periods,rounds;
  function reload(){goals=module('goals/repositories/goal.repository');games=module('games/repositories/game.repository');lifecycle=module('games/repositories/game-lifecycle.repository');start=module('games/repositories/start-game.repository');prep=module('preparation/repositories/preparation.repository');manage=module('preparation/repositories/kpi-management.repository');periods=module('rounds/repositories/period-configuration.repository');rounds=module('rounds/repositories/round.repository');}
@@ -110,7 +115,7 @@ async function main() {
  const campaignScope=id=>({kind:'campaign',id}),gameScope=id=>({kind:'game',id});
 
  // Render existing 0026 text after 0027 through the actual server component/form.
- await sql`insert into campaign_members(campaign_id,profile_id,role) values(${legacyCampaign},${legacyActor},'master')`;
+
  sessionActor=legacyActor;
  const render=localRequire('react-dom/server').renderToStaticMarkup;
  const {RoleCards}=load(base+'/src/features/cards/components/RoleCards.tsx');

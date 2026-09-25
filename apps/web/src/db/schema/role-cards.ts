@@ -32,12 +32,16 @@ export const campaignRoleCards = pgTable("campaign_role_cards", {
   check("campaign_role_cards_valid", sql`length(trim(${t.name})) between 1 and 160 and length(${t.department})<=160 and length(${t.visualIdentity})<=160 and length(${t.description})<=5000 and length(${t.responsibilities})<=5000 and length(${t.publicInformation})<=5000 and ${t.revision}>=0`),
 ]).enableRLS();
 export const gameRoleCards = pgTable("game_role_cards", {
+  secretRevealLimit: integer("secret_reveal_limit"),
+  secretRevealSeconds: integer("secret_reveal_seconds"),
   id: uuid("id").defaultRandom().primaryKey(), gameId: uuid("game_id").notNull(), campaignId: uuid("campaign_id").notNull(),
   sourceCardId: uuid("source_card_id").notNull(), ...content(),
   privateInformation: text("private_information").notNull().default(""),
   individualObjective: text("individual_objective").notNull().default(""),
   secretObjective: text("secret_objective").notNull().default(""),
 }, t => [uniqueIndex("game_role_cards_source_unique").on(t.gameId, t.sourceCardId),
+  check("game_role_cards_reveal_config_valid", sql`(${t.secretRevealLimit} is null and ${t.secretRevealSeconds} is null) or (${t.secretRevealLimit} is not null and ${t.secretRevealSeconds} is not null and ${t.secretRevealLimit} between 0 and 100 and ${t.secretRevealSeconds} between 1 and 3600)`),
+  uniqueIndex("game_role_cards_assignment_identity_unique").on(t.id, t.gameId, t.campaignId),
   foreignKey({ name: "game_role_cards_game_fk", columns: [t.gameId, t.campaignId], foreignColumns: [games.id, games.campaignId] }).onDelete("cascade"),
   foreignKey({ name: "game_role_cards_source_fk", columns: [t.sourceCardId, t.campaignId], foreignColumns: [campaignRoleCards.id, campaignRoleCards.campaignId] }).onDelete("restrict"),
   check("game_role_cards_valid", sql`length(trim(${t.name})) between 1 and 160 and length(${t.department})<=160 and length(${t.visualIdentity})<=160 and length(${t.description})<=5000 and length(${t.responsibilities})<=5000 and length(${t.publicInformation})<=5000 and length(${t.privateInformation})<=5000 and length(${t.individualObjective})<=5000 and length(${t.secretObjective})<=5000 and ${t.revision}>=0`),

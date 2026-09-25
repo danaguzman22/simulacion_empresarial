@@ -10,6 +10,6 @@ export async function listCompanyCampaigns(companyId: string) {
     return result;
   }
 
-  const campaigns = await findCampaignsByCompany(result.company.id);
+  const campaigns = await findCampaignsByCompany(result.company.id, result.company.createdBy);
   return { ...result, campaigns };
 }

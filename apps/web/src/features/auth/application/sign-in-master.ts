@@ -52,5 +52,5 @@ export async function signInMaster(
     };
   }
 
-  redirect("/master");
+  redirect("/acceso");
 }

@@ -35,10 +35,9 @@ export default function Home() {
 
           <AccessCard
             icon="🎭"
-            title="Jugador"
-            description="Ingresá a una sala y accedé a la información correspondiente a tu departamento."
-            href="/jugador"
-            disabled
+            title="Alumno"
+            description="Consultá tus partidas asignadas y la ficha compartida de tu departamento."
+            href="/login/alumno"
           />
 
           <AccessCard

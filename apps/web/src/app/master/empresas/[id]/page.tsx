@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { CompanyInstitutionLink } from "@/features/institutions/components/CompanyInstitutionLink";
 
 import {
   listCompanyCampaigns,
@@ -30,8 +31,10 @@ export default async function CompanyPage({
 
   return (
     <CompanyDetail company={result.company}>
+      {!result.company.institutionId && <CompanyInstitutionLink companyId={result.company.id} />}
       <CompanyCampaigns
         companyId={result.company.id}
+        canCreate={Boolean(result.company.institutionId)}
         campaigns={result.campaigns}
       />
     </CompanyDetail>

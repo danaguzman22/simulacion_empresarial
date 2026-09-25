@@ -65,6 +65,7 @@ export async function createCompanyAction(
 
     await createCompany({
       name,
+      institutionId: String(formData.get("institutionId") ?? ""),
 
       description:
         typeof description ===

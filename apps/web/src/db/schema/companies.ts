@@ -7,10 +7,12 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { profiles } from "./profiles";
+import { institutions } from "./institutions";
 
 export const companies = pgTable(
   "companies",
   {
+    institutionId: uuid("institution_id").references(() => institutions.id),
     id: uuid("id")
       .defaultRandom()
       .primaryKey(),
@@ -48,6 +50,7 @@ export const companies = pgTable(
       .notNull(),
   },
   (table) => [
+    index("companies_institution_idx").on(table.institutionId),
     index("companies_created_by_idx")
       .on(table.createdBy),
   ]
