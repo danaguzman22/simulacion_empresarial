@@ -42,8 +42,10 @@ export function SecretReveal({ gameId, summary }: { gameId: string; summary: Rev
     const refresh = () => { cancelHold(); setWindowState(null); invalidate(); if (summary.enabled && document.visibilityState === "visible") void load(false); };
     // Recovery is a separate authorized request, never part of initial HTML.
     const startup = setTimeout(refresh, 0);
-    window.addEventListener("focus", refresh); document.addEventListener("visibilitychange", refresh);
-    return () => { mounted.current = false; invalidate(); clearTimeout(startup); if (holdTimer.current) clearTimeout(holdTimer.current); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
+    // Only visibility changes re-sync: a window "focus" fires on the same click that
+    // starts a hold in an unfocused window and would cancel it.
+    document.addEventListener("visibilitychange", refresh);
+    return () => { mounted.current = false; invalidate(); clearTimeout(startup); if (holdTimer.current) clearTimeout(holdTimer.current); document.removeEventListener("visibilitychange", refresh); };
   }, [load, cancelHold, invalidate, summary.enabled]);
   useEffect(() => {
     if (!windowState) return;
