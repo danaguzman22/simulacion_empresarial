@@ -27,7 +27,7 @@ export async function readAssignedCard(gameId: string, actorId: string) {
       publicInformation: cards.publicInformation, privateInformation: cards.privateInformation, individualObjective: cards.individualObjective,
       configuredModifiers: cards.configuredModifiers, ana: cards.ana, vis: cards.vis, neg: cards.neg, ope: cards.ope, ada: cards.ada,
       secretRevealLimit: cards.secretRevealLimit, secretRevealSeconds: cards.secretRevealSeconds,
-      hasSecret: sql<boolean>`length(trim(${cards.secretObjective})) > 0`,
+      hasSecret: sql<boolean>`coalesce(length(btrim(${cards.secretObjective})) > 0, false)`,
       abilities: cards.abilities, weaknesses: cards.weaknesses, restrictions: cards.restrictions, revision: cards.revision,
     }).from(cards).where(and(eq(cards.id, assignment.cardId), eq(cards.gameId, gameId), eq(cards.campaignId, assignment.campaignId)));
     if (!card) return null;
@@ -36,7 +36,7 @@ export async function readAssignedCard(gameId: string, actorId: string) {
       .orderBy(asc(profiles.displayName), asc(assignments.id));
     const [count] = await tx.select({ used: sql<number>`count(*)::integer` }).from(cardSecretReveals).where(and(eq(cardSecretReveals.cardId, card.id), isNull(cardSecretReveals.discardedAt)));
     const availability = await tx.execute<{ allowed: boolean }>(sql`select public.secret_reveal_execution_open(${gameId}::uuid) as allowed`);
-    const reveal = { limit: card.secretRevealLimit ?? 0, durationSeconds: card.secretRevealSeconds ?? 0, used: count.used, configured: card.secretRevealLimit !== null && card.hasSecret, enabled: availability[0].allowed };
+    const reveal = { limit: card.secretRevealLimit ?? 0, durationSeconds: card.secretRevealSeconds ?? 0, used: count.used, configured: card.secretRevealLimit !== null && card.secretRevealSeconds !== null && card.hasSecret, enabled: availability[0].allowed };
     return { reveal, game: { id: gameId, name: assignment.name, status: assignment.status }, card, teammates };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }

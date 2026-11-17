@@ -29,7 +29,7 @@ async function participant(tx: Transaction, gameId: string, actor: string) {
   await requireCampaignInstitution(tx, game.campaignId, actor, true);
   const [assignment] = await tx.select().from(assignments).where(and(eq(assignments.gameId, game.id), eq(assignments.campaignId, game.campaignId), eq(assignments.profileId, actor))).for("share");
   if (!assignment) throw new RevealError("No tenés acceso a esta ficha.");
-  const [card] = await tx.select({ id: cards.id, limit: cards.secretRevealLimit, seconds: cards.secretRevealSeconds, hasSecret: sql<boolean>`length(trim(${cards.secretObjective})) > 0` }).from(cards)
+  const [card] = await tx.select({ id: cards.id, limit: cards.secretRevealLimit, seconds: cards.secretRevealSeconds, hasSecret: sql<boolean>`coalesce(length(btrim(${cards.secretObjective})) > 0, false)` }).from(cards)
     .where(and(eq(cards.id, assignment.cardId), eq(cards.gameId, game.id), eq(cards.campaignId, game.campaignId))).for("update");
   if (!card) throw new RevealError("No tenés acceso a esta ficha.");
   const result = await tx.execute<{ allowed: boolean }>(sql`select public.secret_reveal_execution_open(${game.id}::uuid) as allowed`);

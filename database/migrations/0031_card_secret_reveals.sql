@@ -69,7 +69,12 @@ BEGIN
  SELECT * INTO c FROM public.game_role_cards WHERE id=NEW.card_id AND game_id=target_game AND campaign_id=target_campaign FOR UPDATE;
  IF NOT FOUND OR NEW.campaign_id IS DISTINCT FROM target_campaign OR NEW.discarded_at IS NOT NULL THEN RAISE EXCEPTION 'Invalid secret reveal identity'; END IF;
  IF NOT public.secret_reveal_execution_open(target_game) THEN RAISE EXCEPTION 'Game is not open for secret reveals'; END IF;
- IF c.secret_reveal_limit IS NULL OR c.secret_reveal_seconds IS NULL OR length(trim(c.secret_objective))=0 THEN RAISE EXCEPTION 'Secret reveal is not configured'; END IF;
+IF c.secret_reveal_limit IS NULL
+   OR c.secret_reveal_seconds IS NULL
+   OR nullif(btrim(c.secret_objective), '') IS NULL
+  THEN
+    RAISE EXCEPTION 'Secret reveal is not configured';
+  END IF;
  SELECT count(*) INTO used FROM public.card_secret_reveals WHERE card_id=c.id AND discarded_at IS NULL;
  IF used>=c.secret_reveal_limit THEN RAISE EXCEPTION 'Shared secret reveal quota exhausted'; END IF;
  IF EXISTS(SELECT 1 FROM public.card_secret_reveals WHERE card_id=c.id AND actor_id=NEW.actor_id AND discarded_at IS NULL AND expires_at>clock_timestamp()) THEN RAISE EXCEPTION 'Actor already has an open reveal'; END IF;
