@@ -71,6 +71,8 @@ Reglas del proyecto:
 
 ## Pruebas
 
+En cada Pull Request hacia `develop` o `main`, GitHub Actions (`.github/workflows/ci.yml`) corre lint, `db:check`, build, las pruebas unitarias y todas las de integración contra un PostgreSQL 17 descartable. No usa secretos ni toca Supabase. El resultado aparece en la pestaña **Checks** del PR. Para correrlas en tu máquina:
+
 ### Unitarias (sin base de datos)
 
 Desde la raíz del repo, después de `npm install` en `apps/web`:

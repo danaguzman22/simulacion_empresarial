@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Placeholder values only: CI never connects to Supabase and holds no secrets.
+# The app and drizzle.config.ts refuse to start without these variables.
+env:
+  DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/not_used
+  DATABASE_MIGRATION_URL: postgresql://ci:ci@127.0.0.1:5432/not_used
+  NEXT_PUBLIC_SUPABASE_URL: https://ci.invalid
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  verificacion:
+    name: Lint, db:check, build y pruebas unitarias
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Instalar dependencias
+        working-directory: apps/web
+        run: npm ci
+      - name: Lint
+        working-directory: apps/web
+        run: npm run lint
+      - name: db:check
+        working-directory: apps/web
+        run: npm run db:check
+      - name: Build
+        working-directory: apps/web
+        run: npm run build
+      - name: Pruebas unitarias
+        run: |
+          failed=0
+          for test in database/tests/*.test.cjs; do
+            echo "::group::$test"
+            node "$test" || { echo "::error file=$test::Falló $test"; failed=1; }
+            echo "::endgroup::"
+          done
+          exit $failed
+
+  integracion:
+    name: Pruebas de integración (PostgreSQL 17)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      # Full history: some suites load older file versions with `git show <commit>`
+      # to test upgrades from earlier migrations.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Instalar dependencias
+        working-directory: apps/web
+        run: npm ci
+      - name: Crear roles de Supabase
+        run: psql -v ON_ERROR_STOP=1 -c "CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN;"
+      # Each suite migrates an empty database from 0000, so it gets a fresh one.
+      - name: Pruebas de integración
+        run: |
+          failed=0
+          for test in database/tests/*.integration.cjs; do
+            name=$(basename "$test" .integration.cjs | tr '-' '_')
+            db="preparation_${name}"
+            echo "::group::$test"
+            createdb "$db"
+            PREPARATION_TEST_URL="postgresql://postgres:postgres@127.0.0.1:5432/$db" node "$test" \
+              || { echo "::error file=$test::Falló $test"; failed=1; }
+            dropdb "$db"
+            echo "::endgroup::"
+          done
+          exit $failed
