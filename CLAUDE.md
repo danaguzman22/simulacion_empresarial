@@ -19,8 +19,9 @@ La dueña del proyecto es Dana. Ella decide. Hablale en español rioplatense, co
 ## De dónde salen las tareas y las decisiones
 
 - Cada trabajo corresponde a una **issue de GitHub**. Si te piden algo que no tiene issue, avisá antes de empezar.
-- Las decisiones de diseño tienen código (`D-xx`, `M-1`) y están en el documento de decisiones de Dana, fuera del repo. Cada issue copia el texto de las decisiones que implementa: tomalo de ahí. Si algo no está decidido, preguntá; no lo inventes.
-- Los roles y permisos están definidos en la issue de jerarquía. No agregues permisos que no estén ahí.
+- Las decisiones de diseño tienen código (`D-xx`, `M-1`) y están en `docs/DECISIONES.md`, que es la fuente de verdad. Las issues citan los códigos y remiten a ese archivo; no copian el texto. Si algo no está decidido ahí, preguntá; no lo inventes.
+- Los roles y permisos están en la sección "Roles y permisos" de `docs/DECISIONES.md`. No agregues permisos que no estén ahí.
+- Si una tarea cambia una decisión, actualizá `docs/DECISIONES.md` en el mismo Pull Request, con la fecha.
 
 ## Ramas y Pull Requests
 
