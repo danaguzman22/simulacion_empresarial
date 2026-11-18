@@ -99,6 +99,7 @@ async function main() {
  await assert.rejects(repo.readInstitution(student,i));
  await repo.resolveRequest(master,i,request.id,'rejected');
  assert.equal((await sql`select * from institution_members where profile_id=${student}`).length,0);
+ assert.equal(await repo.hasActiveMembership(student),false,'rejected request grants no membership');
  await repo.requestAccess(student,i,'Again');request=(await sql`select * from institution_access_requests where profile_id=${student} and status='pending'`)[0];
  // Deliberate failure at request resolution must roll back the membership insert.
  await sql.unsafe("create function test_reject_resolution() returns trigger language plpgsql as $$ begin raise exception 'injected failure'; end $$; create trigger zz_test_resolution before update on institution_access_requests for each row execute function test_reject_resolution();");
@@ -107,6 +108,9 @@ async function main() {
  await sql.unsafe('drop trigger zz_test_resolution on institution_access_requests; drop function test_reject_resolution();');
  await Promise.all([repo.resolveRequest(master,i,request.id,'approved'),repo.resolveRequest(master,i,request.id,'approved')]);
  const [studentMember]=await sql`select * from institution_members where profile_id=${student} and institution_id=${i}`;assert.equal(studentMember.role,'member');
+ // Freshly approved, without games or teaching permissions: /acceso shows the welcome message.
+ sessionActor=student;const welcome=await module('auth/application/get-experiences').getExperiences();sessionActor=null;
+ assert.deepEqual(welcome,{teacher:false,participant:false,member:true});
  assert.equal((await repo.readInstitution(student,i)).requests.length,0);
  assert.equal((await repo.readInstitution(student,i)).members.length,0);
  assert.equal(await teacher.isTeacherAccount(student),false);
@@ -134,6 +138,8 @@ async function main() {
  assert.equal(await students.readAssignedCard(game,student),null);assert.equal((await students.listAssignedGames(student)).length,0);
  const [coMember]=await sql`select * from institution_members where profile_id=${co} and institution_id=${i}`;
  await repo.changeInstitutionMember(master,i,coMember.id,coMember.revision,'revoke');
+ assert.equal(await repo.hasActiveMembership(co),false,'revoked in its only institution');
+ assert.equal(await repo.hasActiveMembership(student),true,'revoked in one institution, still active in another');
  await assert.rejects(prep.readPreparation(game,co));assert.equal(await teacher.isTeacherAccount(co),false);
  await assert.rejects(repo.changeInstitutionMember(master,i,studentMember.id,studentMember.revision,'teacher'),/Recarg/);
  console.log('PASS explicit linking, no unlink/reparent, approved assignments only, cross-institution denial, dual experiences, immediate revocation and stale revision');
