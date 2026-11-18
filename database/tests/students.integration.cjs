@@ -116,6 +116,7 @@ async function main() {
  await startGame(a.game);
  let detail=await students.readAssignedCard(a.game,s1);
  assert.equal(detail.card.id,engineering);assert.equal(detail.teammates.length,2);
+ assert.equal(detail.clock.period,null,'no period running yet: no countdown');assert(!Number.isNaN(Date.parse(detail.clock.serverNow)));
  const payload=JSON.stringify(detail);assert(!payload.includes('SECRET-'));assert(!payload.includes('secretObjective'));assert(!payload.includes('Finance'));assert(payload.includes('PRIVATE-RESTRICTION-Engineering'));
  assert.equal(await students.readAssignedCard(b.game,s1),null);
  await add(b,other,'one@test.test');await startGame(b.game);
@@ -135,8 +136,16 @@ async function main() {
  await lifecycle.resetGame(master,{gameId:a.game,operationId:randomUUID()});
  assert.equal(JSON.stringify(await sql`select * from game_card_assignments where game_id=${a.game} order by id`),before);
  assert.equal(await students.readAssignedCard(a.game,s1),null);
- await startGame(a.game);await roundAction(a.game,'start');await roundAction(a.game,'finish');
- assert.equal((await students.readAssignedCard(a.game,s1)).game.status,'evaluation');
+ await startGame(a.game);await roundAction(a.game,'start');
+ // Clock: the server sends the period end time and its own time; the browser only counts down from them.
+ detail=await students.readAssignedCard(a.game,s1);let period=(await rounds.readRounds(a.game,master)).rounds[0];
+ assert.deepEqual({...detail.clock.period},{label:'Semana 1',name:period.name,status:'active',endsAt:period.endsAt,remainingMs:null});
+ assert(Date.parse(detail.clock.serverNow)<Date.parse(detail.clock.period.endsAt));
+ await roundAction(a.game,'pause');detail=await students.readAssignedCard(a.game,s1);period=(await rounds.readRounds(a.game,master)).rounds[0];
+ assert.equal(detail.clock.period.status,'paused');assert.equal(detail.clock.period.remainingMs,period.remainingMs);assert(period.remainingMs>0);
+ assert.equal(await students.readAssignedCard(a.game,s3),null,'no card, so no clock either');
+ await roundAction(a.game,'finish');
+ detail=await students.readAssignedCard(a.game,s1);assert.equal(detail.game.status,'evaluation');assert.equal(detail.clock.period,null,'finished periods show no countdown');
  await assert.rejects(add(a,finance,'three@test.test'));
  await lifecycle.finishGame(master,{gameId:a.game,operationId:randomUUID()});
  assert.equal((await students.readAssignedCard(a.game,s1)).game.status,'completed');
