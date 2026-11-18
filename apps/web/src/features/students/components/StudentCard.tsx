@@ -10,7 +10,7 @@ export function StudentCard({ data }: { data: NonNullable<Awaited<ReturnType<typ
   const statuses: Record<string, string> = { active: "En curso", paused: "En pausa", evaluation: "En evaluación", completed: "Finalizada" };
   return <main className="min-h-screen bg-slate-950 px-5 py-8 text-white"><div className="mx-auto max-w-4xl">
     <Link href="/alumno" className="text-sky-300">Volver a mis partidas</Link><p className="mt-6 text-slate-400">{game.name} · {statuses[game.status]}</p>
-    <StudentClock key={data.clock.serverNow} clock={data.clock} gameActive={game.status === "active" || game.status === "paused"} />
+    <StudentClock clock={data.clock} gameActive={game.status === "active" || game.status === "paused"} />
     <article className="mt-4 rounded-3xl border border-white/10 bg-white/5 p-6"><p className="text-sky-300">{card.department}</p><h1 className="text-3xl font-black">{card.name}</h1>
       {card.visualIdentity && <p className="mt-2">{card.visualIdentity}</p>}<p className="mt-3 whitespace-pre-wrap">{card.description}</p>
       <h2 className="mt-5 font-bold">Responsabilidades</h2><ul className="list-inside list-disc">{selectedResponsibilities(card).map(r => <li key={r}>{r}</li>)}</ul>
