@@ -1,8 +1,8 @@
 import { institutionAccessSql } from "@/features/institutions/repositories/institution-access";
 import "server-only";
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { gameCardAssignments as assignments, gameRoleCards as cards, games, campaigns, companies, profiles, cardSecretReveals } from "@/db/schema";
+import { gameCardAssignments as assignments, gameRoleCards as cards, games, campaigns, companies, profiles, cardSecretReveals, rounds } from "@/db/schema";
 import { canReadAssignedCard } from "../domain/assignment";
 
 export async function listAssignedGames(actorId: string) {
@@ -16,7 +16,7 @@ export async function listAssignedGames(actorId: string) {
 
 export async function readAssignedCard(gameId: string, actorId: string) {
   return db.transaction(async tx => {
-    const [assignment] = await tx.select({ cardId: assignments.cardId, gameId: games.id, campaignId: games.campaignId, name: games.name, status: games.status })
+    const [assignment] = await tx.select({ cardId: assignments.cardId, gameId: games.id, campaignId: games.campaignId, name: games.name, status: games.status, periodLabel: games.periodLabel })
       .from(assignments).innerJoin(games, and(eq(games.id, assignments.gameId), eq(games.campaignId, assignments.campaignId)))
       .innerJoin(campaigns, eq(campaigns.id, games.campaignId)).innerJoin(companies, eq(companies.id, campaigns.companyId))
       .where(and(eq(assignments.profileId, actorId), eq(assignments.gameId, gameId), institutionAccessSql(companies.id, actorId)));
@@ -37,6 +37,11 @@ export async function readAssignedCard(gameId: string, actorId: string) {
     const [count] = await tx.select({ used: sql<number>`count(*)::integer` }).from(cardSecretReveals).where(and(eq(cardSecretReveals.cardId, card.id), isNull(cardSecretReveals.discardedAt)));
     const availability = await tx.execute<{ allowed: boolean }>(sql`select public.secret_reveal_execution_open(${gameId}::uuid) as allowed`);
     const reveal = { limit: card.secretRevealLimit ?? 0, durationSeconds: card.secretRevealSeconds ?? 0, used: count.used, configured: card.secretRevealLimit !== null && card.secretRevealSeconds !== null && card.hasSecret, enabled: availability[0].allowed };
-    return { reveal, game: { id: gameId, name: assignment.name, status: assignment.status }, card, teammates };
+    // Clock: the server sends the end time (or the paused remainder) and its own time; the browser only counts down.
+    const [round] = await tx.select({ sequence: rounds.sequence, name: rounds.name, status: rounds.status, endsAt: rounds.endsAt, remainingMs: rounds.remainingMs })
+      .from(rounds).where(and(eq(rounds.gameId, gameId), eq(rounds.campaignId, assignment.campaignId), inArray(rounds.status, ["active", "paused"])));
+    const time = await tx.execute<{ now: Date }>(sql`select clock_timestamp() as now`);
+    const clock = { serverNow: new Date(time[0].now).toISOString(), period: round ? { label: `${assignment.periodLabel ?? "Ronda"} ${round.sequence}`, name: round.name, status: round.status, endsAt: round.endsAt?.toISOString() ?? null, remainingMs: round.remainingMs } : null };
+    return { reveal, clock, game: { id: gameId, name: assignment.name, status: assignment.status }, card, teammates };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
