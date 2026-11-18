@@ -108,9 +108,8 @@ async function main() {
  await sql.unsafe('drop trigger zz_test_resolution on institution_access_requests; drop function test_reject_resolution();');
  await Promise.all([repo.resolveRequest(master,i,request.id,'approved'),repo.resolveRequest(master,i,request.id,'approved')]);
  const [studentMember]=await sql`select * from institution_members where profile_id=${student} and institution_id=${i}`;assert.equal(studentMember.role,'member');
- // Freshly approved, without games or teaching permissions: /acceso shows the welcome message.
- sessionActor=student;const welcome=await module('auth/application/get-experiences').getExperiences();sessionActor=null;
- assert.deepEqual(welcome,{teacher:false,participant:false,member:true});
+ // The student kept its pre-0030 assignment, so it is a participant: no welcome message.
+ sessionActor=student;assert.deepEqual(await module('auth/application/get-experiences').getExperiences(),{teacher:false,participant:true,member:true});sessionActor=null;
  assert.equal((await repo.readInstitution(student,i)).requests.length,0);
  assert.equal((await repo.readInstitution(student,i)).members.length,0);
  assert.equal(await teacher.isTeacherAccount(student),false);
@@ -126,7 +125,11 @@ async function main() {
  await assert.rejects(sql`update companies set institution_id=null where id=${company}`);
  await assert.rejects(add(),/aprobada/);
  await repo.requestAccess(late,i,'Late participant');const [lateRequest]=await sql`select * from institution_access_requests where profile_id=${late}`;await repo.resolveRequest(master,i,lateRequest.id,'approved');
+ // Freshly approved, without games or teaching permissions: /acceso shows the welcome message.
+ const lateExperiences=async()=>{sessionActor=late;try{return await module('auth/application/get-experiences').getExperiences();}finally{sessionActor=null;}};
+ assert.deepEqual(await lateExperiences(),{teacher:false,participant:false,member:true});
  await add();await assert.rejects(add(student));
+ assert.deepEqual(await lateExperiences(),{teacher:false,participant:true,member:true},'once assigned, the welcome gives way to the games');
  const newCompany=await companyRepo.createCompany({name:'New company',description:null,createdBy:master,institutionId:i});assert.equal(newCompany.institutionId,i);
  await assert.rejects(companyRepo.createCompany({name:'Cross tenant',createdBy:master,institutionId:j}));
  await begin();assert.equal((await students.readAssignedCard(game,student)).card.privateInformation,'PRIVATE');assert(!JSON.stringify(await students.readAssignedCard(game,student)).includes('SECRET'));
