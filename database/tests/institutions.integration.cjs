@@ -99,6 +99,7 @@ async function main() {
  await assert.rejects(repo.readInstitution(student,i));
  await repo.resolveRequest(master,i,request.id,'rejected');
  assert.equal((await sql`select * from institution_members where profile_id=${student}`).length,0);
+ assert.equal(await repo.hasActiveMembership(student),false,'rejected request grants no membership');
  await repo.requestAccess(student,i,'Again');request=(await sql`select * from institution_access_requests where profile_id=${student} and status='pending'`)[0];
  // Deliberate failure at request resolution must roll back the membership insert.
  await sql.unsafe("create function test_reject_resolution() returns trigger language plpgsql as $$ begin raise exception 'injected failure'; end $$; create trigger zz_test_resolution before update on institution_access_requests for each row execute function test_reject_resolution();");
@@ -107,6 +108,8 @@ async function main() {
  await sql.unsafe('drop trigger zz_test_resolution on institution_access_requests; drop function test_reject_resolution();');
  await Promise.all([repo.resolveRequest(master,i,request.id,'approved'),repo.resolveRequest(master,i,request.id,'approved')]);
  const [studentMember]=await sql`select * from institution_members where profile_id=${student} and institution_id=${i}`;assert.equal(studentMember.role,'member');
+ // The student kept its pre-0030 assignment, so it is a participant: no welcome message.
+ sessionActor=student;assert.deepEqual({...await module('auth/application/get-experiences').getExperiences()},{teacher:false,participant:true,member:true});sessionActor=null;
  assert.equal((await repo.readInstitution(student,i)).requests.length,0);
  assert.equal((await repo.readInstitution(student,i)).members.length,0);
  assert.equal(await teacher.isTeacherAccount(student),false);
@@ -122,7 +125,12 @@ async function main() {
  await assert.rejects(sql`update companies set institution_id=null where id=${company}`);
  await assert.rejects(add(),/aprobada/);
  await repo.requestAccess(late,i,'Late participant');const [lateRequest]=await sql`select * from institution_access_requests where profile_id=${late}`;await repo.resolveRequest(master,i,lateRequest.id,'approved');
+ // Freshly approved, without games or teaching permissions: /acceso shows the welcome message.
+ // Spread copies the vm-realm object so deepStrictEqual does not compare prototypes.
+ const lateExperiences=async()=>{sessionActor=late;try{return {...await module('auth/application/get-experiences').getExperiences()};}finally{sessionActor=null;}};
+ assert.deepEqual(await lateExperiences(),{teacher:false,participant:false,member:true});
  await add();await assert.rejects(add(student));
+ assert.deepEqual(await lateExperiences(),{teacher:false,participant:true,member:true},'once assigned, the welcome gives way to the games');
  const newCompany=await companyRepo.createCompany({name:'New company',description:null,createdBy:master,institutionId:i});assert.equal(newCompany.institutionId,i);
  await assert.rejects(companyRepo.createCompany({name:'Cross tenant',createdBy:master,institutionId:j}));
  await begin();assert.equal((await students.readAssignedCard(game,student)).card.privateInformation,'PRIVATE');assert(!JSON.stringify(await students.readAssignedCard(game,student)).includes('SECRET'));
@@ -134,6 +142,8 @@ async function main() {
  assert.equal(await students.readAssignedCard(game,student),null);assert.equal((await students.listAssignedGames(student)).length,0);
  const [coMember]=await sql`select * from institution_members where profile_id=${co} and institution_id=${i}`;
  await repo.changeInstitutionMember(master,i,coMember.id,coMember.revision,'revoke');
+ assert.equal(await repo.hasActiveMembership(co),false,'revoked in its only institution');
+ assert.equal(await repo.hasActiveMembership(student),true,'revoked in one institution, still active in another');
  await assert.rejects(prep.readPreparation(game,co));assert.equal(await teacher.isTeacherAccount(co),false);
  await assert.rejects(repo.changeInstitutionMember(master,i,studentMember.id,studentMember.revision,'teacher'),/Recarg/);
  console.log('PASS explicit linking, no unlink/reparent, approved assignments only, cross-institution denial, dual experiences, immediate revocation and stale revision');
