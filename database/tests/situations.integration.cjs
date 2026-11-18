@@ -84,6 +84,9 @@ async function main() {
  console.log('PASS: real 0022 -> 0023 upgrade preserves snapshots, values, operational/preparation audits, goals and results.');
  for(const file of fs.readdirSync(root+'/database/migrations').filter(f=>f.endsWith('.sql')&&Number(f.slice(0,4))>23).sort())await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/'+file,'utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
  legacyCode=false;cache.clear();reload();
+ // After 0030, new campaigns need a linked company: approve everyone and link it like an admin would.
+ const institution=await require('./institution-fixture.cjs')(sql,[master,co,observer],master);
+ await module('institutions/repositories/institution.repository').linkLegacyCompany(master,institution,company);
  const situations=module('situations/repositories/situation.repository'),operational=module('kpis/repositories/game-kpi.repository');
  const state=async game=>(await sql`select * from game_state_sets where game_id=${game} and phase='current'`)[0];
  const value=async(game,kpi)=>(await sql`select v.value from game_state_values v join game_state_sets s on s.id=v.state_set_id where s.game_id=${game} and s.phase='current' and v.kpi_definition_id=${kpi}`)[0]?.value;
