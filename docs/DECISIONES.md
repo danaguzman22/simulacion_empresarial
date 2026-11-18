@@ -2,7 +2,7 @@
 
 Fuente de verdad de las decisiones del proyecto. Las issues de GitHub citan estos códigos (`D-xx`, `M-1`) en lugar de copiar el texto. Si una decisión cambia, se edita acá en el mismo Pull Request que la implementa y se anota la fecha.
 
-Última actualización: 17/11/2026.
+Última actualización: 18/11/2026.
 
 ## Decisiones
 
@@ -118,4 +118,5 @@ Referencia: OWASP Top 10 y ASVS. En orden de prioridad:
 | Elegir alumnos de la lista de matriculados | M-1, D-22 |
 | Distribución de alumnos por partida | D-22, D-23 |
 | Habilidades utilizables | D-06, D-07, D-09 |
+| Dashboard: avance de las metas y resultado final | D-10 |
 | Issues de seguridad | Seguridad, puntos 3 a 12 |
