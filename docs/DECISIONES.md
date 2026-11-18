@@ -39,6 +39,7 @@ Fuente de verdad de las decisiones del proyecto. Las issues de GitHub citan esto
 | D-29 | Los niveles de la institución se llaman "unidades" en el sistema y cada institución les pone su nombre. "Departamento" queda reservado para los de la simulación. | Pendiente |
 | D-30 | Por ahora no se reemplaza Supabase por un Postgres propio: Supabase Auth sostiene el login. | Vigente |
 | M-1 | Matrícula en dos pasos: materia con código fijo, campaña con QR que vence (ver "Ingreso, registro y matrícula"). | Pendiente |
+| M-2 | Un miembro de la institución puede buscar las materias de SUS instituciones (nunca de otras) en un catálogo con buscador. Cada materia define cómo se entra: con código (por defecto), abierta (sin código, para cualquier miembro) o con solicitud que aprueba el docente. | Pendiente |
 
 ## Estructura de las organizaciones
 
@@ -115,6 +116,7 @@ Referencia: OWASP Top 10 y ASVS. En orden de prioridad:
 | Datos de registro configurables | Ingreso, punto 2; Seguridad, punto 11 |
 | Matrícula en la materia con código fijo | M-1 |
 | QR de campaña con vencimiento | M-1, D-21, D-24 |
+| Catálogo y buscador de materias para matricularse | M-1, M-2 |
 | Elegir alumnos de la lista de matriculados | M-1, D-22 |
 | Distribución de alumnos por partida | D-22, D-23 |
 | Habilidades utilizables | D-06, D-07, D-09 |
