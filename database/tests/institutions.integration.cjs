@@ -109,7 +109,7 @@ async function main() {
  await Promise.all([repo.resolveRequest(master,i,request.id,'approved'),repo.resolveRequest(master,i,request.id,'approved')]);
  const [studentMember]=await sql`select * from institution_members where profile_id=${student} and institution_id=${i}`;assert.equal(studentMember.role,'member');
  // The student kept its pre-0030 assignment, so it is a participant: no welcome message.
- sessionActor=student;assert.deepEqual(await module('auth/application/get-experiences').getExperiences(),{teacher:false,participant:true,member:true});sessionActor=null;
+ sessionActor=student;assert.deepEqual({...await module('auth/application/get-experiences').getExperiences()},{teacher:false,participant:true,member:true});sessionActor=null;
  assert.equal((await repo.readInstitution(student,i)).requests.length,0);
  assert.equal((await repo.readInstitution(student,i)).members.length,0);
  assert.equal(await teacher.isTeacherAccount(student),false);
@@ -126,7 +126,8 @@ async function main() {
  await assert.rejects(add(),/aprobada/);
  await repo.requestAccess(late,i,'Late participant');const [lateRequest]=await sql`select * from institution_access_requests where profile_id=${late}`;await repo.resolveRequest(master,i,lateRequest.id,'approved');
  // Freshly approved, without games or teaching permissions: /acceso shows the welcome message.
- const lateExperiences=async()=>{sessionActor=late;try{return await module('auth/application/get-experiences').getExperiences();}finally{sessionActor=null;}};
+ // Spread copies the vm-realm object so deepStrictEqual does not compare prototypes.
+ const lateExperiences=async()=>{sessionActor=late;try{return {...await module('auth/application/get-experiences').getExperiences()};}finally{sessionActor=null;}};
  assert.deepEqual(await lateExperiences(),{teacher:false,participant:false,member:true});
  await add();await assert.rejects(add(student));
  assert.deepEqual(await lateExperiences(),{teacher:false,participant:true,member:true},'once assigned, the welcome gives way to the games');
