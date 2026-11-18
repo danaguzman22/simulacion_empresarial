@@ -1,0 +1,61 @@
+# Supabase local para desarrollo (issue #26, D-14). Solo corre en esta PC con Docker.
+# Se maneja con los scripts de apps/web: npm run local:start | local:dev | local:admin | local:stop.
+# Las migraciones NO se aplican desde acá: las aplica Drizzle (database/migrations), igual que en la nube.
+project_id = "nexus"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+# Igual que CI y las pruebas de integración.
+major_version = 17
+
+[db.pooler]
+enabled = false
+
+[db.migrations]
+enabled = false
+
+[db.seed]
+enabled = false
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://127.0.0.1"
+
+# Buzón de prueba: los correos de Auth (confirmaciones, recuperación) se ven en http://127.0.0.1:54324
+[inbucket]
+enabled = true
+port = 54324
+
+[auth]
+enabled = true
+site_url = "http://localhost:3100"
+additional_redirect_urls = ["http://127.0.0.1:3100", "http://localhost:3101", "http://127.0.0.1:3101"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+# En local no hace falta confirmar el correo para entrar.
+enable_confirmations = false
+
+# Servicios que la app no usa: apagados para arrancar más rápido y usar menos memoria.
+[realtime]
+enabled = false
+
+[storage]
+enabled = false
+
+[edge_runtime]
+enabled = false
+
+[analytics]
+enabled = false

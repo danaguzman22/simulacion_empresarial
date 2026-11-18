@@ -9,7 +9,12 @@
     "lint": "eslint",
     "db:check": "drizzle-kit check",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "local:start": "node scripts/supabase-local.mjs start",
+    "local:migrate": "node scripts/supabase-local.mjs migrate",
+    "local:dev": "node scripts/supabase-local.mjs dev",
+    "local:admin": "node scripts/supabase-local.mjs admin",
+    "local:stop": "node scripts/supabase-local.mjs stop"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

@@ -52,6 +52,26 @@ Los connection strings se copian del panel de Supabase (**Connect**). Si el pool
 
 La app se conecta directamente a PostgreSQL. La autorización la hacen el código de la app y los triggers de la base, no RLS por usuario. Toda consulta nueva debe incluir el chequeo de institución (`institutionAccessSql` / `requireCampaignInstitution`).
 
+## Supabase local (Docker)
+
+Para desarrollar sin depender de la base en la nube (D-14). Todo corre en tu PC: Auth, PostgreSQL 17, Studio y un buzón de correos de prueba. `.env.local` no se usa ni se modifica: los scripts le pasan a la app las URLs y claves locales.
+
+Requisitos: Docker Desktop abierto y las dependencias instaladas (`npm install` en `apps/web`, que incluye la Supabase CLI).
+
+```bash
+cd apps/web
+npm run local:start                 # levanta Supabase y aplica las migraciones de Drizzle
+npm run local:dev                   # app en http://localhost:3100 contra la base local
+npm run local:admin -- tu@correo    # después de registrarte: te hace admin de una institución de prueba
+npm run local:stop                  # apaga los contenedores; los datos quedan para la próxima
+```
+
+- Studio (ver y editar datos): http://127.0.0.1:54323
+- Correos de prueba: http://127.0.0.1:54324. En local no hace falta confirmar el correo para entrar.
+- Si agregás una migración nueva: `npm run local:migrate`.
+- Los scripts se detienen si la base o la API no están en `127.0.0.1`.
+- `npm run dev` sigue apuntando a Supabase en la nube, como siempre.
+
 ## Migraciones
 
 Desde `apps/web`:
