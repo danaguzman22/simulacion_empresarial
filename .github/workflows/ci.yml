@@ -77,7 +77,11 @@ jobs:
       PGUSER: postgres
       PGPASSWORD: postgres
     steps:
+      # Full history: some suites load older file versions with `git show <commit>`
+      # to test upgrades from earlier migrations.
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: 24
