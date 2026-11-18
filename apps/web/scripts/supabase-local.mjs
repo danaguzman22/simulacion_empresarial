@@ -16,8 +16,13 @@ const require = createRequire(path.join(web, "package.json"));
 const windows = process.platform === "win32";
 const bin = name => path.join(web, "node_modules", ".bin", windows ? `${name}.cmd` : name);
 
+// Windows needs a shell for the .cmd launchers; the command line is built here with every part quoted,
+// and only fixed arguments or validated options ever reach it.
+const commandLine = (name, args) => [bin(name), ...args].map(part => `"${String(part).replace(/"/g, '""')}"`).join(" ");
+const launch = (name, args, options) => windows ? spawnSync(commandLine(name, args), { ...options, shell: true }) : spawnSync(bin(name), args, options);
+
 function run(name, args, env = process.env) {
-  const result = spawnSync(bin(name), args, { cwd: web, env, stdio: "inherit", shell: windows });
+  const result = launch(name, args, { cwd: web, env, stdio: "inherit" });
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
@@ -27,7 +32,7 @@ function supabase(args) {
 
 // Reads the local stack's URLs and keys from the CLI and refuses anything that is not on this machine.
 function localEnv() {
-  const result = spawnSync(bin("supabase"), ["status", "-o", "env", "--workdir", repo], { cwd: web, encoding: "utf8", shell: windows });
+  const result = launch("supabase", ["status", "-o", "env", "--workdir", repo], { cwd: web, encoding: "utf8" });
   if (result.status !== 0) {
     console.error("Supabase local no está corriendo. Ejecutá primero: npm run local:start");
     process.exit(1);
@@ -82,7 +87,12 @@ if (command === "start") {
 } else if (command === "migrate") {
   run("drizzle-kit", ["migrate"], appEnv(localEnv()));
 } else if (command === "dev") {
-  const child = spawn(bin("next"), ["dev", "-p", "3100", ...rest], { cwd: web, env: appEnv(localEnv()), stdio: "inherit", shell: windows });
+  if (rest.some(option => !/^[\w.:=-]+$/.test(option))) {
+    console.error("Opciones no válidas para next dev.");
+    process.exit(1);
+  }
+  const env = appEnv(localEnv()), args = ["dev", "-p", "3100", ...rest];
+  const child = windows ? spawn(commandLine("next", args), { cwd: web, env, stdio: "inherit", shell: true }) : spawn(bin("next"), args, { cwd: web, env, stdio: "inherit" });
   child.on("exit", code => process.exit(code ?? 0));
 } else if (command === "admin") {
   await admin(rest[0], rest.slice(1).join(" ") || "Institución de prueba");

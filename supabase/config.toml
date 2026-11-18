@@ -31,7 +31,7 @@ port = 54323
 api_url = "http://127.0.0.1"
 
 # Buzón de prueba: los correos de Auth (confirmaciones, recuperación) se ven en http://127.0.0.1:54324
-[inbucket]
+[local_smtp]
 enabled = true
 port = 54324
 
