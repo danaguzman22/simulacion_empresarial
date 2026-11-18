@@ -46,7 +46,8 @@ async function main() {
   }
   const master = randomUUID(), co = randomUUID(), observer = randomUUID(), company = randomUUID(), campaign = randomUUID();
   for (const id of [master, co, observer]) await sql`INSERT INTO auth.users VALUES(${id},'inheritance@test.test','{}')`;
-  await sql`INSERT INTO companies(id,name,created_by) VALUES(${company},'Company',${master})`;
+  const institution = await require('./institution-fixture.cjs')(sql, [master, co, observer], master);
+  await sql`INSERT INTO companies(id,name,created_by,institution_id) VALUES(${company},'Company',${master},${institution})`;
   await sql`INSERT INTO campaigns(id,company_id,name,created_by) VALUES(${campaign},${company},'Campaign',${master})`;
   for (const [id, role] of [[master,'master'],[co,'co_master'],[observer,'observer']]) await sql`INSERT INTO campaign_members(campaign_id,profile_id,role) VALUES(${campaign},${id},${role})`;
   const module = name => load(base + '/src/features/' + name + '.ts');
