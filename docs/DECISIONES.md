@@ -21,7 +21,7 @@ Fuente de verdad de las decisiones del proyecto. Las issues de GitHub citan esto
 | D-11 | Las situaciones (manuales, del Master) son distintas de las reglas automáticas (al cierre de cada período). | Implementado (0023–0025) |
 | D-12 | Migraciones solo hacia adelante: no se edita una migración aplicada y se revisa cada una antes de `db:migrate`. | Proceso vigente |
 | D-13 | Antes de subir a Vercel se termina y se prueba bien la funcionalidad. | Vigente |
-| D-14 | Por ahora se desarrolla contra Supabase en la nube. Supabase local (Docker) queda como mejora futura. | Vigente |
+| D-14 | Se puede desarrollar con Supabase local en Docker (ver "Supabase local" en `README.md`) o contra Supabase en la nube. Actualizada el 18/11/2026 (#26); antes, Supabase local era una mejora futura. | Vigente |
 | D-15 | Cada institución puede organizarse por dentro como quiera (regionales, facultades, sucursales, materias). Detalle en D-26. | Pendiente |
 | D-16 | Las instituciones nuevas las aprueba la administración de NEXUS. | Pendiente |
 | D-17 | Puede haber varios admins de NEXUS. El primero se crea por script; después se nombran desde un panel de administración. | Pendiente |
