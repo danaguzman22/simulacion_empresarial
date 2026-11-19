@@ -108,6 +108,10 @@ async function main() {
  await sql.unsafe('drop trigger zz_test_resolution on institution_access_requests; drop function test_reject_resolution();');
  await Promise.all([repo.resolveRequest(master,i,request.id,'approved'),repo.resolveRequest(master,i,request.id,'approved')]);
  const [studentMember]=await sql`select * from institution_members where profile_id=${student} and institution_id=${i}`;assert.equal(studentMember.role,'member');
+ // #74: an active member cannot request access again, and "Mis solicitudes" shows one row per institution (latest request).
+ await assert.rejects(repo.requestAccess(student,i,'Already member'),/Ya sos miembro/);
+ assert((await sql`select count(*)::int n from institution_access_requests where profile_id=${student} and institution_id=${i}`)[0].n>1,'history keeps every request');
+ const latestRequests=(await repo.myInstitutions(student,'')).requests.filter(r=>r.institutionId===i);assert.equal(latestRequests.length,1);assert.equal(latestRequests[0].status,'approved');
  // The student kept its pre-0030 assignment, so it is a participant: no welcome message.
  sessionActor=student;assert.deepEqual({...await module('auth/application/get-experiences').getExperiences()},{teacher:false,participant:true,member:true});sessionActor=null;
  assert.equal((await repo.readInstitution(student,i)).requests.length,0);
