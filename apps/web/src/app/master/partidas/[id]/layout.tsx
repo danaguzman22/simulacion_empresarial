@@ -21,7 +21,10 @@ export default async function GameLayout({ children, params }: { children: React
   const preparing = isPreparationStatus(game.status);
   const setup = preparing ? await getGameSetup(game.id) : null;
   return <GameDetail game={game} actions={<>{(game.status === "active" || game.status === "paused") && <GameCurrentPeriod gameId={game.id} />}<GameLifecycle gameId={game.id} part="actions" /></>} nav={<div className="flex flex-wrap items-start justify-between gap-x-6">
-    <GameTabs gameId={game.id} tabs={gameTabsFor(game.status)} defaultTab={defaultGameTab(game.status)} complete={setup?.complete} />
+    <GameTabs gameId={game.id} tabs={gameTabsFor(game.status)} defaultTab={defaultGameTab(game.status)} complete={setup?.complete} notes={setup ? {
+      metas: !setup.requirements.goals && setup.counts.goals === 0 ? "Opcional" : undefined,
+      reglas: !setup.requirements.rules && setup.counts.enabledRules === 0 ? "Opcional" : undefined,
+    } : undefined} />
     {preparing && <GameStartButton gameId={game.id} />}
   </div>}>{children}</GameDetail>;
 }
