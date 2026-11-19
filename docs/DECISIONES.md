@@ -43,7 +43,7 @@ Fuente de verdad de las decisiones del proyecto. Las issues de GitHub citan esto
 | D-33 | Metas y Reglas tienen un interruptor 'Obligatorio' por partida. Por defecto, Metas es obligatoria (sin metas no hay resultado final) y Reglas opcional. Una sección obligatoria vacía bloquea el inicio, verificado en el servidor y en la base. Las partidas que ya existían quedan con Metas opcional. | Pendiente |
 | M-1 | Matrícula en dos pasos: materia con código fijo, campaña con QR que vence (ver "Ingreso, registro y matrícula"). | Pendiente |
 | M-2 | Un miembro de la institución puede buscar las materias de SUS instituciones (nunca de otras) en un catálogo con buscador. Cada materia define cómo se entra: con código (por defecto), abierta (sin código, para cualquier miembro) o con solicitud que aprueba el docente. | Pendiente |
-| M-3 | El uso de una habilidad genera un aviso en el muro del dashboard. El Master elige, por habilidad, si se anuncia públicamente (por defecto sí). Las revelaciones del objetivo secreto nunca se publican. | Pendiente |
+| M-3 | El uso de una habilidad genera un aviso en el muro del dashboard. El Master elige, por habilidad, si se anuncia públicamente (por defecto sí). Formato: "<emoji> <Departamento> usó <Habilidad> · <Período>" y debajo una descripción corta del efecto. El aviso público nunca muestra los usos restantes ni el límite de uso: eso lo ve solo el departamento en su propia ficha. Las revelaciones del objetivo secreto nunca se publican. Todos los avisos quedan también en Registros. Actualizada el 19/11/2026. | Pendiente |
 
 ## Estructura de las organizaciones
 
