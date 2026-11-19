@@ -2,7 +2,7 @@
 
 Fuente de verdad de las decisiones del proyecto. Las issues de GitHub citan estos códigos (`D-xx`, `M-1`) en lugar de copiar el texto. Si una decisión cambia, se edita acá en el mismo Pull Request que la implementa y se anota la fecha.
 
-Última actualización: 18/11/2026.
+Última actualización: 19/11/2026.
 
 ## Decisiones
 
@@ -40,6 +40,7 @@ Fuente de verdad de las decisiones del proyecto. Las issues de GitHub citan esto
 | D-30 | Por ahora no se reemplaza Supabase por un Postgres propio: Supabase Auth sostiene el login. | Vigente |
 | M-1 | Matrícula en dos pasos: materia con código fijo, campaña con QR que vence (ver "Ingreso, registro y matrícula"). | Pendiente |
 | M-2 | Un miembro de la institución puede buscar las materias de SUS instituciones (nunca de otras) en un catálogo con buscador. Cada materia define cómo se entra: con código (por defecto), abierta (sin código, para cualquier miembro) o con solicitud que aprueba el docente. | Pendiente |
+| M-3 | El uso de una habilidad genera un aviso en el muro del dashboard. El Master elige, por habilidad, si se anuncia públicamente (por defecto sí). Las revelaciones del objetivo secreto nunca se publican. | Pendiente |
 
 ## Estructura de las organizaciones
 
@@ -119,6 +120,7 @@ Referencia: OWASP Top 10 y ASVS. En orden de prioridad:
 | Catálogo y buscador de materias para matricularse | M-1, M-2 |
 | Elegir alumnos de la lista de matriculados | M-1, D-22 |
 | Distribución de alumnos por partida | D-22, D-23 |
-| Habilidades utilizables | D-06, D-07, D-09 |
+| Habilidades utilizables | D-06, D-07, D-09, M-3 |
 | Dashboard: avance de las metas y resultado final | D-10 |
+| Dashboard: muro de avisos | M-3 |
 | Issues de seguridad | Seguridad, puntos 3 a 12 |
