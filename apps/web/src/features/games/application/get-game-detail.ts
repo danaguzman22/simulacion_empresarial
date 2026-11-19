@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { getAuthenticatedUserId } from "@/features/auth/application/get-authenticated-user-id";
 import { canReadGames } from "../domain/game-access";
 import { findGameByIdForMember } from "../repositories/game.repository";
@@ -7,7 +9,8 @@ import { findGameByIdForMember } from "../repositories/game.repository";
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function getGameDetail(gameId: string) {
+// Cached per request: the game layout and the open tab read the same game without repeating the query.
+export const getGameDetail = cache(async (gameId: string) => {
   const userId = await getAuthenticatedUserId();
 
   if (!userId) {
@@ -39,4 +42,4 @@ export async function getGameDetail(gameId: string) {
       campaignName: game.campaignName,
     },
   } as const;
-}
+});

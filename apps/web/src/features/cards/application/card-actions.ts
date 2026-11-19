@@ -25,7 +25,7 @@ export async function cardAction(_previous: CardActionState, form: FormData): Pr
       try { structure = JSON.parse(String(form.get("structure") ?? "")); } catch { return { error: "Configuración de ficha inválida." }; }
       await saveCard({ kind, id }, actor, { id: cardId || undefined, revision: Number(form.get("revision")), selectedResponsibilities: form.getAll("responsibility"), structure, fields: Object.fromEntries(gameCardFields.map(field => [field, String(form.get(field) ?? "")])) });
     } else return { error: "Operación inválida." };
-    revalidatePath(kind === "game" ? `/master/partidas/${id}` : `/master/campanas/${id}`);
+    revalidatePath(kind === "game" ? `/master/partidas/${id}` : `/master/campanas/${id}`, kind === "game" ? "layout" : undefined);
     return { success: "Ficha guardada." };
   } catch (error) {
     if (error instanceof PreparationError) return { error: error.message };
