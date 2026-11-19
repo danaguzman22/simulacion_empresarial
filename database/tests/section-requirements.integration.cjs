@@ -103,6 +103,7 @@ async function main() {
 
  // Required rules with only disabled rules block the start; one enabled rule unblocks it.
  await rules.mutateRule(master,{gameId:a.game,ruleId:randomUUID(),operation:'create',definition:rule(a.cash,false,0)});
+ assert.equal((await module('games/repositories/game-setup.repository').readGameSetup(a.game,master)).complete.reglas,false,'required rules with only disabled rules are not complete');
  await assert.rejects(startGame(a.game),/Reglas: activá al menos una regla/);
  await rules.mutateRule(master,{gameId:a.game,ruleId:randomUUID(),operation:'create',definition:rule(a.cash,true,1)});
  await startGame(a.game);
@@ -116,7 +117,11 @@ async function main() {
 
  // Required goals with no goals block the start, in the server.
  const b=await fixture();
- await assert.rejects(startGame(b.game),/Metas: cargá al menos una meta/);
+ // New game with required goals and no goals: the setup summary (button) and the start report the same blocker.
+ const setupRepo=module('games/repositories/game-setup.repository');
+ let setup=await setupRepo.readGameSetup(b.game,master);
+ assert.deepEqual([...setup.missing],['Metas: cargá al menos una meta o marcá Metas como opcional.']);assert.equal(setup.complete.metas,false);
+ await assert.rejects(startGame(b.game),error=>error.message===setup.missing.join(' '),'start rejects with exactly the listed reason');
  await goals.mutateGoal(master,{gameId:b.game,operation:'create',operationId:randomUUID(),definition:generic});
  // The successor copies both switches: B gets a non-default rules switch first.
  await set(master,b.game,'rules',true);
