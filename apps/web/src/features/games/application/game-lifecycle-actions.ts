@@ -15,7 +15,7 @@ export async function finishGameAction(_previous: GameLifecycleActionState, form
     const operationId = String(form.get("operationId"));
     if (!actorId || !UUID_PATTERN.test(gameId) || !UUID_PATTERN.test(operationId)) throw new GameLifecycleError("Los datos de finalización no son válidos.");
     await finishGame(actorId, { gameId, operationId });
-    revalidatePath(`/master/partidas/${gameId}`);
+    revalidatePath(`/master/partidas/${gameId}`, "layout");
     revalidatePath("/master/campanas/[id]", "page");
     return { success: "Partida finalizada." };
   } catch (error) {
@@ -32,7 +32,7 @@ export async function resetGameAction(_previous: GameLifecycleActionState, form:
     const operationId = String(form.get("operationId"));
     if (!actorId || !UUID_PATTERN.test(gameId) || !UUID_PATTERN.test(operationId)) throw new GameLifecycleError("Los datos de reinicio no son válidos.");
     const result = await resetGame(actorId, { gameId, operationId });
-    revalidatePath(`/master/partidas/${gameId}`);
+    revalidatePath(`/master/partidas/${gameId}`, "layout");
     return { success: result.inherited ? "Ejecución descartada. Se conservó la preparación elegida: KPIs, modos y valores iniciales. Podés configurarla nuevamente." : "Ejecución descartada. Podés editar los valores de preparación y reconfigurar los períodos." };
   } catch (error) {
     if (error instanceof GameLifecycleError || error instanceof PreparationError) return { error: error.message };

@@ -1,20 +1,26 @@
 import { getGameLifecycle } from "../application/get-game-lifecycle";
-import { StartGameForm } from "./StartGameForm";
 import { GameFinishForm } from "./GameFinishForm";
 import { GameResetForm } from "./GameResetForm";
 import { RestartCompletedGameForm } from "./RestartCompletedGameForm";
 import { GameDeleteForm } from "./GameDeleteForm";
-export async function GameLifecycle({ gameId }: { gameId: string }) {
+// "actions" goes in the game header (finish, reset, delete, restart); "snapshots" shows the frozen states
+// inside the tabs. Starting a game lives in GameStartButton, next to the tab bar.
+export async function GameLifecycle({ gameId, part }: { gameId: string; part: "actions" | "snapshots" }) {
   const data = await getGameLifecycle(gameId);
   if (!data) return null;
-  return <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.05] p-6 md:p-8" aria-label="Estado de la partida">
-    {data.status === "active" && <h2 className="text-2xl font-black text-emerald-300">Partida activa</h2>}
-    {data.status === "evaluation" && <h2 className="text-2xl font-black text-amber-300">Pendiente de evaluación</h2>}
-    {data.canFinish && <GameFinishForm gameId={gameId} />}
-    {data.canManageLifecycle && data.isLast && (data.status === "completed" ? <RestartCompletedGameForm gameId={gameId} /> : <>{data.hasResetSnapshots && ["draft", "ready", "active", "paused", "evaluation"].includes(data.status) && <GameResetForm gameId={gameId} />}<GameDeleteForm gameId={gameId} /></>)}
-    {data.canStart && <><h2 className="text-2xl font-black">Iniciar partida</h2><StartGameForm key={`${data.revision}:${data.catalogToken}:${data.periodRevision}`} gameId={gameId} periodRevision={data.periodRevision} revision={data.revision} catalogToken={data.catalogToken} /></>}
-    {(data.status === "draft" || data.status === "ready") && !data.snapshots.length && !data.canStart && <p className="text-sm text-slate-400">El inicio requiere una preparación guardada, períodos configurados y permisos de Master o Co-Master.</p>}
-    <div className="mt-5 grid gap-5 md:grid-cols-2">{data.snapshots.map(snapshot => <article key={snapshot.phase} className="rounded-2xl border border-white/10 p-5">
+  if (part === "actions") {
+    const actions = data.canFinish || (data.canManageLifecycle && data.isLast);
+    if (!actions && data.status !== "active" && data.status !== "evaluation") return null;
+    return <section className="mt-6 border-t border-white/10 pt-6" aria-label="Estado de la partida">
+      {data.status === "active" && <h2 className="text-2xl font-black text-emerald-300">Partida activa</h2>}
+      {data.status === "evaluation" && <h2 className="text-2xl font-black text-amber-300">Pendiente de evaluación</h2>}
+      {data.canFinish && <GameFinishForm gameId={gameId} />}
+      {data.canManageLifecycle && data.isLast && (data.status === "completed" ? <RestartCompletedGameForm gameId={gameId} /> : <>{data.hasResetSnapshots && ["draft", "ready", "active", "paused", "evaluation"].includes(data.status) && <GameResetForm gameId={gameId} />}<GameDeleteForm gameId={gameId} /></>)}
+    </section>;
+  }
+  if (!data.snapshots.length) return null;
+  return <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.05] p-6 md:p-8" aria-label="Estados guardados de la partida">
+    <div className="grid gap-5 md:grid-cols-2">{data.snapshots.map(snapshot => <article key={snapshot.phase} className="rounded-2xl border border-white/10 p-5">
       <h3 className="text-xl font-bold">{snapshot.phase === "initial" ? "Estado inicial" : snapshot.phase === "final" ? "Estado final" : "Estado actual"}</h3>
       <p className="mt-2 text-sm text-slate-400">{snapshot.phase === "initial" ? "Snapshot congelado al iniciar." : snapshot.phase === "final" ? "Snapshot histórico congelado al finalizar." : "Copia independiente preparada para cambios futuros."}</p>
       <dl className="mt-4 space-y-3">{snapshot.values.map(v => <div key={v.id}><dt className="font-bold">{v.name}</dt><dd className="text-slate-300">{v.value}</dd></div>)}</dl>

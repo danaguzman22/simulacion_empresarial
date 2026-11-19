@@ -17,7 +17,7 @@ export async function startGameAction(_previous: StartGameState, form: FormData)
     if (!/^\d+$/.test(periodRevision) || !Number.isSafeInteger(Number(periodRevision)) || Number(periodRevision) >= 2147483647) throw new PreparationError("Revisión de períodos inválida.");
     if (form.get("confirmed") !== "on") throw new PreparationError("Confirmá que querés iniciar con los valores guardados.");
     await startGame(actorId, { gameId, operationId, expectedRevision: Number(revision), expectedPeriodRevision: Number(periodRevision), catalogToken });
-    revalidatePath("/master/partidas/[id]", "page");
+    revalidatePath("/master/partidas/[id]", "layout");
     revalidatePath("/master/campanas/[id]", "page");
     return { success: "Partida activa." };
   } catch (error) {
