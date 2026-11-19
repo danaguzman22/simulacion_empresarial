@@ -32,8 +32,9 @@ export async function readGameSetup(gameId: string, actorId: string) {
     const [goals, rules, cards] = [await count(gameGoals), await count(gameRules), await count(gameRoleCards)];
     const [{ enabledRules }] = await tx.select({ enabledRules: sql<number>`count(*)::integer` }).from(gameRules).where(and(eq(gameRules.gameId, gameId), eq(gameRules.enabled, true)));
     // Equipos is complete only when every card has at least one member.
-    const [{ empty }] = await tx.select({ empty: sql<number>`count(*)::integer` }).from(gameRoleCards)
-      .where(and(eq(gameRoleCards.gameId, gameId), sql`not exists (select 1 from ${gameCardAssignments} a where a.card_id = ${gameRoleCards.id} and a.game_id = ${gameRoleCards.gameId})`));
+    const unstaffed = (await tx.select({ name: sql<string>`coalesce(nullif(btrim(${gameRoleCards.department}), ''), ${gameRoleCards.name})` }).from(gameRoleCards)
+      .where(and(eq(gameRoleCards.gameId, gameId), sql`not exists (select 1 from ${gameCardAssignments} a where a.card_id = ${gameRoleCards.id} and a.game_id = ${gameRoleCards.gameId})`))
+      .orderBy(gameRoleCards.name)).map(row => row.name);
     const [otherActive] = await tx.select({ id: games.id }).from(games).where(and(eq(games.campaignId, game.campaignId), ne(games.id, game.id), inArray(games.status, ["active", "paused"])));
     const [previous] = game.sequence > 0
       ? await tx.select({ status: games.status }).from(games).where(and(eq(games.campaignId, game.campaignId), lt(games.sequence, game.sequence))).orderBy(desc(games.sequence)).limit(1)
@@ -54,9 +55,11 @@ export async function readGameSetup(gameId: string, actorId: string) {
         metas: goals > 0,
         reglas: rules > 0 && !ruleError,
         fichas: cards > 0,
-        equipos: cards > 0 && empty === 0,
+        equipos: cards > 0 && unstaffed.length === 0,
       },
       missing,
+      // Not blocking: a participant can join late. Shown next to the start button.
+      warnings: unstaffed.length ? [`Estos departamentos no tienen integrantes: ${unstaffed.join(", ")}.`] : [],
       // D-33 switches for the Metas and Reglas tabs.
       requirements: { goals: game.goalsRequired, rules: game.rulesRequired },
       counts: { goals, enabledRules },

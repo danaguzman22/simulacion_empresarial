@@ -96,8 +96,12 @@ async function main() {
   return (await cards.readCards({kind:'game',id:f.game},master)).cards.find(c=>c.name===name).id;
  }
  const engineering=await makeCard(a,'Engineering'),finance=await makeCard(a,'Finance'),other=await makeCard(b,'Other');
+ // #71: departments without members are a non-blocking warning next to the start button.
+ const setupRepo=module('games/repositories/game-setup.repository');const teamWarnings=async()=>{const r=await setupRepo.readGameSetup(a.game,master);return {warnings:[...r.warnings],missing:[...r.missing],equipos:r.complete.equipos};};
+ let teams=await teamWarnings();assert.deepEqual(teams.warnings,['Estos departamentos no tienen integrantes: Engineering, Finance.']);assert(!teams.missing.some(m=>/integrantes/.test(m)));assert.equal(teams.equipos,false);
  const add=(f,cardId,email,actor=master)=>assignments.changeAssignment(actor,{gameId:f.game,cardId,email,operation:'add',assignmentId:'',expectedRevision:0});
  await add(a,engineering,'ONE@test.test');await add(a,engineering,'two@test.test');await add(a,engineering,'one@test.test');
+ teams=await teamWarnings();assert.deepEqual(teams.warnings,['Estos departamentos no tienen integrantes: Finance.']);
  assert.equal((await assignments.readParticipants(a.game,master)).members.length,2);
  await assert.rejects(add(a,finance,'one@test.test'));
  await assert.rejects(add(a,other,'three@test.test'));
