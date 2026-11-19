@@ -9,7 +9,7 @@ export async function saveRevealConfiguration(_: { message: string }, form: Form
   const gameId = String(form.get("gameId") ?? "");
   try {
     await configureReveals(actor, { gameId, cardId: String(form.get("cardId") ?? ""), revision: Number(form.get("revision")), limit: Number(form.get("limit")), seconds: Number(form.get("seconds")) });
-    revalidatePath(`/master/partidas/${gameId}`); return { message: "Configuración guardada." };
+    revalidatePath(`/master/partidas/${gameId}`, "layout"); return { message: "Configuración guardada." };
   } catch (e) { return { message: e instanceof PreparationError ? e.message : "No se pudo guardar la configuración." }; }
 }
 export async function requestSecret(gameId: string, operationId: string | null): Promise<RevealResult | { status: "error"; message: string }> {

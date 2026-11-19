@@ -36,7 +36,7 @@ export async function updateGameKpiAction(_previous: GameKpiActionState, form: F
     if (!UUID_PATTERN.test(gameId) || !UUID_PATTERN.test(operationId) || !UUID_PATTERN.test(kpiDefinitionId) || !UUID_PATTERN.test(roundId)) throw new GameKpiError("Los datos enviados no son válidos.");
     const rawValue = text(form, "value");
     const result = await updateGameKpi(actorId, { gameId, operationId, kpiDefinitionId, roundId, rawValue, expectedRevision: revision(form, "revision"), expectedRoundRevision: revision(form, "roundRevision") });
-    revalidatePath(`/master/partidas/${gameId}`);
+    revalidatePath(`/master/partidas/${gameId}`, "layout");
     return { success: "Cambio de KPI guardado.", revision: result.revision, value: result.value, ordinalKey: result.ordinalKey };
   } catch (error) {
     if (error instanceof GameKpiError || error instanceof PreparationError) return { error: error.message };
