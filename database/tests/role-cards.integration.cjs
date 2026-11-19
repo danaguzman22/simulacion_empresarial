@@ -80,6 +80,8 @@ async function main() {
  await sql`insert into campaign_members(campaign_id,profile_id,role) values(${legacyCampaign},${legacyActor},'master')`;
  await migrate('0030_institutions.sql');
  await migrate('0031_card_secret_reveals.sql');
+ // Not about D-33 (0033): games created here start with optional goals, as before 0033.
+ await migrate('0032_rule_effect_messages.sql');await migrate('0033_section_requirements.sql');await sql.unsafe("ALTER TABLE games ALTER COLUMN goals_required SET DEFAULT false");
  const master=randomUUID(),co=randomUUID(),observer=randomUUID(),company=randomUUID();
  for(const id of [master,co,observer])await sql`INSERT INTO auth.users VALUES(${id},'goals@test.test','{}')`;
  const institution=await require('./institution-fixture.cjs')(sql,[master,co,observer],master);
