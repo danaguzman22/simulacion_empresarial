@@ -17,7 +17,7 @@ const message = (error: unknown) => {
 export async function readGameSetup(gameId: string, actorId: string) {
   return db.transaction(async tx => {
     const { game, role } = await access(tx, gameId, actorId, false);
-    const count = async (table: typeof gameGoals | typeof gameRules | typeof gameRoleCards | typeof gameCardAssignments) =>
+    const count = async (table: typeof gameGoals | typeof gameRules | typeof gameRoleCards) =>
       (await tx.select({ n: sql<number>`count(*)::integer` }).from(table).where(eq(table.gameId, gameId)))[0].n;
     const [prep] = await tx.select().from(gameStateSets).where(and(eq(gameStateSets.gameId, gameId), eq(gameStateSets.phase, "preparation")));
     const context = await selectionContext(tx, game.campaignId, game.id);
@@ -27,7 +27,10 @@ export async function readGameSetup(gameId: string, actorId: string) {
     let ruleError: string | null = null;
     try { await validateGameRules(tx, game.id, game.campaignId); } catch (error) { ruleError = message(error); }
     const periodsReady = !!game.periodCount && !!game.periodDurationSeconds && !!game.periodLabel;
-    const [goals, rules, cards, assignments] = [await count(gameGoals), await count(gameRules), await count(gameRoleCards), await count(gameCardAssignments)];
+    const [goals, rules, cards] = [await count(gameGoals), await count(gameRules), await count(gameRoleCards)];
+    // Equipos is complete only when every card has at least one member.
+    const [{ empty }] = await tx.select({ empty: sql<number>`count(*)::integer` }).from(gameRoleCards)
+      .where(and(eq(gameRoleCards.gameId, gameId), sql`not exists (select 1 from ${gameCardAssignments} a where a.card_id = ${gameRoleCards.id} and a.game_id = ${gameRoleCards.gameId})`));
     const [otherActive] = await tx.select({ id: games.id }).from(games).where(and(eq(games.campaignId, game.campaignId), ne(games.id, game.id), inArray(games.status, ["active", "paused"])));
     const [previous] = game.sequence > 0
       ? await tx.select({ status: games.status }).from(games).where(and(eq(games.campaignId, game.campaignId), lt(games.sequence, game.sequence))).orderBy(desc(games.sequence)).limit(1)
@@ -47,7 +50,7 @@ export async function readGameSetup(gameId: string, actorId: string) {
         metas: goals > 0,
         reglas: rules > 0 && !ruleError,
         fichas: cards > 0,
-        equipos: assignments > 0,
+        equipos: cards > 0 && empty === 0,
       },
       missing,
     };

@@ -3,8 +3,9 @@ import { useRouter } from "next/navigation";
 import { useActionState,useEffect,useRef,useState,type ReactNode } from "react";
 import { getRounds,roundAction } from "../application/round-actions";
 import { remainingMilliseconds,roundLabels } from "../domain/round";
-type Data=Awaited<ReturnType<typeof getRounds>>;
-function Action({gameId,round,operation,label,confirmText,remainingText,children}:{gameId:string;round?:Data["rounds"][number];operation:string;label:string;confirmText?:string;remainingText?:string;children?:ReactNode}){
+export type RoundsData=Awaited<ReturnType<typeof getRounds>>;
+type Data=RoundsData;
+export function Action({gameId,round,operation,label,confirmText,remainingText,children}:{gameId:string;round?:Data["rounds"][number];operation:string;label:string;confirmText?:string;remainingText?:string;children?:ReactNode}){
  const [state,action,pending]=useActionState(roundAction,{});const operationId=useRef<string|null>(null);
  return <form action={action} className="mt-3 space-y-2" onChange={()=>{operationId.current=null;}} onSubmit={e=>{if(operation==="finish"&&!window.confirm(`¿Finalizar ${confirmText}? Quedan ${remainingText} y este tiempo se descartará.`)){e.preventDefault();return;}operationId.current??=crypto.randomUUID();(e.currentTarget.elements.namedItem("operationId") as HTMLInputElement).value=operationId.current;}}>
  <input type="hidden" name="gameId" value={gameId}/><input type="hidden" name="roundId" value={round?.id??""}/><input type="hidden" name="revision" value={round?.revision??0}/><input type="hidden" name="operation" value={operation}/><input type="hidden" name="operationId" defaultValue=""/>
