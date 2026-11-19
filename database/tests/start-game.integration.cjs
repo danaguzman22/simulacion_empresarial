@@ -39,7 +39,8 @@ async function main(){
  await sql.unsafe('CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY,email text,raw_user_meta_data jsonb);');
  for(const f of fs.readdirSync(root+'/database/migrations').filter(f=>f.endsWith('.sql')).sort())await sql.begin(async tx=>{for(const q of fs.readFileSync(root+'/database/migrations/'+f,'utf8').replace(/^\uFEFF/,'').split('--> statement-breakpoint'))if(q.trim())await tx.unsafe(q);});
  const master=randomUUID(),co=randomUUID(),observer=randomUUID();for(const id of [master,co,observer])await sql`INSERT INTO auth.users VALUES(${id},'test@example.test','{}')`;
- const company=randomUUID();await sql`INSERT INTO companies(id,name,created_by)VALUES(${company},'Test',${master})`;
+ const institution=await require('./institution-fixture.cjs')(sql,[master,co,observer],master);
+ const company=randomUUID();await sql`INSERT INTO companies(id,name,created_by,institution_id)VALUES(${company},'Test',${master},${institution})`;
  const repo=load(base+'/src/features/games/repositories/start-game.repository.ts'),prep=load(base+'/src/features/preparation/repositories/preparation.repository.ts'),manage=load(base+'/src/features/preparation/repositories/kpi-management.repository.ts'),lifecycle=load(base+'/src/features/games/repositories/game-lifecycle.repository.ts');
  const roundsRepo=load(base+'/src/features/rounds/repositories/round.repository.ts'),kpiRepo=load(base+'/src/features/kpis/repositories/game-kpi.repository.ts');
  const periods=load(base+"/src/features/rounds/repositories/period-configuration.repository.ts");

@@ -17,6 +17,10 @@ export async function myInstitutions(actor: string, search: string) {
     results: search.trim().length >= 2 ? await tx.select({ id: institutions.id, name: institutions.name, type: institutions.type }).from(institutions).where(ilike(institutions.name, `%${search.trim().slice(0,160).replace(/[\\%_]/g, "\\$&")}%`)).orderBy(asc(institutions.name), asc(institutions.id)).limit(30) : [],
   }), { isolationLevel: "repeatable read", accessMode: "read only" });
 }
+export async function hasActiveMembership(actor: string) {
+  const [row] = await db.select({ id: members.id }).from(members).where(and(eq(members.profileId, actor), eq(members.status, "active"))).limit(1);
+  return Boolean(row);
+}
 export async function requestAccess(actor: string, institutionId: string, message: string) {
   validId(institutionId);
   if (message.length > 1000) throw new InstitutionError("El mensaje admite hasta 1000 caracteres.");

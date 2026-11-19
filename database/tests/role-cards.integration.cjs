@@ -34,7 +34,7 @@ function load(file) {
     if (name === "@/features/auth/application/get-authenticated-user-id") return {getAuthenticatedUserId:async()=>sessionActor};
     if (name === "@/db") return { db };
     if (name === "@/db/schema") return load(base + "/src/db/schema/index.ts");
-    if (name.startsWith("@/")) return load(base+"/src/"+name.slice(2)+".ts");
+    if (name.startsWith("@/")) return load(base+"/src/"+name.slice(2)+(fs.existsSync(base+"/src/"+name.slice(2)+".ts") ? ".ts" : ".tsx"));
     if (name.startsWith(".")) return load(path.resolve(path.dirname(file), name + (fs.existsSync(path.resolve(path.dirname(file), name + ".ts")) ? ".ts" : ".tsx")));
     return localRequire(name);
   } }, { filename: file });

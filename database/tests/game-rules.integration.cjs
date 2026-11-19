@@ -121,6 +121,7 @@ async function main() {
  const institution=await require('./institution-fixture.cjs')(sql,[master,co,observer],master);
  await sql.begin(async tx=>{await tx`select set_config('nexus.institution_actor',${master},true)`;await tx`update companies set institution_id=${institution} where id=${company}`;});
  await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/0031_card_secret_reveals.sql','utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
+ await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/0032_rule_effect_messages.sql','utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
  beforeCards=false;cache.clear();reload();
  // Multiple rules touch the same KPI, with independent audited revisions in one close.
  const b=await fixture();await add(b.game,definition(b.cash,'-5000',0));await add(b.game,definition(b.cash,'-2000',1));await add(b.game,definition(b.cash,'100',2));
@@ -264,5 +265,13 @@ async function main() {
  console.log('PASS 0025: active/paused amount edits; reason; roles; stale revision; targets/structure protected; next close; immutable past amounts; Reset/Delete history and successor.');
  for(const table of ['game_rules','game_rule_effects','game_rule_executions','game_rule_changes'])for(const role of ['anon','authenticated'])assert.equal((await sql`select has_table_privilege(${role},${table},'SELECT,INSERT,UPDATE,DELETE') allowed`)[0].allowed,false);
  console.log('PASS: rule configuration/roles; manual/timer; shared KPI revisions; rollback; 0023/manual coexistence; reset/delete; successor; automatic authorship; RLS.');
+ // 0032 (#29): rule effects report "Rule effect ...", situations keep "Situation effect ..."; only messages changed.
+ const fn=async name=>(await sql`select prosrc, (select count(*)::int from pg_trigger where tgfoid=p.oid) triggers from pg_proc p where proname=${name} and pronamespace='public'::regnamespace`)[0];
+ const applied=await fn('check_rule_effect_applied'),audited=await fn('check_current_kpi_value_audited');
+ assert.match(applied.prosrc,/'Rule effect requires a value write in the same transaction'/);assert.doesNotMatch(applied.prosrc,/Situation/);
+ assert.match(audited.prosrc,/'% effect does not match the actual value change', CASE WHEN audit\.source='rule' THEN 'Rule' ELSE 'Situation' END/);
+ assert(applied.triggers>0&&audited.triggers>0,'triggers still point to the replaced functions');
+ for(const role of ['anon','authenticated'])assert.equal((await sql`select has_function_privilege(${role},'public.check_rule_effect_applied()','EXECUTE') allowed`)[0].allowed,false);
+ console.log('PASS 0032: rule effect messages say Rule; situation messages unchanged; triggers and privileges preserved.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>sql.end());

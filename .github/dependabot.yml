@@ -1,0 +1,39 @@
+# Dependabot (issue #22; Seguridad, punto 10 de docs/DECISIONES.md).
+# Las alertas y los PRs de seguridad se activan en la configuración del repo; este archivo agrega
+# las actualizaciones semanales de versiones. Todos los PRs van a develop y pasan por CI y por la revisión de Dana.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /apps/web
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: wednesday
+      time: "08:00"
+      timezone: America/Argentina/Buenos_Aires
+    # Solo propone versiones publicadas hace al menos 7 días (los PRs de seguridad no esperan).
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+    groups:
+      # Menores y parches en un solo PR por semana; las versiones mayores llegan por separado.
+      menores-y-parches:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: wednesday
+      time: "08:00"
+      timezone: America/Argentina/Buenos_Aires
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore
+    groups:
+      acciones:
+        patterns: ["*"]

@@ -225,6 +225,13 @@
       "when": 1790300035630,
       "tag": "0031_card_secret_reveals",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1795023100829,
+      "tag": "0032_rule_effect_messages",
+      "breakpoints": true
     }
   ]
 }
