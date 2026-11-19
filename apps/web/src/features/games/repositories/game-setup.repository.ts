@@ -6,6 +6,8 @@ import { access, selectionContext } from "@/features/preparation/repositories/pr
 import { PreparationError } from "@/features/preparation/domain/preparation";
 import { validateGameRules } from "@/features/rules/repositories/rule.repository";
 import { canStartGame, validateStartValues } from "../domain/start-game";
+import { sectionRequirementMissing } from "../domain/section-requirement";
+import { canWritePreparation } from "@/features/preparation/domain/preparation";
 
 const message = (error: unknown) => {
   if (error instanceof PreparationError) return error.message;
@@ -28,6 +30,7 @@ export async function readGameSetup(gameId: string, actorId: string) {
     try { await validateGameRules(tx, game.id, game.campaignId); } catch (error) { ruleError = message(error); }
     const periodsReady = !!game.periodCount && !!game.periodDurationSeconds && !!game.periodLabel;
     const [goals, rules, cards] = [await count(gameGoals), await count(gameRules), await count(gameRoleCards)];
+    const [{ enabledRules }] = await tx.select({ enabledRules: sql<number>`count(*)::integer` }).from(gameRules).where(and(eq(gameRules.gameId, gameId), eq(gameRules.enabled, true)));
     // Equipos is complete only when every card has at least one member.
     const [{ empty }] = await tx.select({ empty: sql<number>`count(*)::integer` }).from(gameRoleCards)
       .where(and(eq(gameRoleCards.gameId, gameId), sql`not exists (select 1 from ${gameCardAssignments} a where a.card_id = ${gameRoleCards.id} and a.game_id = ${gameRoleCards.gameId})`));
@@ -40,6 +43,7 @@ export async function readGameSetup(gameId: string, actorId: string) {
       kpiError && `KPIs: ${kpiError}`,
       !periodsReady && "Tiempos: configurá los períodos.",
       ruleError && `Reglas: ${ruleError}`,
+      ...sectionRequirementMissing({ goalsRequired: game.goalsRequired, rulesRequired: game.rulesRequired, goals, enabledRules }),
       otherActive && "Ya hay otra partida activa o pausada en esta campaña.",
       previous && previous.status !== "completed" && "La partida anterior de la campaña tiene que estar finalizada.",
     ].filter((item): item is string => typeof item === "string");
@@ -53,6 +57,12 @@ export async function readGameSetup(gameId: string, actorId: string) {
         equipos: cards > 0 && empty === 0,
       },
       missing,
+      // D-33 switches for the Metas and Reglas tabs.
+      requirements: { goals: game.goalsRequired, rules: game.rulesRequired },
+      counts: { goals, enabledRules },
+      preparationRevision: prep?.revision ?? 0,
+      preparing: game.status === "draft" || game.status === "ready",
+      canEditRequirements: canWritePreparation(role) && (game.status === "draft" || game.status === "ready"),
     };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }

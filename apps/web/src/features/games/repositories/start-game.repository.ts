@@ -2,10 +2,11 @@ import { validateGameRules } from "@/features/rules/repositories/rule.repository
 import "server-only";
 import { and, asc, desc, lt, eq, inArray, max, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { games, gameStateSets, gameStateValues, gamePreparationChanges, gameLifecycleChanges, rounds } from "@/db/schema";
+import { games, gameStateSets, gameStateValues, gamePreparationChanges, gameLifecycleChanges, rounds, gameGoals, gameRules } from "@/db/schema";
 import { access, selectionContext, hash } from "@/features/preparation/repositories/preparation.repository";
 import { PreparationError } from "@/features/preparation/domain/preparation";
 import { canStartGame, validateStartValues } from "../domain/start-game";
+import { sectionRequirementMissing } from "../domain/section-requirement";
 
 import { createConfiguredRounds } from "@/features/rounds/repositories/round.repository";
 
@@ -61,6 +62,11 @@ export async function startGame(actorId: string, input: StartGameInput) {
     if (restarting) values = await tx.select().from(gameStateValues).where(eq(gameStateValues.stateSetId, existingInitial!.id));
     validateStartValues(context.definitions, values);
     await validateGameRules(tx,game.id,game.campaignId);
+    // D-33: an empty required section blocks the start (the database checks it again at commit).
+    const sectionsMissing = sectionRequirementMissing({ goalsRequired: game.goalsRequired, rulesRequired: game.rulesRequired,
+      goals: (await tx.select({ id: gameGoals.id }).from(gameGoals).where(eq(gameGoals.gameId, game.id)).limit(1)).length,
+      enabledRules: (await tx.select({ id: gameRules.id }).from(gameRules).where(and(eq(gameRules.gameId, game.id), eq(gameRules.enabled, true))).limit(1)).length });
+    if (sectionsMissing.length) throw new PreparationError(sectionsMissing.join(" "));
     const now = new Date();
     if (restarting) await tx.execute(sql`set local nexus.lifecycle_operation = 'restart'`);
     const ids: Partial<Record<"initial" | "current", string>> = {};
