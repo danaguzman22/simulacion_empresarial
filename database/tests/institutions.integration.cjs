@@ -60,6 +60,8 @@ async function main() {
  for(const t of Object.keys(baseline))assert.deepEqual(await sql.unsafe("select to_jsonb(t)"+(t==='companies'?"-'institution_id'":"")+' row from '+t+' t order by id'),baseline[t]);
  assert.equal((await sql`select * from institutions`).length,0);assert.equal((await sql`select * from institution_members`).length,0);
  await migrate('0031_card_secret_reveals.sql');
+ // Not about D-33 (0033): games created here start with optional goals, as before 0033.
+ await migrate('0032_rule_effect_messages.sql');await migrate('0033_section_requirements.sql');await sql.unsafe("ALTER TABLE games ALTER COLUMN goals_required SET DEFAULT false");
  const module=n=>load(base+'/src/features/'+n+'.ts');
  const repo=module('institutions/repositories/institution.repository'),companyRepo=module('companies/repositories/company.repository'),assignment=module('students/repositories/assignment.repository'),students=module('students/repositories/student.repository');
  const teacher=module('auth/repositories/teacher-access.repository'),prep=module('preparation/repositories/preparation.repository'),manage=module('preparation/repositories/kpi-management.repository'),periods=module('rounds/repositories/period-configuration.repository'),start=module('games/repositories/start-game.repository'),rounds=module('rounds/repositories/round.repository'),lifecycle=module('games/repositories/game-lifecycle.repository');

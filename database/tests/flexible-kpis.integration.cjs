@@ -72,6 +72,8 @@ async function main() {
  assert.deepEqual(await sql`SELECT * FROM game_state_sets ORDER BY id`,oldStates);assert.deepEqual(await sql`SELECT * FROM game_state_values ORDER BY id`,oldValues);assert.deepEqual(await sql`SELECT * FROM game_preparation_changes ORDER BY id`,oldAudit);
  assert.deepEqual(await sql`SELECT * FROM game_kpi_changes ORDER BY id`,oldOperationalAudit);
  for(const file of fs.readdirSync(root+'/database/migrations').filter(f=>f.endsWith('.sql')&&Number(f.slice(0,4))>22).sort())await migrate(file);
+ // Not about D-33 (0033): games created here start with optional goals, as before 0033.
+ await sql.unsafe("ALTER TABLE games ALTER COLUMN goals_required SET DEFAULT false");
  assert((await read(first)).definitions.every(k=>k.origin==='new'));assert((await read(second)).definitions.every(k=>k.origin==='inherited'));assert.equal((await read(second)).predecessor.length,3);
  const finalBefore=await rows(first,'final');assert.deepEqual(await rows(second,'preparation'),finalBefore);
  await assert.rejects(config(second,a,false,'inherited','',observer));

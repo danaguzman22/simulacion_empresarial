@@ -56,6 +56,8 @@ async function main() {
  await sql`insert into game_role_cards(id,game_id,campaign_id,source_card_id,name,secret_objective,created_by,updated_by) values(${oldCard},${oldGame},${oldCampaign},${oldBase},'Old card','OLD SECRET',${master},${master})`;
  const before31=await sql`select to_jsonb(c) as row from game_role_cards c where id=${oldCard}`;
  await migrate('0031_card_secret_reveals.sql');
+ // Not about D-33 (0033): games created here start with optional goals, as before 0033.
+ await migrate('0032_rule_effect_messages.sql');await migrate('0033_section_requirements.sql');await sql.unsafe("ALTER TABLE games ALTER COLUMN goals_required SET DEFAULT false");
  assert.deepEqual(await sql`select to_jsonb(c)-'secret_reveal_limit'-'secret_reveal_seconds' as row from game_role_cards c where id=${oldCard}`,before31);
  assert.equal((await sql`select secret_reveal_limit from game_role_cards where id=${oldCard}`)[0].secret_reveal_limit,null);
  console.log('PASS upgrade 0030 -> 0031 preserves every existing card field and revision; no retrospective configuration');
