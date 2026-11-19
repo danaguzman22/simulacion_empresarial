@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { MonitorUp } from "lucide-react";
 import { gameStatusLabels } from "@/features/games/domain/game";
 import { getDashboard } from "../application/dashboard-actions";
-import { canProjectDashboard, DASHBOARD_REFRESH_MS } from "../domain/dashboard";
+import { canProjectDashboard, DASHBOARD_REFRESH_MS, gameChannelName } from "../domain/dashboard";
 import type { DashboardData } from "../repositories/dashboard.repository";
 import { DashboardClock } from "./DashboardClock";
 import { DashboardPlaceholder } from "./DashboardPanel";
@@ -30,17 +30,24 @@ export function GameDashboard({ initial, mode }: { initial: DashboardData; mode:
     };
     const poll = setInterval(() => { void refresh(); }, DASHBOARD_REFRESH_MS);
     const tick = setInterval(() => setNow(clock.current.server + performance.now() - clock.current.client), 1000);
-    return () => { stopped = true; clearInterval(poll); clearInterval(tick); };
+    // Browsers slow down timers in windows that are not visible (a projection behind the Master's window).
+    // So refresh as soon as the window is seen again, and when another window of this game changes a period.
+    const visible = () => { if (document.visibilityState === "visible") void refresh(); };
+    document.addEventListener("visibilitychange", visible);
+    window.addEventListener("focus", visible);
+    const channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(gameChannelName(initial.game.id));
+    if (channel) channel.onmessage = () => { void refresh(); };
+    return () => { stopped = true; clearInterval(poll); clearInterval(tick); document.removeEventListener("visibilitychange", visible); window.removeEventListener("focus", visible); channel?.close(); };
   }, [initial.game.id]);
 
   const project = () => window.open(`/proyectar/partidas/${data.game.id}`, `nexus-proyeccion-${data.game.id}`, "popup");
   const projection = mode === "projection";
   return <div className={`relative isolate overflow-hidden ${projection ? "min-h-screen" : "mt-8 rounded-3xl"}`}>
-    <div aria-hidden className="absolute inset-0 -z-10 bg-cover bg-center" style={{ backgroundImage: "url('/dashboard/fondo.png')" }} />
+    <div aria-hidden className="absolute inset-0 -z-10 bg-cover bg-center" style={{ backgroundImage: "url('/dashboard/fondo.webp')" }} />
     <div className={`space-y-4 ${projection ? "px-5 py-4 2xl:px-8 2xl:py-6" : "p-4 md:p-5"}`}>
       <header className="flex flex-wrap items-center justify-between gap-6 rounded-2xl border border-white/70 bg-white/[0.76] px-6 py-4 shadow-[0_12px_40px_rgba(15,23,42,0.12)] backdrop-blur-xl">
         <div className="flex min-w-0 items-center gap-6">
-          <Image src="/dashboard/logo.png" alt="NEXUS · Tablero de simulación" width={2158} height={729} priority className="h-auto w-[170px] object-contain lg:w-[220px]" />
+          <Image src="/dashboard/logo.webp" alt="NEXUS · Tablero de simulación" width={1200} height={405} priority className="h-auto w-[170px] object-contain lg:w-[220px]" />
           <div className="hidden h-14 w-px bg-slate-400/40 sm:block" />
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-500">{data.game.campaignName}</p>
