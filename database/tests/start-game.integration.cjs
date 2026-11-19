@@ -50,6 +50,14 @@ async function main(){
  async function request(game){const d=await prep.readPreparation(game,master);return {gameId:game,operationId:randomUUID(),expectedRevision:d.revision,catalogToken:d.catalogToken,expectedPeriodRevision:(await periods.readPeriodConfiguration(game,master)).revision};}
  async function fill(game){const d=await prep.readPreparation(game,master);await prep.writePreparation(master,{...await request(game),operation:'save_values',sourceId:null,values:Object.fromEntries(d.definitions.map(k=>[k.id,k.valueType==='numeric'?'35.50':'medium']))});}
  const a=await fixture();await assert.rejects(repo.startGame(master,await request(a.game)),/obligatorios/);await fill(a.game);
+ // #69: the setup summary behind the preparation tabs mirrors the server start checks and the read access rules.
+ const setupRepo=load(base+'/src/features/games/repositories/game-setup.repository.ts');const s69=await fixture();
+ let setup=await setupRepo.readGameSetup(s69.game,master);assert.equal(setup.complete.kpis,false);assert.equal(setup.complete.tiempos,true);assert(setup.missing.some(m=>/^KPIs: .*obligatorios/.test(m)));
+ for(const tab of ['metas','reglas','fichas','equipos'])assert.equal(setup.complete[tab],false);
+ await fill(s69.game);setup=await setupRepo.readGameSetup(s69.game,master);assert.equal(setup.complete.kpis,true);assert.deepEqual([...setup.missing],[]);
+ assert((await setupRepo.readGameSetup(s69.game,observer)).missing.some(m=>/Solo Master o Co-Master/.test(m)),'observer reads the summary but cannot start');
+ await assert.rejects(setupRepo.readGameSetup(s69.game,randomUUID()),'non-members get no summary');
+ console.log('PASS #69 setup summary: tab completion, missing items, observer cannot start, outsiders denied');
  await assert.rejects(repo.startGame(observer,await request(a.game)));
  const input=await request(a.game);const result=await Promise.allSettled([repo.startGame(master,input),repo.startGame(co,{...input,operationId:randomUUID()})]);assert.equal(result.filter(r=>r.status==='fulfilled').length,1);
  const audit=await sql`SELECT actor_id,operation_id FROM game_preparation_changes WHERE operation='start_game'`;const winner=audit[0].actor_id;const winningInput={...input,operationId:audit[0].operation_id};assert.equal((await repo.startGame(winner,winningInput)).replayed,true);
