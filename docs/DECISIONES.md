@@ -38,6 +38,8 @@ Fuente de verdad de las decisiones del proyecto. Las issues de GitHub citan esto
 | D-28 | Cada institución puede declarar sus dominios de correo. Quien se registra con ese correo verificado entra directo como miembro, nunca como docente. | Pendiente |
 | D-29 | Los niveles de la institución se llaman "unidades" en el sistema y cada institución les pone su nombre. "Departamento" queda reservado para los de la simulación. | Pendiente |
 | D-30 | Por ahora no se reemplaza Supabase por un Postgres propio: Supabase Auth sostiene el login. | Vigente |
+| D-31 | La puerta de entrada decide qué experiencia se ve: "Acceso administrativo" muestra solo el perfil administrativo (instituciones, materias, campañas, Master) y "Acceso de usuarios" muestra solo el portal del participante. Nunca se mezclan en una misma pantalla. Los permisos siguen dependiendo de los roles reales (D-01): entrar por una puerta no da permisos; si la cuenta no tiene ese rol, ve un aviso. | Pendiente |
+| D-32 | El participante está parado en una institución a la vez. Menú del avatar (arriba a la derecha): nombre, institución actual, "Cambiar de institución" (solo si pertenece a más de una), "Unirme a otra institución", "Mis solicitudes", "Mi perfil", "Configuración" y "Cerrar sesión"; se pueden sumar opciones en el futuro. Al cambiar de institución, todo el portal (materias, campañas, partidas) pasa a ser el de esa institución. Con una sola institución entra directo. NEXUS recuerda la última institución elegida. "Mis accesos" y "Mis instituciones" dejan de ser pantallas del participante: lo que tenían pasa al menú. | Pendiente |
 | D-33 | Metas y Reglas tienen un interruptor 'Obligatorio' por partida. Por defecto, Metas es obligatoria (sin metas no hay resultado final) y Reglas opcional. Una sección obligatoria vacía bloquea el inicio, verificado en el servidor y en la base. Las partidas que ya existían quedan con Metas opcional. | Pendiente |
 | M-1 | Matrícula en dos pasos: materia con código fijo, campaña con QR que vence (ver "Ingreso, registro y matrícula"). | Pendiente |
 | M-2 | Un miembro de la institución puede buscar las materias de SUS instituciones (nunca de otras) en un catálogo con buscador. Cada materia define cómo se entra: con código (por defecto), abierta (sin código, para cualquier miembro) o con solicitud que aprueba el docente. | Pendiente |
@@ -125,4 +127,5 @@ Referencia: OWASP Top 10 y ASVS. En orden de prioridad:
 | Dashboard: avance de las metas y resultado final | D-10 |
 | Dashboard: muro de avisos | M-3 |
 | Interruptor 'Obligatorio' para Metas y Reglas | D-33 |
+| Puertas de entrada separadas y menú del usuario | D-01, D-31, D-32 |
 | Issues de seguridad | Seguridad, puntos 3 a 12 |
