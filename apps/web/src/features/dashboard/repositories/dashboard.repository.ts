@@ -29,7 +29,7 @@ export async function readDashboard(gameId: string, actorId: string) {
     const periods = await tx.select({ id: rounds.id, sequence: rounds.sequence, name: rounds.name, status: rounds.status, endsAt: rounds.endsAt, remainingMs: rounds.remainingMs })
       .from(rounds).where(eq(rounds.gameId, game.id)).orderBy(asc(rounds.sequence));
     const periodLabel = game.periodLabel ?? "Ronda";
-    const { kpis, goals } = await readDashboardIndicators(tx, { id: game.id, campaignId: game.campaignId, status: game.status }, periodLabel, periods);
+    const { kpis, goals, wall } = await readDashboardIndicators(tx, { id: game.id, campaignId: game.campaignId, status: game.status }, periodLabel, periods);
     const [time] = await tx.execute<{ now: Date }>(sql`select clock_timestamp() as now`);
     return {
       viewer,
@@ -38,6 +38,7 @@ export async function readDashboard(gameId: string, actorId: string) {
       periodLabel,
       kpis,
       goals,
+      wall,
       periods: periods.map(p => ({ ...p, endsAt: p.endsAt?.toISOString() ?? null })),
     };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });

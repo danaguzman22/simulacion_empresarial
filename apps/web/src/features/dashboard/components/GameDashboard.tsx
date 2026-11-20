@@ -7,10 +7,11 @@ import { getDashboard } from "../application/dashboard-actions";
 import { canProjectDashboard, DASHBOARD_REFRESH_MS, gameChannelName } from "../domain/dashboard";
 import type { DashboardData } from "../repositories/dashboard.repository";
 import { DashboardClock } from "./DashboardClock";
-import { DashboardPanel, DashboardPlaceholder } from "./DashboardPanel";
+import { DashboardPanel } from "./DashboardPanel";
 import { KpiCard } from "./KpiCard";
 import { KpiEvolution } from "./KpiEvolution";
 import { GoalsPanel } from "./GoalsPanel";
+import { NoticeWall } from "./NoticeWall";
 
 // The single game dashboard (#32): the Master's tab, the participant's tab and the projection window render it.
 // It refreshes itself from the server; the browser clock only measures elapsed time since the last server time.
@@ -73,7 +74,7 @@ export function GameDashboard({ initial, mode }: { initial: DashboardData; mode:
         <DashboardPanel eyebrow="Evolución" title="Evolución de los indicadores" className="lg:col-span-2"><KpiEvolution kpis={data.kpis} /></DashboardPanel>
         <GoalsPanel board={data.goals} />
       </div>
-      <DashboardPlaceholder eyebrow="Muro" title="Avisos de la partida" issue="#35" />
+      <NoticeWall items={data.wall} />
     </div>
   </div>;
 }
