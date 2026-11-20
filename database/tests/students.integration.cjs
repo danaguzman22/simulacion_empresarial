@@ -185,10 +185,12 @@ async function main() {
  await sql`delete from game_card_assignments where game_id=${successor}`;
  const inherited=(await cards.readCards({kind:'game',id:successor},master)).cards;
  assert.equal(inherited.length,2);
- await add({game:successor},inherited[0].id,'one@test.test');
+ // The revoked member is picked by id order (random), so use whichever Engineering member is still active.
+ const [keeper,keeperEmail]=[[s1,'one@test.test'],[s2,'two@test.test']].find(([id])=>id!==revoked);
+ await add({game:successor},inherited[0].id,keeperEmail);
  await lifecycle.deleteGame(master,{gameId:successor,operationId:randomUUID()});
  assert.equal((await sql`select * from game_card_assignments where game_id=${successor}`).length,0);
- assert.equal((await students.readAssignedCard(a.game,s1)).card.id,engineering);
+ assert.equal((await students.readAssignedCard(a.game,keeper)).card.id,engineering);
  console.log('PASS Reset retains assignments but hides preparation; evaluation/completed read-only; successor inherits active members into equivalent departments (D-34); Delete cascades');
  for(const role of ['anon','authenticated']) {
   const [p]=await sql`select has_table_privilege(${role},'public.game_card_assignments','SELECT,INSERT,UPDATE,DELETE') as allowed,has_function_privilege(${role},'public.find_registered_profile_by_email(text)','EXECUTE') as lookup`;
