@@ -108,6 +108,11 @@ async function main() {
  await assert.rejects(lifecycle.finishGame(master,{gameId:a.game,operationId:randomUUID()}));assert.equal((await sql`SELECT count(*)::int n FROM game_results WHERE game_id=${a.game}`)[0].n,0);assert.equal((await sql`SELECT count(*)::int n FROM game_state_sets WHERE game_id=${a.game} AND phase='final'`)[0].n,0);
  await sql.unsafe('DROP TRIGGER fail_goal_finish ON games;DROP FUNCTION fail_goal_finish();');
  await lifecycle.finishGame(co,{gameId:a.game,operationId:randomUUID()});
+ // #34: the dashboard shows the final D-10 result and each evaluation, without the Master's observations.
+ const finalBoard=(await load(base+'/src/features/dashboard/repositories/dashboard.repository.ts').readDashboard(a.game,master)).goals;
+ assert.equal(finalBoard.phase,'final');assert.equal(finalBoard.result.category,'epic_victory');assert.equal(finalBoard.result.label,'Victoria épica');
+ assert.equal(finalBoard.goals.length,(await read(a.game)).goals.length);assert(finalBoard.goals.every(g=>typeof g.evaluation==='boolean'));
+ assert(!JSON.stringify(finalBoard).includes('Decision del Master'),'observations never reach the dashboard');
  assert.equal((await read(a.game)).result.category,'epic_victory');assert.equal((await read(a.game)).result.fulfilledCount,4);
  await assert.rejects(change(a.game,num,'evaluate',{fulfilled:true}));await assert.rejects(direct(a.game,tx=>tx`UPDATE game_goals SET fulfilled=true,revision=revision+1 WHERE id=${num}`));
  await assert.rejects(sql`UPDATE game_results SET category='epic_failure' WHERE game_id=${a.game}`);
