@@ -1,5 +1,7 @@
 // #34: goals block of the dashboard. Pure functions (no database), covered by unit tests.
 // Only public data: title, target, current value and fulfilment. Never the Master's observations or who evaluated.
+// D-35: while the game is in evaluation nothing of the Master's evaluation travels (only how many are evaluated);
+// each goal's evaluation and the D-10 result appear only after "Finalizar partida" (status completed).
 import { classifyResult, resultLabels, suggest } from "@/features/goals/domain/goal";
 import type { KpiDefinition, StoredValue } from "./kpi-series";
 import { pointFor } from "./kpi-series";
@@ -36,19 +38,16 @@ export function buildGoalBoard(input: {
     const kind = goal.goalType === "kpi" ? "kpi" : "generic";
     return { id: goal.id, title: goal.title, kind, kpiName: definition?.name ?? null, target: kind === "kpi" ? targetText(goal, definition) : null,
       current: kind === "kpi" && definition ? pointFor(definition, value, "").display : null,
-      meetsNow: kind === "kpi" ? suggest(goal, value) : null, evaluation: goal.fulfilled };
+      meetsNow: kind === "kpi" && input.status !== "evaluation" && input.status !== "completed" ? suggest(goal, value) : null,
+      evaluation: input.status === "completed" ? goal.fulfilled : null };
   });
   const measurable = goals.filter(g => g.meetsNow !== null);
-  const evaluated = goals.filter(g => g.evaluation !== null).length;
+  const evaluated = input.goals.filter(g => g.fulfilled !== null).length;
   const phase = !goals.length ? "none" : input.status === "completed" ? "final" : input.status === "evaluation" ? "evaluating" : "live";
   let result: GoalBoard["result"] = null;
   const stored = input.storedResult;
-  if (stored && stored.evaluatedCount > 0) result = { fulfilled: stored.fulfilledCount, evaluated: stored.evaluatedCount, percent: Math.round(stored.fulfilledCount * 100 / stored.evaluatedCount),
+  if (phase === "final" && stored && stored.evaluatedCount > 0) result = { fulfilled: stored.fulfilledCount, evaluated: stored.evaluatedCount, percent: Math.round(stored.fulfilledCount * 100 / stored.evaluatedCount),
     category: (stored.category as ResultCategory | null) ?? classifyResult(stored.fulfilledCount, stored.evaluatedCount), label: "" };
-  else if (phase === "evaluating" && evaluated === goals.length) {
-    const fulfilled = goals.filter(g => g.evaluation).length;
-    result = { fulfilled, evaluated, percent: Math.round(fulfilled * 100 / evaluated), category: classifyResult(fulfilled, evaluated), label: "" };
-  }
   if (result) result.label = result.category ? resultLabels[result.category] : "Sin resultado";
   return { phase, goals, liveSummary: { meeting: measurable.filter(g => g.meetsNow).length, measurable: measurable.length }, evaluated, result };
 }

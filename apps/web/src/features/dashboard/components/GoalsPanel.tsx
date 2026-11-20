@@ -4,10 +4,11 @@ import { resultScale, type BoardGoal, type GoalBoard } from "../domain/goal-boar
 import { DashboardPanel } from "./DashboardPanel";
 
 function GoalState({ goal, phase }: { goal: BoardGoal; phase: GoalBoard["phase"] }) {
-  const final = phase === "evaluating" || phase === "final";
+  if (phase === "evaluating") return <span className="shrink-0 text-xs font-bold text-slate-400">En evaluación</span>;
+  const final = phase === "final";
   const state = final ? goal.evaluation : goal.meetsNow;
   const text = final ? (state === null ? "Sin evaluar" : state ? "Cumplida" : "No cumplida")
-    : goal.kind === "generic" ? "La evalúa el Master al final" : state === null ? "Sin valor todavía" : state ? "Se cumple hoy" : "Todavía no";
+    : goal.kind === "generic" ? "La evalúa el Master al final" : state === null ? "Sin valor todavía" : state ? "Se cumple hoy" : "No se cumple hoy";
   const Icon = state === true ? CheckCircle2 : state === false ? XCircle : Circle;
   return <span className={`flex shrink-0 items-center gap-1 text-xs font-bold ${state === true ? "text-emerald-700" : state === false ? "text-slate-500" : "text-slate-400"}`}>
     <Icon aria-hidden className="h-4 w-4" />{text}</span>;
@@ -16,9 +17,9 @@ function GoalState({ goal, phase }: { goal: BoardGoal; phase: GoalBoard["phase"]
 // Goals block (#34): live progress while playing, the Master's evaluation, and the final D-10 result.
 export function GoalsPanel({ board }: { board: GoalBoard }) {
   if (board.phase === "none") return <DashboardPanel eyebrow="Metas" title="Avance y resultado"><p className="mt-3 text-sm text-slate-500">Esta partida no tiene metas: no habrá resultado final.</p></DashboardPanel>;
-  return <DashboardPanel eyebrow="Metas" title={board.phase === "live" ? "Avance de las metas" : "Resultado"}>
+  return <DashboardPanel eyebrow="Metas" title={board.phase === "live" ? "Avance de las metas" : board.phase === "evaluating" ? "En evaluación" : "Resultado"}>
     {board.phase === "live" && board.liveSummary.measurable > 0 && <p className="mt-1 text-sm text-slate-600">Hoy se cumplen <strong>{board.liveSummary.meeting} de {board.liveSummary.measurable}</strong> metas medibles.</p>}
-    {board.phase === "evaluating" && !board.result && <p className="mt-1 text-sm text-slate-600">Evaluación en curso: {board.evaluated} de {board.goals.length} metas evaluadas.</p>}
+    {board.phase === "evaluating" && <p className="mt-1 text-sm text-slate-600">El Master está evaluando las metas: {board.evaluated} de {board.goals.length} evaluadas. El resultado se publica al finalizar la partida.</p>}
     {board.result && <div className="mt-3">
       <p className="text-3xl font-extrabold text-[#0b3159]">{board.result.label}</p>
       <p className="text-sm text-slate-600">{board.result.fulfilled} de {board.result.evaluated} metas cumplidas ({board.result.percent} %).</p>

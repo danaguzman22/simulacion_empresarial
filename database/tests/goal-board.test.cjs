@@ -18,12 +18,14 @@ assert.deepEqual(board.goals.map(g=>[g.target,g.current,g.meetsNow]),[['Lead Tim
 assert.equal(board.result,null);
 // Only public fields travel: no observations, evaluator or descriptions.
 for(const g of board.goals)assert.deepEqual(Object.keys(g).sort(),['current','evaluation','id','kind','kpiName','meetsNow','target','title']);
-// Evaluating: partial evaluation shows progress; once every goal is evaluated the result is computed (D-10).
-board=plain(buildGoalBoard({status:'evaluation',goals:goals.map((g,i)=>({...g,fulfilled:i===0?false:null})),definitions:[lead,stock],current,storedResult:null}));
-assert.equal(board.phase,'evaluating');assert.equal(board.evaluated,1);assert.equal(board.result,null);
-board=plain(buildGoalBoard({status:'evaluation',goals:goals.map((g,i)=>({...g,fulfilled:i!==0})),definitions:[lead,stock],current,storedResult:null}));
-assert.deepEqual(board.result,{fulfilled:2,evaluated:3,percent:67,category:'partial_victory',label:'Victoria parcial'});
-// Final: the stored result wins; the scale has the five D-10 categories from worst to best.
+// D-35 Evaluating: nothing of the Master's evaluation travels (no per-goal evaluation, no result, no provisional
+// state), only how many goals are evaluated, even when every goal is already evaluated.
+for(const fulfilled of [[false,null,null],[true,false,true]]){
+ board=plain(buildGoalBoard({status:'evaluation',goals:goals.map((g,i)=>({...g,fulfilled:fulfilled[i]})),definitions:[lead,stock],current,storedResult:{fulfilledCount:2,evaluatedCount:3,category:'partial_victory'}}));
+ assert.equal(board.phase,'evaluating');assert.equal(board.evaluated,fulfilled.filter(f=>f!==null).length);assert.equal(board.result,null);
+ assert(board.goals.every(g=>g.evaluation===null&&g.meetsNow===null),'no evaluation and no provisional state during evaluation');
+}
+// Final (after "Finalizar partida"): each evaluation and the stored result; the scale has the five D-10 categories from worst to best.
 board=plain(buildGoalBoard({status:'completed',goals:goals.map(g=>({...g,fulfilled:true})),definitions:[lead,stock],current,storedResult:{fulfilledCount:3,evaluatedCount:3,category:'epic_victory'}}));
 assert.equal(board.phase,'final');assert.deepEqual(board.result,{fulfilled:3,evaluated:3,percent:100,category:'epic_victory',label:'Victoria épica'});
 assert.deepEqual([...resultScale],['epic_failure','partial_failure','balanced','partial_victory','epic_victory']);
