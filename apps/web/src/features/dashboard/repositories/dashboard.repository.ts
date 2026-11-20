@@ -5,6 +5,7 @@ import { games, campaigns, campaignMembers, companies, rounds, gameCardAssignmen
 import { institutionAccessSql } from "@/features/institutions/repositories/institution-access";
 import { canReadAssignedCard } from "@/features/students/domain/assignment";
 import { isStaffRole, type DashboardViewer } from "../domain/dashboard";
+import { readDashboardKpis } from "./dashboard-kpis.repository";
 
 // Read-only dashboard data. Access is checked here on every read (also on the auto-refresh): campaign staff with
 // institution access, or a participant with a card in this game once it started. Anyone else gets null.
@@ -27,12 +28,15 @@ export async function readDashboard(gameId: string, actorId: string) {
     if (!viewer) return null;
     const periods = await tx.select({ id: rounds.id, sequence: rounds.sequence, name: rounds.name, status: rounds.status, endsAt: rounds.endsAt, remainingMs: rounds.remainingMs })
       .from(rounds).where(eq(rounds.gameId, game.id)).orderBy(asc(rounds.sequence));
+    const periodLabel = game.periodLabel ?? "Ronda";
+    const kpis = await readDashboardKpis(tx, { id: game.id, campaignId: game.campaignId }, periodLabel, periods);
     const [time] = await tx.execute<{ now: Date }>(sql`select clock_timestamp() as now`);
     return {
       viewer,
       serverNow: new Date(time.now).toISOString(),
       game: { id: game.id, name: game.name, status: game.status, sequence: game.sequence, campaignName: game.campaignName },
-      periodLabel: game.periodLabel ?? "Ronda",
+      periodLabel,
+      kpis,
       periods: periods.map(p => ({ ...p, endsAt: p.endsAt?.toISOString() ?? null })),
     };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
