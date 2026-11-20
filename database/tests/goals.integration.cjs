@@ -104,10 +104,19 @@ async function main() {
  for(const goal of (await read(a.game)).goals.filter(g=>g.fulfilled===null))await change(a.game,goal.id,'evaluate',{fulfilled:true});
  assert.equal((await read(a.game)).goals.find(g=>g.id===paused).suggestedFulfilled,false);
  assert.equal((await read(a.game)).result.category,'epic_victory');
+ // D-35: in evaluation (every goal already evaluated) the dashboard carries no evaluation, result or provisional state.
+ const evaluatingBoard=(await load(base+'/src/features/dashboard/repositories/dashboard.repository.ts').readDashboard(a.game,master)).goals;
+ assert.equal(evaluatingBoard.phase,'evaluating');assert.equal(evaluatingBoard.result,null);assert.equal(evaluatingBoard.evaluated,evaluatingBoard.goals.length);
+ assert(evaluatingBoard.goals.every(g=>g.evaluation===null&&g.meetsNow===null));assert(!/epic_victory|Victoria|Decision del Master/.test(JSON.stringify(evaluatingBoard)));
  await sql.unsafe("CREATE FUNCTION fail_goal_finish() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.status='completed' THEN RAISE EXCEPTION 'finish failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER fail_goal_finish BEFORE UPDATE ON games FOR EACH ROW EXECUTE FUNCTION fail_goal_finish();");
  await assert.rejects(lifecycle.finishGame(master,{gameId:a.game,operationId:randomUUID()}));assert.equal((await sql`SELECT count(*)::int n FROM game_results WHERE game_id=${a.game}`)[0].n,0);assert.equal((await sql`SELECT count(*)::int n FROM game_state_sets WHERE game_id=${a.game} AND phase='final'`)[0].n,0);
  await sql.unsafe('DROP TRIGGER fail_goal_finish ON games;DROP FUNCTION fail_goal_finish();');
  await lifecycle.finishGame(co,{gameId:a.game,operationId:randomUUID()});
+ // #34: the dashboard shows the final D-10 result and each evaluation, without the Master's observations.
+ const finalBoard=(await load(base+'/src/features/dashboard/repositories/dashboard.repository.ts').readDashboard(a.game,master)).goals;
+ assert.equal(finalBoard.phase,'final');assert.equal(finalBoard.result.category,'epic_victory');assert.equal(finalBoard.result.label,'Victoria épica');
+ assert.equal(finalBoard.goals.length,(await read(a.game)).goals.length);assert(finalBoard.goals.every(g=>typeof g.evaluation==='boolean'));
+ assert(!JSON.stringify(finalBoard).includes('Decision del Master'),'observations never reach the dashboard');
  assert.equal((await read(a.game)).result.category,'epic_victory');assert.equal((await read(a.game)).result.fulfilledCount,4);
  await assert.rejects(change(a.game,num,'evaluate',{fulfilled:true}));await assert.rejects(direct(a.game,tx=>tx`UPDATE game_goals SET fulfilled=true,revision=revision+1 WHERE id=${num}`));
  await assert.rejects(sql`UPDATE game_results SET category='epic_failure' WHERE game_id=${a.game}`);
