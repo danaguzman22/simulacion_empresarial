@@ -1,3 +1,4 @@
+import { allPeriodsCompleted } from "@/features/rounds/domain/round";
 export type RecordKind = "manual" | "situation" | "rule" | "rule_change" | "round" | "game";
 export type RecordEffect = {
   name: string;
@@ -160,7 +161,7 @@ export function composeRecords(data: RecordsSource): RecordsData {
   }
   // No separate evaluation-transition audit exists. Only show this milestone when
   // both the game state and the surviving close audits substantiate it.
-  if (["evaluation", "completed"].includes(data.status) && data.periods.length && data.periods.every(p => p.status === "completed")) {
+  if (["evaluation", "completed"].includes(data.status) && allPeriodsCompleted(data.periods)) {
     const closes = data.roundChanges.filter(r => r.operation === "finish").sort((a, b) => compare(iso(a.createdAt), iso(b.createdAt)) || compare(a.id, b.id));
     const closedIds = new Set(closes.map(c => c.roundId));
     if (data.periods.every(p => closedIds.has(p.id))) {

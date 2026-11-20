@@ -7,7 +7,11 @@ import { getDashboard } from "../application/dashboard-actions";
 import { canProjectDashboard, DASHBOARD_REFRESH_MS, gameChannelName } from "../domain/dashboard";
 import type { DashboardData } from "../repositories/dashboard.repository";
 import { DashboardClock } from "./DashboardClock";
-import { DashboardPlaceholder } from "./DashboardPanel";
+import { DashboardPanel } from "./DashboardPanel";
+import { KpiCard } from "./KpiCard";
+import { KpiEvolution } from "./KpiEvolution";
+import { GoalsPanel } from "./GoalsPanel";
+import { NoticeWall } from "./NoticeWall";
 
 // The single game dashboard (#32): the Master's tab, the participant's tab and the projection window render it.
 // It refreshes itself from the server; the browser clock only measures elapsed time since the last server time.
@@ -63,12 +67,14 @@ export function GameDashboard({ initial, mode }: { initial: DashboardData; mode:
         </div>
       </header>
       {offline && <p role="status" className="rounded-xl bg-amber-100/90 px-4 py-2 text-sm font-semibold text-amber-900">Sin conexión con el servidor: se muestran los últimos datos recibidos.</p>}
-      <DashboardPlaceholder eyebrow="Indicadores" title="KPIs de la partida" issue="#33" />
+      {data.kpis.length
+        ? <section aria-label="KPIs de la partida" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{data.kpis.map(kpi => <KpiCard key={kpi.id} kpi={kpi} />)}</section>
+        : <DashboardPanel eyebrow="Indicadores" title="KPIs de la partida"><p className="mt-3 text-sm text-slate-500">La partida todavía no tiene KPIs en juego.</p></DashboardPanel>}
       <div className="grid gap-4 lg:grid-cols-3">
-        <DashboardPlaceholder eyebrow="Evolución" title="Evolución de los indicadores" issue="#33" className="lg:col-span-2" />
-        <DashboardPlaceholder eyebrow="Metas" title="Avance y resultado" issue="#34" />
+        <DashboardPanel eyebrow="Evolución" title="Evolución de los indicadores" className="lg:col-span-2"><KpiEvolution kpis={data.kpis} /></DashboardPanel>
+        <GoalsPanel board={data.goals} />
       </div>
-      <DashboardPlaceholder eyebrow="Muro" title="Avisos de la partida" issue="#35" />
+      <NoticeWall items={data.wall} />
     </div>
   </div>;
 }

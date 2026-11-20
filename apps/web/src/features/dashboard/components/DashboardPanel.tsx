@@ -9,9 +9,3 @@ export function DashboardPanel({ title, eyebrow, children, className = "" }: { t
   </section>;
 }
 
-// Reserved place for a block that a later issue fills in.
-export function DashboardPlaceholder({ title, eyebrow, issue, className }: { title: string; eyebrow?: string; issue: string; className?: string }) {
-  return <DashboardPanel title={title} eyebrow={eyebrow} className={className}>
-    <p className="mt-3 rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Próximamente ({issue}).</p>
-  </DashboardPanel>;
-}
