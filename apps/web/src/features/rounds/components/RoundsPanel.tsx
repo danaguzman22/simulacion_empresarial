@@ -3,10 +3,13 @@ import { useRouter } from "next/navigation";
 import { useActionState,useEffect,useRef,useState,type ReactNode } from "react";
 import { getRounds,roundAction } from "../application/round-actions";
 import { remainingMilliseconds,roundLabels } from "../domain/round";
+import { gameChannelName } from "@/features/dashboard/domain/dashboard";
 export type RoundsData=Awaited<ReturnType<typeof getRounds>>;
 type Data=RoundsData;
 export function Action({gameId,round,operation,label,confirmText,remainingText,children}:{gameId:string;round?:Data["rounds"][number];operation:string;label:string;confirmText?:string;remainingText?:string;children?:ReactNode}){
  const [state,action,pending]=useActionState(roundAction,{});const operationId=useRef<string|null>(null);
+ // Tell other windows of this game (the projection) to refresh now, even if the browser is slowing them down.
+ useEffect(()=>{if(!state.success||typeof BroadcastChannel==="undefined")return;const channel=new BroadcastChannel(gameChannelName(gameId));channel.postMessage("period");channel.close();},[state,gameId]);
  return <form action={action} className="mt-3 space-y-2" onChange={()=>{operationId.current=null;}} onSubmit={e=>{if(operation==="finish"&&!window.confirm(`¿Finalizar ${confirmText}? Quedan ${remainingText} y este tiempo se descartará.`)){e.preventDefault();return;}operationId.current??=crypto.randomUUID();(e.currentTarget.elements.namedItem("operationId") as HTMLInputElement).value=operationId.current;}}>
  <input type="hidden" name="gameId" value={gameId}/><input type="hidden" name="roundId" value={round?.id??""}/><input type="hidden" name="revision" value={round?.revision??0}/><input type="hidden" name="operation" value={operation}/><input type="hidden" name="operationId" defaultValue=""/>
  <fieldset disabled={pending} className="space-y-2">{children}<button disabled={pending} className="rounded-xl bg-sky-300 px-4 py-2 font-bold text-slate-950 disabled:opacity-50">{pending?"Guardando…":label}</button></fieldset>

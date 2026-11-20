@@ -17,7 +17,7 @@ export async function requestSecret(gameId: string, operationId: string | null):
   if (operationId !== null && !operationId) return { status: "error", message: "Operación inválida." };
   try {
     const result = await revealSecret(actor, gameId, operationId ?? undefined);
-    if (operationId) revalidatePath(`/alumno/partidas/${gameId}`);
+    if (operationId) revalidatePath(`/alumno/partidas/${gameId}`, "layout");
     return result;
   } catch (e) { return { status: "error", message: e instanceof PreparationError ? e.message : "No se pudo consultar el objetivo." }; }
 }

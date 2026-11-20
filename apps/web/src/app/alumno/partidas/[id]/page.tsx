@@ -1,7 +1,8 @@
-import { getStudentCard } from "@/features/students/application/student-access";
-import { StudentCard } from "@/features/students/components/StudentCard";
+import { redirect } from "next/navigation";
+import { defaultStudentTab } from "@/features/students/domain/student-tabs";
+
 export const dynamic = "force-dynamic";
+
 export default async function StudentGamePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  return <StudentCard data={await getStudentCard(id)} />;
+  redirect(`/alumno/partidas/${(await params).id}/${defaultStudentTab}`);
 }

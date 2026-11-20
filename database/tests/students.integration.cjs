@@ -110,6 +110,10 @@ async function main() {
  await assert.rejects(cards.readCards({kind:'game',id:a.game},s1));
  await assert.rejects(start.startGame(s1,{gameId:a.game,operationId:randomUUID(),expectedRevision:0,catalogToken:'',expectedPeriodRevision:1}));
  assert.equal(await students.readAssignedCard(a.game,s1),null,'prestart card not read');
+ // #32 dashboard access: staff always; an assigned participant only once the game started.
+ const dashboards=module('dashboard/repositories/dashboard.repository');
+ assert.equal(await dashboards.readDashboard(a.game,s1),null,'prestart dashboard not readable by participants');
+ assert.equal((await dashboards.readDashboard(a.game,master)).viewer,'staff');
  assert.equal((await students.listAssignedGames(s1))[0].department,null,'prestart department not disclosed');
  sessionActor=s1;
  const action=module('students/application/assignment-actions');
@@ -121,6 +125,11 @@ async function main() {
  console.log('PASS registration profile, no elevation, no assignments, multi-member unique assignment, cross-game and admin denials, no premature disclosure');
  await startGame(a.game);
  let detail=await students.readAssignedCard(a.game,s1);
+ for(const actor of [master,co,observer])assert.equal((await dashboards.readDashboard(a.game,actor)).viewer,'staff');
+ const board=await dashboards.readDashboard(a.game,s1);assert.equal(board.viewer,'participant');assert.equal(board.game.id,a.game);assert(Array.isArray(board.periods)&&board.periods.length>0);
+ assert.equal(await dashboards.readDashboard(a.game,s3),null,'a member without a card in this game cannot read it');
+ assert.equal(await dashboards.readDashboard(a.game,randomUUID()),null,'outsiders cannot read it');
+ const boardPayload=JSON.stringify(board);for(const hidden of ['PRIVATE-','SECRET-','PUBLIC-GOAL-','Engineering','one@test.test'])assert(!boardPayload.includes(hidden),'dashboard must not carry '+hidden);
  assert.equal(detail.card.id,engineering);assert.equal(detail.teammates.length,2);
  assert.equal(detail.clock.period,null,'no period running yet: no countdown');assert(!Number.isNaN(Date.parse(detail.clock.serverNow)));
  const payload=JSON.stringify(detail);assert(!payload.includes('SECRET-'));assert(!payload.includes('secretObjective'));assert(!payload.includes('Finance'));assert(payload.includes('PRIVATE-RESTRICTION-Engineering'));
