@@ -3,7 +3,7 @@ import "server-only";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { gameCardAssignments as assignments, gameRoleCards as cards, profiles } from "@/db/schema";
-import { access } from "@/features/preparation/repositories/preparation.repository";
+import { access, type Transaction } from "@/features/preparation/repositories/preparation.repository";
 import { AssignmentError, canManageAssignments, validateAssignment, type AssignmentCommand } from "../domain/assignment";
 
 export async function readParticipants(gameId: string, actorId: string) {
@@ -49,4 +49,22 @@ export async function changeAssignment(actorId: string, command: AssignmentComma
       await tx.update(assignments).set({ cardId: command.cardId, revision: existing.revision + 1, updatedAt: new Date(), updatedBy: actorId }).where(eq(assignments.id, existing.id));
     }
   });
+}
+
+// #87 (D-34): the successor game inherits the previous game's members, inside create-successor's transaction.
+// Each member goes to the equivalent department (the new card with the same campaign base card) and is copied only
+// under the same rule as "Agregar integrante": the company is linked to an institution and the person is still an
+// active member of it. Only the assignment is inherited, never any use state (D-07).
+export async function copySuccessorAssignments(tx: Transaction, previousGameId: string, gameId: string, campaignId: string, actorId: string) {
+  const copied = await tx.execute<{ id: string }>(sql`insert into public.game_card_assignments (game_id, campaign_id, card_id, profile_id, updated_by)
+    select ${gameId}::uuid, ${campaignId}::uuid, nc.id, a.profile_id, ${actorId}::uuid
+    from public.game_card_assignments a
+    join public.game_role_cards pc on pc.id = a.card_id and pc.game_id = a.game_id
+    join public.game_role_cards nc on nc.game_id = ${gameId}::uuid and nc.campaign_id = ${campaignId}::uuid and nc.source_card_id = pc.source_card_id
+    join public.campaigns ca on ca.id = ${campaignId}::uuid
+    join public.companies co on co.id = ca.company_id and co.institution_id is not null
+    join public.institution_members m on m.institution_id = co.institution_id and m.profile_id = a.profile_id and m.status = 'active'
+    where a.game_id = ${previousGameId}::uuid
+    returning id`);
+  return copied.length;
 }

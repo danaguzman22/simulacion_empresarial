@@ -167,15 +167,31 @@ async function main() {
  await lifecycle.finishGame(master,{gameId:a.game,operationId:randomUUID()});
  assert.equal((await students.readAssignedCard(a.game,s1)).game.status,'completed');
  await assert.rejects(add(a,finance,'three@test.test'));
+ // #87 (D-34): the successor inherits members into the equivalent department, only if still active institution members.
+ const previousMembers=await sql`select a.profile_id, c.source_card_id from game_card_assignments a join game_role_cards c on c.id=a.card_id where a.game_id=${a.game} order by a.profile_id`;
+ assert(previousMembers.length>=2,'the previous game has members to inherit');
+ const revoked=previousMembers[previousMembers.length-1].profile_id;
+ const [revokedMembership]=await sql`select id,revision from institution_members where institution_id=${institution} and profile_id=${revoked}`;
+ await module('institutions/repositories/institution.repository').changeInstitutionMember(master,institution,revokedMembership.id,revokedMembership.revision,'revoke');
  const successor=(await games.createGame({campaignId:a.campaign,profileId:master,name:'Successor',type:'custom'})).game.id;
- assert.equal((await assignments.readParticipants(successor,master)).members.length,0);
+ const inheritedMembers=await sql`select a.profile_id, c.source_card_id, a.revision from game_card_assignments a join game_role_cards c on c.id=a.card_id where a.game_id=${successor} order by a.profile_id`;
+ assert.deepEqual(inheritedMembers.map(m=>m.profile_id+':'+m.source_card_id),previousMembers.filter(m=>m.profile_id!==revoked).map(m=>m.profile_id+':'+m.source_card_id),'same people, equivalent departments');
+ assert(!inheritedMembers.some(m=>m.profile_id===revoked),'a revoked member is not inherited');assert(inheritedMembers.every(m=>m.revision===0));
+ // Removing an inherited member works during preparation; the finished previous game stays locked.
+ let successorRoster=await assignments.readParticipants(successor,master);const removable=successorRoster.members[0];
+ await assignments.changeAssignment(master,{gameId:successor,cardId:'',email:'',assignmentId:removable.id,expectedRevision:removable.revision,operation:'remove'});
+ successorRoster=await assignments.readParticipants(successor,master);assert.equal(successorRoster.members.length,inheritedMembers.length-1);
+ await assert.rejects(assignments.changeAssignment(master,{gameId:a.game,cardId:'',email:'',assignmentId:(await assignments.readParticipants(a.game,master)).members[0].id,expectedRevision:0,operation:'remove'}));
+ await sql`delete from game_card_assignments where game_id=${successor}`;
  const inherited=(await cards.readCards({kind:'game',id:successor},master)).cards;
  assert.equal(inherited.length,2);
- await add({game:successor},inherited[0].id,'one@test.test');
+ // The revoked member is picked by id order (random), so use whichever Engineering member is still active.
+ const [keeper,keeperEmail]=[[s1,'one@test.test'],[s2,'two@test.test']].find(([id])=>id!==revoked);
+ await add({game:successor},inherited[0].id,keeperEmail);
  await lifecycle.deleteGame(master,{gameId:successor,operationId:randomUUID()});
  assert.equal((await sql`select * from game_card_assignments where game_id=${successor}`).length,0);
- assert.equal((await students.readAssignedCard(a.game,s1)).card.id,engineering);
- console.log('PASS Reset retains assignments but hides preparation; evaluation/completed read-only; successor copies no students; Delete cascades');
+ assert.equal((await students.readAssignedCard(a.game,keeper)).card.id,engineering);
+ console.log('PASS Reset retains assignments but hides preparation; evaluation/completed read-only; successor inherits active members into equivalent departments (D-34); Delete cascades');
  for(const role of ['anon','authenticated']) {
   const [p]=await sql`select has_table_privilege(${role},'public.game_card_assignments','SELECT,INSERT,UPDATE,DELETE') as allowed,has_function_privilege(${role},'public.find_registered_profile_by_email(text)','EXECUTE') as lookup`;
   assert.equal(p.allowed,false);assert.equal(p.lookup,false);
