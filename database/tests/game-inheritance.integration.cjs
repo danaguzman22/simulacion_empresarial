@@ -44,6 +44,8 @@ async function main() {
       }
     });
   }
+  // Not about D-33 (0033): games created here start with optional goals, as before 0033.
+  await sql.unsafe("ALTER TABLE games ALTER COLUMN goals_required SET DEFAULT false");
   const master = randomUUID(), co = randomUUID(), observer = randomUUID(), company = randomUUID(), campaign = randomUUID();
   for (const id of [master, co, observer]) await sql`INSERT INTO auth.users VALUES(${id},'inheritance@test.test','{}')`;
   const institution = await require('./institution-fixture.cjs')(sql, [master, co, observer], master);

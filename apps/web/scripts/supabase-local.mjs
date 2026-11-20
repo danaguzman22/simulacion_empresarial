@@ -1,7 +1,7 @@
 // Supabase local para desarrollo (issue #26). Uso, desde apps/web:
 //   npm run local:start                 levanta Supabase en Docker y aplica las migraciones de Drizzle
 //   npm run local:dev                   arranca la app (puerto 3100) contra la base local
-//   npm run local:admin -- <correo>     hace admin de una institución de prueba a una cuenta ya registrada
+//   npm run local:admin -- <correo>     hace admin de su institución de prueba (una por cuenta) a una cuenta ya registrada
 //   npm run local:stop                  apaga los contenedores (los datos se conservan)
 // Nunca lee ni modifica .env.local: las variables se pasan al proceso y tienen prioridad sobre ese archivo.
 // Antes de conectar, verifica que la base y la API sean de esta PC; si no, se detiene.
@@ -62,6 +62,9 @@ async function admin(email, institutionName) {
     const result = await sql.begin(async tx => {
       const [profile] = await tx`select p.id from auth.users u join public.profiles p on p.id = u.id where lower(u.email) = lower(${email})`;
       if (!profile) return null;
+      // Running it twice for the same account reuses its test institution instead of creating a homonym.
+      const [existing] = await tx`select i.id from public.institutions i join public.institution_members m on m.institution_id = i.id where i.name = ${institutionName} and m.profile_id = ${profile.id} and m.role = 'admin' and m.status = 'active'`;
+      if (existing) return existing.id;
       const [institution] = await tx`insert into public.institutions(name, type) values (${institutionName}, 'educational') returning id`;
       await tx`insert into public.institution_members(institution_id, profile_id, role, granted_by) values (${institution.id}, ${profile.id}, 'admin', ${profile.id})`;
       return institution.id;
@@ -95,7 +98,8 @@ if (command === "start") {
   const child = windows ? spawn(commandLine("next", args), { cwd: web, env, stdio: "inherit", shell: true }) : spawn(bin("next"), args, { cwd: web, env, stdio: "inherit" });
   child.on("exit", code => process.exit(code ?? 0));
 } else if (command === "admin") {
-  await admin(rest[0], rest.slice(1).join(" ") || "Institución de prueba");
+  // Default name includes the account, so two test admins never get institutions with the same name.
+  await admin(rest[0], rest.slice(1).join(" ") || `Institución de prueba de ${rest[0]}`);
 } else if (command === "stop") {
   supabase(["stop"]);
 } else {

@@ -2,12 +2,59 @@ import { validateGameRules } from "@/features/rules/repositories/rule.repository
 import "server-only";
 import { and, asc, desc, lt, eq, inArray, max, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { games, gameStateSets, gameStateValues, gamePreparationChanges, gameLifecycleChanges, rounds } from "@/db/schema";
-import { access, selectionContext, hash } from "@/features/preparation/repositories/preparation.repository";
-import { PreparationError } from "@/features/preparation/domain/preparation";
+import { games, gameStateSets, gameStateValues, gamePreparationChanges, gameLifecycleChanges, rounds, gameGoals, gameRules } from "@/db/schema";
+import { access, selectionContext, hash, type Transaction } from "@/features/preparation/repositories/preparation.repository";
+import { canWritePreparation, PreparationError } from "@/features/preparation/domain/preparation";
 import { canStartGame, validateStartValues } from "../domain/start-game";
+import { sectionRequirementMissing } from "../domain/section-requirement";
 
 import { createConfiguredRounds } from "@/features/rounds/repositories/round.repository";
+
+const reason = (error: unknown) => { if (error instanceof PreparationError) return error.message; throw error; };
+
+// Every condition that blocks a start, in the same terms for the start itself and for the setup summary behind
+// "Iniciar partida", so the button is enabled exactly when the start can succeed. Concurrency checks
+// (stale revisions or catalog) stay in startGame: they are not something the Master has to complete.
+export async function startBlockers(tx: Transaction, game: typeof games.$inferSelect, role: string, states: Array<typeof gameStateSets.$inferSelect>) {
+  const blockers: string[] = [];
+  const prep = states.find(s => s.phase === "preparation"), initial = states.find(s => s.phase === "initial"), current = states.find(s => s.phase === "current");
+  const restarting = !!initial || !!current;
+  if (!canWritePreparation(role)) blockers.push("Solo Master o Co-Master pueden iniciar la partida.");
+  else if (!canStartGame(role, game.status)) blockers.push("La partida ya comenzó o no puede iniciarse en su estado actual.");
+  if (!prep || (!restarting && prep.frozenAt)) blockers.push("KPIs: guardá la preparación de KPIs.");
+  if (restarting && (!initial || !current || !initial.frozenAt || current.frozenAt)) blockers.push("La partida no tiene estados guardados válidos para reiniciarse.");
+  if (states.some(s => !["preparation", "initial", "current"].includes(s.phase))) blockers.push("La partida ya tiene estados históricos; no puede iniciarse de nuevo.");
+  const context = await selectionContext(tx, game.campaignId, game.id);
+  if ((await tx.select({ id: games.id }).from(games).where(and(eq(games.campaignId, game.campaignId), ne(games.id, game.id), inArray(games.status, ["active", "paused"])))).length)
+    blockers.push("Ya hay otra partida activa o pausada en esta campaña.");
+  if (!game.periodCount || !game.periodDurationSeconds || !game.periodLabel) blockers.push("Tiempos: configurá los períodos.");
+  if ((await tx.select({ id: rounds.id }).from(rounds).where(eq(rounds.gameId, game.id)).limit(1)).length) blockers.push("La partida ya tiene períodos creados; revisá sus datos.");
+  const [previousGame] = game.sequence > 0
+    ? await tx.select().from(games).where(and(eq(games.campaignId, game.campaignId), lt(games.sequence, game.sequence))).orderBy(desc(games.sequence)).limit(1)
+    : [];
+  let values = prep ? await tx.select().from(gameStateValues).where(eq(gameStateValues.stateSetId, prep.id)) : [];
+  if (previousGame && previousGame.status !== "completed") blockers.push("La partida anterior de la campaña tiene que estar finalizada.");
+  else if (previousGame && !restarting && prep) {
+    const [previousFinal] = await tx.select().from(gameStateSets).where(and(eq(gameStateSets.gameId, previousGame.id), eq(gameStateSets.phase, "final")));
+    if (!previousFinal || !previousFinal.frozenAt) blockers.push("La partida anterior no tiene un estado final válido.");
+    else {
+      const inheritedValues = await tx.select().from(gameStateValues).where(eq(gameStateValues.stateSetId, previousFinal.id));
+      const inherited = context.associations.filter(k => k.gameId === game.id && k.origin === "inherited");
+      if (prep.sourceStateSetId !== previousFinal.id || inherited.some(k => {
+        const source = inheritedValues.find(v => v.kpiDefinitionId === k.kpiDefinitionId), own = values.find(v => v.kpiDefinitionId === k.kpiDefinitionId);
+        return source?.value !== own?.value || source?.ordinalKey !== own?.ordinalKey;
+      })) blockers.push("KPIs: la preparación no conserva los valores marcados como heredados.");
+    }
+  }
+  if (restarting && initial) values = await tx.select().from(gameStateValues).where(eq(gameStateValues.stateSetId, initial.id));
+  try { validateStartValues(context.definitions, values); } catch (error) { blockers.push(`KPIs: ${reason(error)}`); }
+  try { await validateGameRules(tx, game.id, game.campaignId); } catch (error) { blockers.push(`Reglas: ${reason(error)}`); }
+  // D-33: an empty required section blocks the start (the database checks it again at commit).
+  blockers.push(...sectionRequirementMissing({ goalsRequired: game.goalsRequired, rulesRequired: game.rulesRequired,
+    goals: (await tx.select({ id: gameGoals.id }).from(gameGoals).where(eq(gameGoals.gameId, game.id)).limit(1)).length,
+    enabledRules: (await tx.select({ id: gameRules.id }).from(gameRules).where(and(eq(gameRules.gameId, game.id), eq(gameRules.enabled, true))).limit(1)).length }));
+  return blockers;
+}
 
 export type StartGameInput = { gameId: string; operationId: string; expectedRevision: number; catalogToken: string; expectedPeriodRevision: number };
 export async function startGame(actorId: string, input: StartGameInput) {
@@ -27,6 +74,8 @@ export async function startGame(actorId: string, input: StartGameInput) {
       }
       return { replayed: true };
     }
+    const blockers = await startBlockers(tx, game, role, states);
+    if (blockers.length) throw new PreparationError(blockers.join(" "));
     if (!canStartGame(role, game.status)) throw new PreparationError("La partida ya comenzó o no puede iniciarse en su estado actual.");
     if (!prep || (!restarting && prep.frozenAt)) throw new PreparationError("Primero guardá una preparación editable.");
     if (restarting && (!existingInitial || !existingCurrent || !existingInitial.frozenAt || existingCurrent.frozenAt)) throw new PreparationError("La partida no tiene snapshots válidos para reiniciarse.");

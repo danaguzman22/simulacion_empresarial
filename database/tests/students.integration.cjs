@@ -45,6 +45,8 @@ async function main() {
  await sql.unsafe('CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY,email text,raw_user_meta_data jsonb);');
  const migrate=async file=>sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/'+file,'utf8').replace(/^\uFEFF/,'').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
  for(const file of fs.readdirSync(root+'/database/migrations').filter(f=>f.endsWith('.sql')).sort())await migrate(file);
+ // Not about D-33 (0033): games created here start with optional goals, as before 0033.
+ await sql.unsafe("ALTER TABLE games ALTER COLUMN goals_required SET DEFAULT false");
  const master=randomUUID(),co=randomUUID(),observer=randomUUID(),company=randomUUID();
  for(const id of [master,co,observer])await sql`INSERT INTO auth.users VALUES(${id},'goals@test.test','{}')`;
  const institution=await require('./institution-fixture.cjs')(sql,[master,co,observer],master);
@@ -94,8 +96,12 @@ async function main() {
   return (await cards.readCards({kind:'game',id:f.game},master)).cards.find(c=>c.name===name).id;
  }
  const engineering=await makeCard(a,'Engineering'),finance=await makeCard(a,'Finance'),other=await makeCard(b,'Other');
+ // #71: departments without members are a non-blocking warning next to the start button.
+ const setupRepo=module('games/repositories/game-setup.repository');const teamWarnings=async()=>{const r=await setupRepo.readGameSetup(a.game,master);return {warnings:[...r.warnings],missing:[...r.missing],equipos:r.complete.equipos};};
+ let teams=await teamWarnings();assert.deepEqual(teams.warnings,['Estos departamentos no tienen integrantes: Engineering, Finance.']);assert(!teams.missing.some(m=>/integrantes/.test(m)));assert.equal(teams.equipos,false);
  const add=(f,cardId,email,actor=master)=>assignments.changeAssignment(actor,{gameId:f.game,cardId,email,operation:'add',assignmentId:'',expectedRevision:0});
  await add(a,engineering,'ONE@test.test');await add(a,engineering,'two@test.test');await add(a,engineering,'one@test.test');
+ teams=await teamWarnings();assert.deepEqual(teams.warnings,['Estos departamentos no tienen integrantes: Finance.']);
  assert.equal((await assignments.readParticipants(a.game,master)).members.length,2);
  await assert.rejects(add(a,finance,'one@test.test'));
  await assert.rejects(add(a,other,'three@test.test'));
@@ -104,6 +110,10 @@ async function main() {
  await assert.rejects(cards.readCards({kind:'game',id:a.game},s1));
  await assert.rejects(start.startGame(s1,{gameId:a.game,operationId:randomUUID(),expectedRevision:0,catalogToken:'',expectedPeriodRevision:1}));
  assert.equal(await students.readAssignedCard(a.game,s1),null,'prestart card not read');
+ // #32 dashboard access: staff always; an assigned participant only once the game started.
+ const dashboards=module('dashboard/repositories/dashboard.repository');
+ assert.equal(await dashboards.readDashboard(a.game,s1),null,'prestart dashboard not readable by participants');
+ assert.equal((await dashboards.readDashboard(a.game,master)).viewer,'staff');
  assert.equal((await students.listAssignedGames(s1))[0].department,null,'prestart department not disclosed');
  sessionActor=s1;
  const action=module('students/application/assignment-actions');
@@ -115,6 +125,20 @@ async function main() {
  console.log('PASS registration profile, no elevation, no assignments, multi-member unique assignment, cross-game and admin denials, no premature disclosure');
  await startGame(a.game);
  let detail=await students.readAssignedCard(a.game,s1);
+ for(const actor of [master,co,observer])assert.equal((await dashboards.readDashboard(a.game,actor)).viewer,'staff');
+ const board=await dashboards.readDashboard(a.game,s1);assert.equal(board.viewer,'participant');assert.equal(board.game.id,a.game);assert(Array.isArray(board.periods)&&board.periods.length>0);
+ // #33: the dashboard carries the game's KPIs (values from the current state), also for participants.
+ assert.deepEqual(JSON.parse(JSON.stringify(board.kpis.map(k=>[k.name,k.current.display,k.series.map(p=>p.label)]))),[['Fondos','128.135,00 ARS',['Inicio']],['Inventario','Medio',['Inicio']]]);
+ assert.equal(await dashboards.readDashboard(a.game,s3),null,'a member without a card in this game cannot read it');
+ assert.equal(await dashboards.readDashboard(a.game,randomUUID()),null,'outsiders cannot read it');
+ const boardPayload=JSON.stringify(board);for(const hidden of ['PRIVATE-','SECRET-','PUBLIC-GOAL-','Engineering','one@test.test'])assert(!boardPayload.includes(hidden),'dashboard must not carry '+hidden);
+ // #80: one rule (readGameViewer) for the Master pages (getGameDetail, staff only) and the dashboard (staff or participant).
+ const gameDetail=module('games/application/get-game-detail'),viewers=module('games/repositories/game-viewer.repository');
+ for(const actor of [master,co,observer,s1,s3,randomUUID()]){
+  sessionActor=actor;const pages=(await gameDetail.getGameDetail(a.game)).status==='found';sessionActor=null;
+  const dash=await dashboards.readDashboard(a.game,actor),viewer=await viewers.readGameViewer(db,a.game,actor);
+  assert.equal(pages,dash?.viewer==='staff','Master pages and dashboard agree for '+actor);assert.equal(dash?.viewer??null,viewer?.viewer.kind??null,'dashboard uses readGameViewer');
+ }
  assert.equal(detail.card.id,engineering);assert.equal(detail.teammates.length,2);
  assert.equal(detail.clock.period,null,'no period running yet: no countdown');assert(!Number.isNaN(Date.parse(detail.clock.serverNow)));
  const payload=JSON.stringify(detail);assert(!payload.includes('SECRET-'));assert(!payload.includes('secretObjective'));assert(!payload.includes('Finance'));assert(payload.includes('PRIVATE-RESTRICTION-Engineering'));
@@ -150,15 +174,31 @@ async function main() {
  await lifecycle.finishGame(master,{gameId:a.game,operationId:randomUUID()});
  assert.equal((await students.readAssignedCard(a.game,s1)).game.status,'completed');
  await assert.rejects(add(a,finance,'three@test.test'));
+ // #87 (D-34): the successor inherits members into the equivalent department, only if still active institution members.
+ const previousMembers=await sql`select a.profile_id, c.source_card_id from game_card_assignments a join game_role_cards c on c.id=a.card_id where a.game_id=${a.game} order by a.profile_id`;
+ assert(previousMembers.length>=2,'the previous game has members to inherit');
+ const revoked=previousMembers[previousMembers.length-1].profile_id;
+ const [revokedMembership]=await sql`select id,revision from institution_members where institution_id=${institution} and profile_id=${revoked}`;
+ await module('institutions/repositories/institution.repository').changeInstitutionMember(master,institution,revokedMembership.id,revokedMembership.revision,'revoke');
  const successor=(await games.createGame({campaignId:a.campaign,profileId:master,name:'Successor',type:'custom'})).game.id;
- assert.equal((await assignments.readParticipants(successor,master)).members.length,0);
+ const inheritedMembers=await sql`select a.profile_id, c.source_card_id, a.revision from game_card_assignments a join game_role_cards c on c.id=a.card_id where a.game_id=${successor} order by a.profile_id`;
+ assert.deepEqual(inheritedMembers.map(m=>m.profile_id+':'+m.source_card_id),previousMembers.filter(m=>m.profile_id!==revoked).map(m=>m.profile_id+':'+m.source_card_id),'same people, equivalent departments');
+ assert(!inheritedMembers.some(m=>m.profile_id===revoked),'a revoked member is not inherited');assert(inheritedMembers.every(m=>m.revision===0));
+ // Removing an inherited member works during preparation; the finished previous game stays locked.
+ let successorRoster=await assignments.readParticipants(successor,master);const removable=successorRoster.members[0];
+ await assignments.changeAssignment(master,{gameId:successor,cardId:'',email:'',assignmentId:removable.id,expectedRevision:removable.revision,operation:'remove'});
+ successorRoster=await assignments.readParticipants(successor,master);assert.equal(successorRoster.members.length,inheritedMembers.length-1);
+ await assert.rejects(assignments.changeAssignment(master,{gameId:a.game,cardId:'',email:'',assignmentId:(await assignments.readParticipants(a.game,master)).members[0].id,expectedRevision:0,operation:'remove'}));
+ await sql`delete from game_card_assignments where game_id=${successor}`;
  const inherited=(await cards.readCards({kind:'game',id:successor},master)).cards;
  assert.equal(inherited.length,2);
- await add({game:successor},inherited[0].id,'one@test.test');
+ // The revoked member is picked by id order (random), so use whichever Engineering member is still active.
+ const [keeper,keeperEmail]=[[s1,'one@test.test'],[s2,'two@test.test']].find(([id])=>id!==revoked);
+ await add({game:successor},inherited[0].id,keeperEmail);
  await lifecycle.deleteGame(master,{gameId:successor,operationId:randomUUID()});
  assert.equal((await sql`select * from game_card_assignments where game_id=${successor}`).length,0);
- assert.equal((await students.readAssignedCard(a.game,s1)).card.id,engineering);
- console.log('PASS Reset retains assignments but hides preparation; evaluation/completed read-only; successor copies no students; Delete cascades');
+ assert.equal((await students.readAssignedCard(a.game,keeper)).card.id,engineering);
+ console.log('PASS Reset retains assignments but hides preparation; evaluation/completed read-only; successor inherits active members into equivalent departments (D-34); Delete cascades');
  for(const role of ['anon','authenticated']) {
   const [p]=await sql`select has_table_privilege(${role},'public.game_card_assignments','SELECT,INSERT,UPDATE,DELETE') as allowed,has_function_privilege(${role},'public.find_registered_profile_by_email(text)','EXECUTE') as lookup`;
   assert.equal(p.allowed,false);assert.equal(p.lookup,false);

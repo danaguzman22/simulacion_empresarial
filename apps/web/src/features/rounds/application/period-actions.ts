@@ -19,7 +19,7 @@ export async function savePeriodsAction(_previous: { error?: string; success?: s
   const label = type === "custom" ? String(form.get("label") ?? "") : type;
   const config = parsePeriodConfiguration(String(form.get("count")), label, String(form.get("minutes")), String(form.get("seconds")));
   await savePeriodConfiguration(actorId, { ...config, gameId, operationId, expectedRevision: Number(revision) });
-  revalidatePath(`/master/partidas/${gameId}`); return { success: "Configuración de períodos guardada." };
+  revalidatePath(`/master/partidas/${gameId}`, "layout"); return { success: "Configuración de períodos guardada." };
  } catch (error) {
   if (error instanceof RoundError || error instanceof PreparationError) return { error: error.message };
   console.error("Error guardando períodos", error); return { error: "No se pudo guardar. Recargá los datos antes de reintentar." };

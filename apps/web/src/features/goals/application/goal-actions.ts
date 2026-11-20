@@ -27,7 +27,7 @@ export async function goalAction(_state: GoalActionState, form: FormData): Promi
     const fulfilled = String(form.get("fulfilled"));
     if (operation === "evaluate" && !["true","false"].includes(fulfilled)) throw new GoalError("Indicá si la meta se cumplió.");
     await mutateGoal(actor,{gameId,operationId,operation,goalId,expectedRevision:revision,definition,...(operation === "evaluate" ? {fulfilled:fulfilled === "true",observation:String(form.get("observation") ?? "")} : {})});
-    revalidatePath(`/master/partidas/${gameId}`);
+    revalidatePath(`/master/partidas/${gameId}`, "layout");
     return {success:"Meta guardada."};
   } catch (error) {
     if (error instanceof GoalError || error instanceof PreparationError) return {error:error.message};

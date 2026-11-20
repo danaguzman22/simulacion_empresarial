@@ -10,7 +10,7 @@ export async function saveAssignment(_: { message: string }, form: FormData) {
   const command = { gameId: String(form.get("gameId") ?? ""), cardId: String(form.get("cardId") ?? ""), assignmentId: String(form.get("assignmentId") ?? ""), email: String(form.get("email") ?? ""), operation: String(form.get("operation") ?? ""), expectedRevision: Number(form.get("revision")) } as AssignmentCommand;
   try {
     await changeAssignment(actor, command);
-    revalidatePath(`/master/partidas/${command.gameId}`);
+    revalidatePath(`/master/partidas/${command.gameId}`, "layout");
     revalidatePath("/alumno", "layout");
     return { message: "Integrantes actualizados." };
   } catch (e) { return { message: e instanceof AssignmentError || e instanceof PreparationError ? e.message : "No se pudo actualizar la asignación." }; }

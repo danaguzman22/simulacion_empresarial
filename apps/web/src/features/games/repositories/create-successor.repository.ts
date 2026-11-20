@@ -1,4 +1,5 @@
 import { copySuccessorCards } from "@/features/cards/repositories/card.repository";
+import { copySuccessorAssignments } from "@/features/students/repositories/assignment.repository";
 import { copyGameRules } from "@/features/rules/repositories/rule.repository";
 import "server-only";
 import { randomUUID } from "node:crypto";
@@ -15,7 +16,8 @@ export async function createSuccessorGame(tx: Transaction, actorId: string, prev
  const selected = await tx.select().from(gameKpis).where(eq(gameKpis.gameId, previous.id));
  const values = await tx.select().from(gameStateValues).where(eq(gameStateValues.stateSetId, source.id));
  validateStartValues((await selectionContext(tx, previous.campaignId, previous.id)).definitions, values);
- const [created] = await tx.insert(games).values({ campaignId: previous.campaignId, sequence: previous.sequence + 1, name: input.name, description: input.description, type: input.type }).returning();
+ // D-33: the switches travel inside this INSERT; a later UPDATE would need its own preparation audit.
+ const [created] = await tx.insert(games).values({ campaignId: previous.campaignId, sequence: previous.sequence + 1, name: input.name, description: input.description, type: input.type, goalsRequired: previous.goalsRequired, rulesRequired: previous.rulesRequired }).returning();
  if (previous.periodCount && previous.periodDurationSeconds && previous.periodLabel) {
   await tx.update(games).set({ periodCount: previous.periodCount, periodDurationSeconds: previous.periodDurationSeconds, periodLabel: previous.periodLabel, periodRevision: 1 }).where(eq(games.id, created.id));
   await tx.insert(gamePeriodChanges).values({ gameId: created.id, operationId: randomUUID(), actorId, revision: 1, requestHash: hash({ operationId: input.operationId, source: previous.id }), details: { sourceGameId: previous.id } });
@@ -28,5 +30,7 @@ export async function createSuccessorGame(tx: Transaction, actorId: string, prev
  await tx.insert(gameLifecycleChanges).values({ operationId: input.operationId, gameId: created.id, campaignId: previous.campaignId, actorId, operation: "create_from_previous", details: { subjectGameId: created.id, previousGameId: previous.id, sourceStateSetId: source.id } });
  await copyGameRules(tx,previous.id,created.id,previous.campaignId,actorId);
  await copySuccessorCards(tx, previous.id, created.id, previous.campaignId, actorId);
+ // D-34: members follow to the equivalent departments (after the cards exist in the new game).
+ await copySuccessorAssignments(tx, previous.id, created.id, previous.campaignId, actorId);
  return { id: created.id };
 }

@@ -6,9 +6,9 @@ import { gameStatusLabels, gameTypeLabels } from "../domain/game";
 type GameDetailProps = Pick<
   Extract<Awaited<ReturnType<typeof getGameDetail>>, { status: "found" }>,
   "game"
-> & { children?: ReactNode };
+> & { children?: ReactNode; actions?: ReactNode; nav?: ReactNode };
 
-export function GameDetail({ game, children }: GameDetailProps) {
+export function GameDetail({ game, children, actions, nav }: GameDetailProps) {
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
       <div className="mx-auto max-w-6xl">
@@ -57,17 +57,10 @@ export function GameDetail({ game, children }: GameDetailProps) {
               </dd>
             </div>
           </dl>
+          {actions}
         </article>
+        {nav}
         {children}
-
-        <section aria-label="Próximas secciones de la partida" className="mt-8 grid gap-5 md:grid-cols-2">
-          {["Sala activa"].map((title) => (
-            <div key={title} className="rounded-3xl border border-dashed border-white/10 p-6">
-              <h2 className="text-xl font-black">{title}</h2>
-              <p className="mt-3 text-sm text-slate-400">Próximamente</p>
-            </div>
-          ))}
-        </section>
       </div>
     </main>
   );

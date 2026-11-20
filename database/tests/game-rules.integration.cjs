@@ -122,6 +122,8 @@ async function main() {
  await sql.begin(async tx=>{await tx`select set_config('nexus.institution_actor',${master},true)`;await tx`update companies set institution_id=${institution} where id=${company}`;});
  await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/0031_card_secret_reveals.sql','utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
  await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/0032_rule_effect_messages.sql','utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
+ // Not about D-33 (0033): games created here start with optional goals, as before 0033.
+ await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/0033_section_requirements.sql','utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});await sql.unsafe("ALTER TABLE games ALTER COLUMN goals_required SET DEFAULT false");
  beforeCards=false;cache.clear();reload();
  // Multiple rules touch the same KPI, with independent audited revisions in one close.
  const b=await fixture();await add(b.game,definition(b.cash,'-5000',0));await add(b.game,definition(b.cash,'-2000',1));await add(b.game,definition(b.cash,'100',2));
