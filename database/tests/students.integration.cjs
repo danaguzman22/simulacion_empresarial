@@ -127,6 +127,8 @@ async function main() {
  let detail=await students.readAssignedCard(a.game,s1);
  for(const actor of [master,co,observer])assert.equal((await dashboards.readDashboard(a.game,actor)).viewer,'staff');
  const board=await dashboards.readDashboard(a.game,s1);assert.equal(board.viewer,'participant');assert.equal(board.game.id,a.game);assert(Array.isArray(board.periods)&&board.periods.length>0);
+ // #33: the dashboard carries the game's KPIs (values from the current state), also for participants.
+ assert.deepEqual(JSON.parse(JSON.stringify(board.kpis.map(k=>[k.name,k.current.display,k.series.map(p=>p.label)]))),[['Fondos','128.135,00 ARS',['Inicio']],['Inventario','Medio',['Inicio']]]);
  assert.equal(await dashboards.readDashboard(a.game,s3),null,'a member without a card in this game cannot read it');
  assert.equal(await dashboards.readDashboard(a.game,randomUUID()),null,'outsiders cannot read it');
  const boardPayload=JSON.stringify(board);for(const hidden of ['PRIVATE-','SECRET-','PUBLIC-GOAL-','Engineering','one@test.test'])assert(!boardPayload.includes(hidden),'dashboard must not carry '+hidden);
