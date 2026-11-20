@@ -43,7 +43,7 @@ La dueña del proyecto es Dana. Ella decide. Hablale en español rioplatense, co
 4. Cada migración que toca datos existentes lleva su `database/preflight/<número>.sql` de solo lectura.
 5. Mantené sincronizados el schema de Drizzle, el SQL, el snapshot y el journal.
 6. Los datos de prueba se crean por la app o con los scripts de semillas, nunca con `INSERT` directos en la base, para no saltear validaciones ni dejar datos que no se pueden producir con la app real.
-7. Si cambiás de rama para otra tarea (por ejemplo, commitear en `develop`), volvé a la rama en la que se está probando y reiniciá la app antes de pedirle a Dana que pruebe.
+7. Si cambiás de rama para otra tarea (por ejemplo, commitear en `develop`), volvé a la rama en la que se está probando y reiniciá la app borrando el caché `apps/web/.next/dev` antes de pedirle a Dana que pruebe: el caché de desarrollo puede quedar con rutas de otra rama y dar 404 falsos.
 
 ## Lo que nunca hacés sin que Dana lo apruebe en ese momento
 
