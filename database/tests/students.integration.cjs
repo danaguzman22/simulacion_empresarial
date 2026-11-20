@@ -130,6 +130,9 @@ async function main() {
  assert.equal(await dashboards.readDashboard(a.game,s3),null,'a member without a card in this game cannot read it');
  assert.equal(await dashboards.readDashboard(a.game,randomUUID()),null,'outsiders cannot read it');
  const boardPayload=JSON.stringify(board);for(const hidden of ['PRIVATE-','SECRET-','PUBLIC-GOAL-','Engineering','one@test.test'])assert(!boardPayload.includes(hidden),'dashboard must not carry '+hidden);
+ // The Master pages (layout: findGameByIdForMember + canReadGames) and the dashboard admit exactly the same staff.
+ const gameAccess=module('games/domain/game-access');
+ for(const actor of [master,co,observer,s1,s3,randomUUID()]){const member=await games.findGameByIdForMember(a.game,actor);const pages=!!member&&gameAccess.canReadGames(member.memberRole);const dash=await dashboards.readDashboard(a.game,actor);assert.equal(pages,dash?.viewer==='staff','same staff criterion for '+actor);}
  assert.equal(detail.card.id,engineering);assert.equal(detail.teammates.length,2);
  assert.equal(detail.clock.period,null,'no period running yet: no countdown');assert(!Number.isNaN(Date.parse(detail.clock.serverNow)));
  const payload=JSON.stringify(detail);assert(!payload.includes('SECRET-'));assert(!payload.includes('secretObjective'));assert(!payload.includes('Finance'));assert(payload.includes('PRIVATE-RESTRICTION-Engineering'));
