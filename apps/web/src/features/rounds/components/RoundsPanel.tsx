@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useActionState,useEffect,useRef,useState,type ReactNode } from "react";
 import { getRounds,roundAction } from "../application/round-actions";
-import { remainingMilliseconds,roundLabels } from "../domain/round";
+import { allPeriodsCompleted as everyPeriodCompleted,remainingMilliseconds,roundLabels } from "../domain/round";
 import { gameChannelName } from "@/features/dashboard/domain/dashboard";
 export type RoundsData=Awaited<ReturnType<typeof getRounds>>;
 type Data=RoundsData;
@@ -19,7 +19,7 @@ export function Action({gameId,round,operation,label,confirmText,remainingText,c
 export function RoundsPanel({gameId,initial}:{gameId:string;initial:Data}){
  const router=useRouter();const gameStatus=useRef(initial.gameStatus),currentRevision=useRef(initial.currentRevision);
  const [data,setData]=useState(initial),[now,setNow]=useState(Date.parse(initial.serverNow)),[error,setError]=useState(false);
- const allPeriodsCompleted=(data.gameStatus==="active"||data.gameStatus==="evaluation")&&data.rounds.length>0&&data.rounds.every(round=>round.status==="completed");
+ const allPeriodsCompleted=(data.gameStatus==="active"||data.gameStatus==="evaluation")&&everyPeriodCompleted(data.rounds);
  const clock=useRef({server:Date.parse(initial.serverNow),client:0});
  useEffect(()=>{let stopped=false,busy=false;clock.current.client=performance.now();
  const refresh=async()=>{if(busy)return;busy=true;const sent=performance.now();try{const next=await getRounds(gameId);if(!stopped){const received=performance.now();clock.current={server:Date.parse(next.serverNow)+(received-sent)/2,client:received};setNow(clock.current.server);setData(next);setError(false);if(gameStatus.current!==next.gameStatus||currentRevision.current!==next.currentRevision){gameStatus.current=next.gameStatus;currentRevision.current=next.currentRevision;router.refresh();}}}catch{if(!stopped)setError(true);}finally{busy=false;}};
