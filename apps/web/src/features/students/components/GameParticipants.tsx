@@ -8,7 +8,7 @@ export async function GameParticipants({ gameId }: { gameId: string }) {
     {!data.departments.length && <p className="mt-3 text-slate-400">Agregá fichas a la partida para asignar integrantes.</p>}
     {data.departments.map(d => <article key={d.id} className="mt-4 rounded-xl bg-white/5 p-4"><h3 className="font-bold">{d.department} — {d.name}</h3>
       {!data.members.some(m => m.cardId === d.id) && <p className="text-slate-400">Sin integrantes.</p>}
-      {data.members.filter(m => m.cardId === d.id).map(m => <div key={m.id} className="mt-3"><p>{m.name}</p>{data.canManage && <ParticipantForm key={`${m.id}-${m.revision}`} gameId={gameId} departments={data.departments} canAssign={!data.legacy} member={m} />}</div>)}
+      {data.members.filter(m => m.cardId === d.id).map(m => <div key={m.id} className="mt-3 flex flex-wrap items-end gap-x-4"><p className="pb-2 font-semibold">{m.name}</p>{data.canManage && <ParticipantForm key={`${m.id}-${m.revision}`} gameId={gameId} departments={data.departments} canAssign={!data.legacy} member={m} />}</div>)}
     </article>)}
     {data.canManage && !data.legacy && data.departments.length > 0 && <ParticipantForm gameId={gameId} departments={data.departments} />}
   </section>;

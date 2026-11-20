@@ -1,4 +1,5 @@
 import { copySuccessorCards } from "@/features/cards/repositories/card.repository";
+import { copySuccessorAssignments } from "@/features/students/repositories/assignment.repository";
 import { copyGameRules } from "@/features/rules/repositories/rule.repository";
 import "server-only";
 import { randomUUID } from "node:crypto";
@@ -29,5 +30,7 @@ export async function createSuccessorGame(tx: Transaction, actorId: string, prev
  await tx.insert(gameLifecycleChanges).values({ operationId: input.operationId, gameId: created.id, campaignId: previous.campaignId, actorId, operation: "create_from_previous", details: { subjectGameId: created.id, previousGameId: previous.id, sourceStateSetId: source.id } });
  await copyGameRules(tx,previous.id,created.id,previous.campaignId,actorId);
  await copySuccessorCards(tx, previous.id, created.id, previous.campaignId, actorId);
+ // D-34: members follow to the equivalent departments (after the cards exist in the new game).
+ await copySuccessorAssignments(tx, previous.id, created.id, previous.campaignId, actorId);
  return { id: created.id };
 }

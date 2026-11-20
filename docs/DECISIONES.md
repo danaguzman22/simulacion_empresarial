@@ -2,7 +2,7 @@
 
 Fuente de verdad de las decisiones del proyecto. Las issues de GitHub citan estos códigos (`D-xx`, `M-1`) en lugar de copiar el texto. Si una decisión cambia, se edita acá en el mismo Pull Request que la implementa y se anota la fecha.
 
-Última actualización: 19/11/2026.
+Última actualización: 20/11/2026.
 
 ## Decisiones
 
@@ -41,6 +41,7 @@ Fuente de verdad de las decisiones del proyecto. Las issues de GitHub citan esto
 | D-31 | La puerta de entrada decide qué experiencia se ve: "Acceso administrativo" muestra solo el perfil administrativo (instituciones, materias, campañas, Master) y "Acceso de usuarios" muestra solo el portal del participante. Nunca se mezclan en una misma pantalla. Los permisos siguen dependiendo de los roles reales (D-01): entrar por una puerta no da permisos; si la cuenta no tiene ese rol, ve un aviso. | Pendiente |
 | D-32 | El participante está parado en una institución a la vez. Menú del avatar (arriba a la derecha): nombre, institución actual, "Cambiar de institución" (solo si pertenece a más de una), "Unirme a otra institución", "Mis solicitudes", "Mi perfil", "Configuración" y "Cerrar sesión"; se pueden sumar opciones en el futuro. Al cambiar de institución, todo el portal (materias, campañas, partidas) pasa a ser el de esa institución. Con una sola institución entra directo. NEXUS recuerda la última institución elegida. "Mis accesos" y "Mis instituciones" dejan de ser pantallas del participante: lo que tenían pasa al menú. | Pendiente |
 | D-33 | Metas y Reglas tienen un interruptor 'Obligatorio' por partida. Por defecto, Metas es obligatoria (sin metas no hay resultado final) y Reglas opcional. Una sección obligatoria vacía bloquea el inicio, verificado en el servidor y en la base. Las partidas que ya existían quedan con Metas opcional. | Pendiente |
+| D-34 | Al crear la partida siguiente se heredan los integrantes de cada departamento: cada persona pasa al departamento equivalente (la misma ficha base de la campaña), solo si sigue siendo miembro activo de la institución y la empresa está vinculada, igual que para agregar un integrante. Se hereda la asignación, no el estado de uso (D-07). El Master puede quitar o agregar integrantes como siempre. Es la opción "mantener" de D-23 como comportamiento por defecto. Agregada el 20/11/2026 (#87). | Implementado (#87) |
 | M-1 | Matrícula en dos pasos: materia con código fijo, campaña con QR que vence (ver "Ingreso, registro y matrícula"). | Pendiente |
 | M-2 | Un miembro de la institución puede buscar las materias de SUS instituciones (nunca de otras) en un catálogo con buscador. Cada materia define cómo se entra: con código (por defecto), abierta (sin código, para cualquier miembro) o con solicitud que aprueba el docente. | Pendiente |
 | M-3 | El uso de una habilidad genera un aviso en el muro del dashboard. El Master elige, por habilidad, si se anuncia públicamente (por defecto sí). Formato: "<emoji> <Departamento> usó <Habilidad> · <Período>" y debajo una descripción corta del efecto. El aviso público nunca muestra los usos restantes ni el límite de uso: eso lo ve solo el departamento en su propia ficha. Las revelaciones del objetivo secreto nunca se publican. Todos los avisos quedan también en Registros. Actualizada el 19/11/2026. | Pendiente |
@@ -123,6 +124,7 @@ Referencia: OWASP Top 10 y ASVS. En orden de prioridad:
 | Catálogo y buscador de materias para matricularse | M-1, M-2 |
 | Elegir alumnos de la lista de matriculados | M-1, D-22 |
 | Distribución de alumnos por partida | D-22, D-23 |
+| Heredar integrantes en la partida siguiente | D-07, D-23, D-34 |
 | Habilidades utilizables | D-06, D-07, D-09, M-3 |
 | Dashboard: avance de las metas y resultado final | D-10 |
 | Dashboard: muro de avisos | M-3 |
