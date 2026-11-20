@@ -8,10 +8,6 @@ export function canProjectDashboard(viewer: DashboardViewer) {
   return viewer === "staff";
 }
 
-export function isStaffRole(role: string) {
-  return role === "master" || role === "co_master" || role === "observer";
-}
-
 // Same-browser signal between windows of one game (Master window -> projection). Carries no data: receivers
 // fetch from the server, which checks access as always.
 export function gameChannelName(gameId: string) {

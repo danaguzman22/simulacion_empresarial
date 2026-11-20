@@ -3,8 +3,8 @@ import "server-only";
 import { cache } from "react";
 
 import { getAuthenticatedUserId } from "@/features/auth/application/get-authenticated-user-id";
-import { canReadGames } from "../domain/game-access";
-import { findGameByIdForMember } from "../repositories/game.repository";
+import { db } from "@/db";
+import { readGameViewer } from "../repositories/game-viewer.repository";
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -21,15 +21,18 @@ export const getGameDetail = cache(async (gameId: string) => {
     return { status: "not-found" } as const;
   }
 
-  const game = await findGameByIdForMember(gameId, userId);
+  // Same rule as the dashboard and the participant's page (readGameViewer); the Master pages admit staff only.
+  const access = await readGameViewer(db, gameId, userId);
 
-  if (!game || !canReadGames(game.memberRole)) {
+  if (!access || access.viewer.kind !== "staff") {
     return { status: "not-found" } as const;
   }
 
+  const { game } = access;
+
   return {
     status: "found",
-    memberRole: game.memberRole,
+    memberRole: access.viewer.role,
     game: {
       id: game.id,
       sequence: game.sequence,
