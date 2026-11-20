@@ -1,4 +1,4 @@
-import { remainingMilliseconds, roundLabels } from "@/features/rounds/domain/round";
+import { allPeriodsCompleted, remainingMilliseconds, roundLabels } from "@/features/rounds/domain/round";
 import type { DashboardData } from "../repositories/dashboard.repository";
 
 const format = (ms: number) => { const s = Math.ceil(ms / 1000); return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; };
@@ -7,7 +7,7 @@ const format = (ms: number) => { const s = Math.ceil(ms / 1000); return `${Strin
 export function DashboardClock({ data, now }: { data: DashboardData; now: number }) {
   const period = data.periods.find(p => p.status === "active" || p.status === "paused");
   if (!period) {
-    const done = data.periods.length > 0 && data.periods.every(p => p.status === "completed");
+    const done = allPeriodsCompleted(data.periods);
     return <div className="text-right"><p className="text-sm font-semibold text-slate-500">{done ? "Todos los períodos finalizaron" : "Ningún período en curso"}</p></div>;
   }
   const remaining = remainingMilliseconds(period, now), expired = period.status === "active" && remaining <= 0;
