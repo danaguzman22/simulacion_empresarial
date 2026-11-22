@@ -1,7 +1,8 @@
 // Supabase local para desarrollo (issue #26). Uso, desde apps/web:
 //   npm run local:start                 levanta Supabase en Docker y aplica las migraciones de Drizzle
 //   npm run local:dev                   arranca la app (puerto 3100) contra la base local
-//   npm run local:admin -- <correo>     hace admin de su institución de prueba (una por cuenta) a una cuenta ya registrada
+//   npm run local:admin -- <correo>     hace admin de la única "Institución de prueba" a una cuenta ya registrada
+//   npm run local:nexus-admin -- <correo>  hace admin de NEXUS a una cuenta ya registrada (panel /nexus)
 //   npm run local:stop                  apaga los contenedores (los datos se conservan)
 // Nunca lee ni modifica .env.local: las variables se pasan al proceso y tienen prioridad sobre ese archivo.
 // Antes de conectar, verifica que la base y la API sean de esta PC; si no, se detiene.
@@ -44,37 +45,102 @@ function localEnv() {
     console.error("La base o la API no son locales (127.0.0.1). Por seguridad, no se continúa.");
     process.exit(1);
   }
-  return { dbUrl: status.DB_URL, apiUrl: status.API_URL, key, studioUrl: status.STUDIO_URL, mailUrl: status.MAILPIT_URL || status.INBUCKET_URL };
+  return { dbUrl: status.DB_URL, apiUrl: status.API_URL, key, serviceKey: status.SERVICE_ROLE_KEY || status.SECRET_KEY, studioUrl: status.STUDIO_URL, mailUrl: status.MAILPIT_URL || status.INBUCKET_URL };
 }
 
 function appEnv(local) {
   return { ...process.env, DATABASE_URL: local.dbUrl, DATABASE_MIGRATION_URL: local.dbUrl, NEXT_PUBLIC_SUPABASE_URL: local.apiUrl, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: local.key };
 }
 
-async function admin(email, institutionName) {
-  if (!email || !/^[^\s@]+@[^\s@]+$/.test(email)) {
-    console.error("Uso: npm run local:admin -- <correo> [nombre de la institución]");
+const TEST_INSTITUTION = "Institución de prueba";
+const TEST_NEXUS_ADMIN = "admin-nexus@nexus.local";
+const validEmail = email => typeof email === "string" && /^[^\s@]+@[^\s@]+$/.test(email);
+
+async function profileFor(tx, email) {
+  const [profile] = await tx`select p.id from auth.users u join public.profiles p on p.id = u.id where lower(u.email) = lower(${email})`;
+  return profile?.id ?? null;
+}
+
+// #6: an active NEXUS admin of the LOCAL database, to approve registrations. If there is none, creates the test
+// account admin-nexus@nexus.local through Supabase Auth (not with an INSERT) and makes it the first NEXUS admin.
+// Its password is random and never shown: to use the panel, make your own account admin with local:nexus-admin.
+async function ensureNexusAdmin(local, sql) {
+  const [active] = await sql`select profile_id from public.nexus_admins where revoked_at is null order by granted_at limit 1`;
+  if (active) return active.profile_id;
+  let profile = await profileFor(sql, TEST_NEXUS_ADMIN);
+  if (!profile) {
+    if (!local.serviceKey) throw new Error("Supabase local no informó la clave de servicio: no se puede crear la cuenta de prueba.");
+    const { randomBytes } = await import("node:crypto");
+    const response = await fetch(`${local.apiUrl}/auth/v1/admin/users`, {
+      method: "POST",
+      headers: { apikey: local.serviceKey, Authorization: `Bearer ${local.serviceKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ email: TEST_NEXUS_ADMIN, password: randomBytes(24).toString("base64url"), email_confirm: true, user_metadata: { display_name: "Admin de NEXUS (prueba)" } }),
+    });
+    if (!response.ok) throw new Error(`No se pudo crear la cuenta de prueba ${TEST_NEXUS_ADMIN} (Supabase Auth respondió ${response.status}).`);
+    profile = await profileFor(sql, TEST_NEXUS_ADMIN);
+    if (!profile) throw new Error(`La cuenta ${TEST_NEXUS_ADMIN} no tiene perfil.`);
+  }
+  // granted_by null: the database accepts it only while there is no active NEXUS admin (first admin), and records it.
+  await sql`insert into public.nexus_admins(profile_id) values (${profile})`;
+  console.log(`Se creó ${TEST_NEXUS_ADMIN} como primer admin de NEXUS de la base local (sin contraseña conocida).`);
+  return profile;
+}
+
+// #89 and #6: a single local "Institución de prueba", created like any other institution (registration approved by
+// a NEXUS admin, never a direct INSERT into institutions) and reused afterwards: each account given becomes its admin.
+async function admin(email) {
+  if (!validEmail(email)) {
+    console.error("Uso: npm run local:admin -- <correo>");
     process.exit(1);
   }
-  const sql = require("postgres")(localEnv().dbUrl, { max: 1, onnotice: () => {} });
+  const local = localEnv();
+  const sql = require("postgres")(local.dbUrl, { max: 1, onnotice: () => {} });
   try {
-    // Same steps as database/admin/provision-institution.sql, only against the local database.
-    const result = await sql.begin(async tx => {
-      const [profile] = await tx`select p.id from auth.users u join public.profiles p on p.id = u.id where lower(u.email) = lower(${email})`;
-      if (!profile) return null;
-      // Running it twice for the same account reuses its test institution instead of creating a homonym.
-      const [existing] = await tx`select i.id from public.institutions i join public.institution_members m on m.institution_id = i.id where i.name = ${institutionName} and m.profile_id = ${profile.id} and m.role = 'admin' and m.status = 'active'`;
-      if (existing) return existing.id;
-      const [institution] = await tx`insert into public.institutions(name, type) values (${institutionName}, 'educational') returning id`;
-      await tx`insert into public.institution_members(institution_id, profile_id, role, granted_by) values (${institution.id}, ${profile.id}, 'admin', ${profile.id})`;
-      return institution.id;
-    });
-    if (!result) {
+    const person = await profileFor(sql, email);
+    if (!person) {
       console.error(`No hay ninguna cuenta registrada con ${email} en la base local. Registrate primero en la app (npm run local:dev).`);
       process.exitCode = 1;
-    } else {
-      console.log(`Listo: ${email} es admin de "${institutionName}" en la base local.`);
+      return;
     }
+    const approver = await ensureNexusAdmin(local, sql);
+    const created = await sql.begin(async tx => {
+      const [institution] = await tx`select id from public.institutions where name = ${TEST_INSTITUTION} order by created_at, id limit 1`;
+      if (!institution) {
+        const [{ registration }] = await tx`select public.register_institution(${person}, ${TEST_INSTITUTION}, 'educational', 'Local', 'Creada por npm run local:admin') as registration`;
+        await tx`select public.approve_institution_registration(${approver}, ${registration})`;
+        return true;
+      }
+      const [member] = await tx`select id, role, status, revision from public.institution_members where institution_id = ${institution.id} and profile_id = ${person}`;
+      if (member?.role === "admin" && member.status === "active") return false;
+      if (member) await tx`update public.institution_members set role = 'admin', status = 'active', revision = ${member.revision + 1}, granted_by = ${approver}, updated_at = now() where id = ${member.id}`;
+      else await tx`insert into public.institution_members(institution_id, profile_id, role, granted_by) values (${institution.id}, ${person}, 'admin', ${approver})`;
+      return false;
+    });
+    console.log(created ? `Listo: se creó "${TEST_INSTITUTION}" (aprobada por un admin de NEXUS) y ${email} es su admin.` : `Listo: ${email} es admin de "${TEST_INSTITUTION}" en la base local.`);
+  } finally {
+    await sql.end();
+  }
+}
+
+// #6: makes an existing LOCAL account a NEXUS admin, granted by an active NEXUS admin (as the panel does).
+async function nexusAdmin(email) {
+  if (!validEmail(email)) {
+    console.error("Uso: npm run local:nexus-admin -- <correo>");
+    process.exit(1);
+  }
+  const local = localEnv();
+  const sql = require("postgres")(local.dbUrl, { max: 1, onnotice: () => {} });
+  try {
+    const person = await profileFor(sql, email);
+    if (!person) {
+      console.error(`No hay ninguna cuenta registrada con ${email} en la base local. Registrate primero en la app (npm run local:dev).`);
+      process.exitCode = 1;
+      return;
+    }
+    const actor = await ensureNexusAdmin(local, sql);
+    const [{ already }] = await sql`select public.is_nexus_admin(${person}) as already`;
+    if (!already) await sql`select public.grant_nexus_admin(${actor}, ${person})`;
+    console.log(`Listo: ${email} es admin de NEXUS en la base local.`);
   } finally {
     await sql.end();
   }
@@ -98,11 +164,12 @@ if (command === "start") {
   const child = windows ? spawn(commandLine("next", args), { cwd: web, env, stdio: "inherit", shell: true }) : spawn(bin("next"), args, { cwd: web, env, stdio: "inherit" });
   child.on("exit", code => process.exit(code ?? 0));
 } else if (command === "admin") {
-  // Default name includes the account, so two test admins never get institutions with the same name.
-  await admin(rest[0], rest.slice(1).join(" ") || `Institución de prueba de ${rest[0]}`);
+  await admin(rest[0]);
+} else if (command === "nexus-admin") {
+  await nexusAdmin(rest[0]);
 } else if (command === "stop") {
   supabase(["stop"]);
 } else {
-  console.error("Comandos: start | migrate | dev | admin <correo> [institución] | stop");
+  console.error("Comandos: start | migrate | dev | admin <correo> | nexus-admin <correo> | stop");
   process.exit(1);
 }

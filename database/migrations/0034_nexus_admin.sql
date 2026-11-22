@@ -153,6 +153,17 @@ BEGIN
 END $$;
 CREATE TRIGGER institution_registrations_audit AFTER UPDATE ON public.institution_registrations FOR EACH ROW EXECUTE FUNCTION public.audit_institution_registrations();
 --> statement-breakpoint
+-- Every NEW institution must be born from a registration approved in the same transaction (checked at commit).
+-- Institutions that already exist are not touched: the trigger only fires on INSERT.
+CREATE FUNCTION public.check_institution_from_registration() RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM public.institution_registrations WHERE institution_id = NEW.id AND status = 'approved') THEN
+  RAISE EXCEPTION 'New institutions require an approved institution registration';
+ END IF;
+ RETURN NULL;
+END $$;
+CREATE CONSTRAINT TRIGGER institutions_from_registration AFTER INSERT ON public.institutions DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.check_institution_from_registration();
+--> statement-breakpoint
 -- The action record is append-only; none of the three tables can be truncated.
 CREATE FUNCTION public.reject_nexus_admin_history_change() RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
 BEGIN
@@ -210,7 +221,7 @@ BEGIN
 END $$;
 --> statement-breakpoint
 REVOKE ALL ON FUNCTION public.guard_nexus_admins(), public.guard_institution_registrations(), public.audit_nexus_admins(),
- public.audit_institution_registrations(), public.reject_nexus_admin_history_change() FROM PUBLIC, anon, authenticated;
+ public.audit_institution_registrations(), public.reject_nexus_admin_history_change(), public.check_institution_from_registration() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.is_nexus_admin(uuid), public.register_institution(uuid, text, public.institution_type, text, text),
  public.approve_institution_registration(uuid, uuid), public.reject_institution_registration(uuid, uuid, text),
  public.grant_nexus_admin(uuid, uuid), public.revoke_nexus_admin(uuid, uuid) FROM PUBLIC, anon, authenticated;

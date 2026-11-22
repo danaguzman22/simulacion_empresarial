@@ -62,7 +62,8 @@ Requisitos: Docker Desktop abierto y las dependencias instaladas (`npm install` 
 cd apps/web
 npm run local:start                 # levanta Supabase y aplica las migraciones de Drizzle
 npm run local:dev                   # app en http://localhost:3100 contra la base local
-npm run local:admin -- tu@correo    # después de registrarte: te hace admin de una institución de prueba
+npm run local:admin -- tu@correo    # después de registrarte: te hace admin de la "Institución de prueba"
+npm run local:nexus-admin -- tu@correo  # te hace admin de NEXUS (panel /nexus) en la base local
 npm run local:stop                  # apaga los contenedores; los datos quedan para la próxima
 ```
 

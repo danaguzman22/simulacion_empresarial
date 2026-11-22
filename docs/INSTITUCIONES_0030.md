@@ -38,10 +38,10 @@ Al vincular se conserva todo el contenido y se exige inmediatamente membresía i
 
 No hay formulario público para crear instituciones ni elevarse a admin. Un operador de NEXUS con acceso administrativo a la base verifica fuera de la aplicación la organización y el UUID del perfil responsable (cuenta previamente registrada).
 
-Luego de aplicar 0030 con aprobación, puede usar `database/admin/provision-institution.sql` con **psql**, desde una conexión administrativa configurada fuera del comando:
+**Desde 0034 (#6)** las instituciones se registran con el formulario de la app y las aprueba un admin de NEXUS desde el panel `/nexus`; la base rechaza cualquier institución nueva que no venga de una solicitud aprobada. `database/admin/provision-institution.sql` hace lo mismo por psql (registro + aprobación por un admin de NEXUS activo) y queda solo para cuando no se pueda usar el panel:
 
 ```text
-psql -v institution_name="Nombre verificado" -v institution_type="educational" -v admin_profile_id="UUID_VERIFICADO" -f database/admin/provision-institution.sql
+psql -v institution_name="Nombre verificado" -v institution_type="educational" -v institution_locality="Localidad" -v admin_profile_id="UUID_VERIFICADO" -v nexus_admin_profile_id="UUID_ADMIN_NEXUS" -f database/admin/provision-institution.sql
 ```
 
 Tipos permitidos: `educational`, `company`, `other`. El procedimiento es transaccional, verifica que exista el perfil y no contiene correos, credenciales ni una institución predeterminada. `granted_by` del primer admin identifica a la persona habilitada; la autorización inicial proviene del operador verificado, no del autorregistro. Este procedimiento no se ejecutó contra Supabase; se verificó en PostgreSQL local desechable. No debe repetirse sin revisar previamente instituciones existentes, porque no presume que nombres iguales identifiquen la misma organización.

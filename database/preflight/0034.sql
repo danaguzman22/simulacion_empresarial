@@ -1,6 +1,7 @@
 -- Read-only preflight for 0034_nexus_admin (#6, D-16, D-17, D-18, D-41 to D-43). Run before applying; it changes nothing.
 -- 0034 only ADDS: three new tables, a nullable column institutions.locality and functions/triggers. No existing row
--- is updated or deleted.
+-- is updated or deleted. From now on every NEW institution must come from an approved registration (deferred trigger);
+-- existing institutions are not affected.
 -- 1. Expected empty: none of the new objects may exist yet.
 SELECT table_name FROM information_schema.tables
 WHERE table_schema = 'public' AND table_name IN ('institution_registrations', 'nexus_admins', 'nexus_admin_actions');
@@ -11,7 +12,8 @@ SELECT proname FROM pg_proc
 WHERE pronamespace = 'public'::regnamespace
   AND proname IN ('is_nexus_admin', 'guard_nexus_admins', 'guard_institution_registrations', 'audit_nexus_admins',
                   'audit_institution_registrations', 'reject_nexus_admin_history_change', 'register_institution',
-                  'approve_institution_registration', 'reject_institution_registration', 'grant_nexus_admin', 'revoke_nexus_admin');
+                  'approve_institution_registration', 'reject_institution_registration', 'grant_nexus_admin', 'revoke_nexus_admin',
+                  'check_institution_from_registration');
 -- 2. Existing institutions: they stay exactly as they are (approved, locality null). Count and list them.
 SELECT count(*) AS institutions FROM public.institutions;
 SELECT id, name, type, created_at FROM public.institutions ORDER BY name, id;

@@ -109,7 +109,13 @@ async function main() {
  await fails(sql`update institution_registrations set status='approved',resolved_at=now(),resolved_by=${b},institution_id=${old} where id=${r3}`,/Approval must create the institution/);
  await fails(sql`update institution_registrations set status='rejected',resolved_at=now(),resolved_by=${c},rejection_reason='no' where id=${r3}`,/Only an active NEXUS admin/);
  await fails(sql`delete from institution_registrations where id=${r3}`,/never deleted/);
- console.log('PASS approve/reject: only an active NEXUS admin, registrant becomes admin on approval, reason required, can present again');
+ // A new institution only comes from an approved registration: a direct INSERT fails at commit, also with a
+ // pending registration or with one approved for another institution.
+ await fails(sql.begin(tx=>tx`insert into institutions(name,type,locality) values('Directa','other','Córdoba')`),/require an approved institution registration/);
+ await fails(sql.begin(async tx=>{const [{id}]=await tx`insert into institutions(name,type,locality) values('Universidad Tres','educational','Córdoba') returning id`;
+  await tx`insert into institution_members(institution_id,profile_id,role,granted_by) values(${id},${c},'admin',${b})`;}),/require an approved institution registration/);
+ assert.equal(await institutions(),before+1,'only the approved one was created');
+ console.log('PASS approve/reject: only an active NEXUS admin, registrant becomes admin on approval, reason required, can present again; no institution without an approved registration');
 
  // Every action recorded, who to whom; the record is append-only.
  const log=(await sql`select actor_id,action,target_profile_id,registration_id,details from nexus_admin_actions order by created_at,action`).map(r=>({...r,details:{...r.details}}));
