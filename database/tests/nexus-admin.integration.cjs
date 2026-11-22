@@ -139,5 +139,38 @@ async function main() {
  await sql.begin(async tx=>{await tx.unsafe('set local role service_role');await tx`select grant_nexus_admin(${b},${d})`;});
  assert.equal((await sql`select is_nexus_admin(${d}) as ok`)[0].ok,true);
  console.log('PASS privileges: anon/authenticated get nothing; service_role reads and writes only through the functions');
+ // Through the app's repository: server-side checks and Spanish messages; the database re-checks every rule.
+ const repo=load(base+'/src/features/nexus/repositories/nexus.repository.ts'),inst=load(base+'/src/features/institutions/repositories/institution.repository.ts');
+ const plain=x=>JSON.parse(JSON.stringify(x));
+ assert.equal(await repo.readNexusPanel(c),null,'not a NEXUS admin: no panel');
+ const [pendingTres]=await sql`select id from institution_registrations where name='Universidad Tres' and status='pending'`;
+ await fails(repo.approveRegistration(c,pendingTres.id),/Necesitás ser admin de NEXUS/);
+ await fails(repo.grantNexusAdmin(c,'c@test.test'),/Necesitás ser admin de NEXUS/);
+ await fails(repo.registerInstitution(d,{name:'<i>Uni</i>',kind:'educational',locality:'Córdoba',message:''},false),/no puede tener/);
+ // Duplicate warning (case and accents ignored), then sent anyway when confirmed.
+ const dup=plain(await repo.registerInstitution(d,{name:'universidad uno',kind:'educational',locality:'CORDOBA',message:''},false));
+ assert.deepEqual(dup,{status:'duplicate',matches:['Universidad Uno · Córdoba']});
+ assert.deepEqual(plain(await repo.registerInstitution(d,{name:'universidad tres',kind:'educational',locality:'córdoba',message:''},false)).matches,['Una solicitud pendiente con ese nombre y localidad'],'a pending one is mentioned without saying whose');
+ assert.equal((await repo.registerInstitution(d,{name:'Universidad Uno',kind:'educational',locality:'Córdoba',message:'Otra sede'},true)).status,'registered');
+ // Max 3 pending, with a clear message.
+ await repo.registerInstitution(c,{name:'Instituto Cuatro',kind:'other',locality:'Salta',message:''},false);
+ await fails(repo.registerInstitution(c,{name:'Instituto Cinco',kind:'other',locality:'Salta',message:''},false),/Ya tenés 3 solicitudes/);
+ // Pending registrations never appear in the institution search; approved ones do.
+ const search=async q=>plain((await inst.myInstitutions(d,q)).results).map(r=>r.name);
+ assert.deepEqual(await search('Universidad'),['Universidad Uno']);assert.deepEqual(await search('Instituto'),[]);
+ // Rejecting needs a reason; the registrant sees it in "Mis solicitudes".
+ await fails(repo.rejectRegistration(b,pendingTres.id,''),/Motivo del rechazo/);
+ await repo.rejectRegistration(b,pendingTres.id,'No pudimos verificarla');
+ assert.equal(plain(await repo.myRegistrations(c)).find(r=>r.id===pendingTres.id).rejectionReason,'No pudimos verificarla');
+ await fails(repo.approveRegistration(b,pendingTres.id),/ya fue resuelta/);
+ // NEXUS admins by e-mail; never the last one.
+ await fails(repo.grantNexusAdmin(b,'nadie@test.test'),/No hay ninguna cuenta/);
+ await fails(repo.grantNexusAdmin(b,'d@test.test'),/ya es admin de NEXUS/);
+ await repo.revokeNexusAdmin(b,d);await fails(repo.revokeNexusAdmin(b,b),/último admin de NEXUS/);
+ const panel=plain(await repo.readNexusPanel(b));
+ assert.deepEqual(panel.admins.map(x=>x.profileId),[b]);
+ assert(panel.pending.some(r=>r.name==='Instituto Cuatro')&&!panel.pending.some(r=>r.name==='Universidad Tres'));
+ assert.equal(panel.history[0].action,'revoke_admin');
+ console.log('PASS app repository: only NEXUS admins, duplicate warning, max 3 pending, pending out of the search, reason visible to the registrant, never the last admin');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>sql.end());
