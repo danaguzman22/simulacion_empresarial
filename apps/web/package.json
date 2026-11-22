@@ -14,6 +14,7 @@
     "local:migrate": "node scripts/supabase-local.mjs migrate",
     "local:dev": "node scripts/supabase-local.mjs dev",
     "local:admin": "node scripts/supabase-local.mjs admin",
+    "local:nexus-admin": "node scripts/supabase-local.mjs nexus-admin",
     "local:stop": "node scripts/supabase-local.mjs stop"
   },
   "dependencies": {

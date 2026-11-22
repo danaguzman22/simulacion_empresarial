@@ -46,6 +46,7 @@ export default async function Home() {
               <form action={signOut}><button className="rounded-xl border border-white/20 px-5 py-2 font-bold text-slate-200 hover:bg-white/10">Cerrar sesión</button></form>
             </div>
             {panel && <Link href="/alumno" className="mt-4 inline-block text-sm text-sky-300 hover:underline">Entrar como participante</Link>}
+            {session.nexusAdmin && <Link href="/nexus" className="mt-4 block text-sm text-sky-300 hover:underline">Administración de NEXUS</Link>}
           </section>
         ) : (
           // D-31: two doors. Entering through one does not grant permissions.

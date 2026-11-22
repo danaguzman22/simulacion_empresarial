@@ -20,4 +20,5 @@ export * from "./game-rules";
 export * from "./role-cards";
 export * from "./game-card-assignments";
 export * from "./institutions";
+export * from "./nexus-admin";
 export * from "./card-secret-reveals";

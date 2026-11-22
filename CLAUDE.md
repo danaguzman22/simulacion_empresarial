@@ -44,6 +44,8 @@ La dueña del proyecto es Dana. Ella decide. Hablale en español rioplatense, co
 5. Mantené sincronizados el schema de Drizzle, el SQL, el snapshot y el journal.
 6. Los datos de prueba se crean por la app o con los scripts de semillas, nunca con `INSERT` directos en la base, para no saltear validaciones ni dejar datos que no se pueden producir con la app real.
 7. Si cambiás de rama para otra tarea (por ejemplo, commitear en `develop`), volvé a la rama en la que se está probando y reiniciá la app borrando el caché `apps/web/.next/dev` antes de pedirle a Dana que pruebe: el caché de desarrollo puede quedar con rutas de otra rama y dar 404 falsos.
+8. Nunca uses las cuentas de prueba de Dana (admin1, prueba-sesion72, nexus@nexus.local y las que ella indique) para probar scripts ni flujos: creá cuentas propias descartables (por la app o por Supabase Auth local) y avisale cuáles creaste. Sus contraseñas no van en commits, issues, PRs ni mensajes.
+9. Nunca desactives triggers ni protecciones de la base para saltear sus reglas (`session_replication_role = replica`, `DISABLE TRIGGER`, borrar o editar registros que la base protege), tampoco en local. Si algo no se puede hacer respetando las reglas de la base, avisale a Dana y lo deciden juntas.
 
 ## Lo que nunca hacés sin que Dana lo apruebe en ese momento
 

@@ -34,7 +34,7 @@ export function RecordsTimeline({ data }: { data: RecordsData }) {
     </div>
     {data.hasResets && <p className="mt-4 rounded-xl border border-orange-400/20 bg-orange-400/5 p-3 text-sm text-orange-100">Hubo un Reset. Las situaciones, cambios de KPI y operaciones de períodos descartados ya no se conservan. Aquí se muestran únicamente los registros disponibles; los cambios de reglas y los inicios descartados están identificados.</p>}
     <p role="status" className="mt-5 text-sm text-slate-400">{events.length} {events.length === 1 ? "acontecimiento" : "acontecimientos"}</p>
-    {!events.length ? <p className="mt-4 rounded-2xl border border-dashed border-white/15 p-6 text-slate-300">{data.events.length ? "No hay acontecimientos para estos filtros." : "Todavía no hay acontecimientos registrados en esta partida."}</p> : <ol className="mt-5 space-y-5 border-l border-white/15 pl-4 sm:pl-6">
+    {!events.length ? <p className="mt-4 rounded-2xl border border-dashed border-white/15 p-6 text-slate-300">{data.events.length ? "No encontramos acontecimientos que coincidan con estos filtros. Probá con otros o quitá alguno." : "Todavía no hay acontecimientos registrados en esta partida."}</p> : <ol className="mt-5 space-y-5 border-l border-white/15 pl-4 sm:pl-6">
       {events.slice(0, limit).map(event => {
         const category = categories[event.kind];
         return <li key={event.id} className={`relative rounded-2xl border p-4 sm:p-5 ${event.discardedByResetId ? "border-dashed border-orange-300/40 bg-orange-950/10" : "border-white/10 bg-slate-950/40"}`}>

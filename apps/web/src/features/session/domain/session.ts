@@ -2,7 +2,7 @@
 // Pure functions (no database, no cookies), covered by unit tests.
 
 // D-38: generic labels. People who play can be students or employees, so the interface never says "Alumno".
-export type SessionArea = "participant" | "panel" | "admin";
+export type SessionArea = "participant" | "panel" | "admin" | "nexus";
 export type InstitutionRole = "admin" | "teacher" | "member";
 export type CampaignRole = "master" | "co_master" | "observer";
 export type Membership = { id: string; name: string; role: InstitutionRole };
@@ -24,9 +24,11 @@ export function bestCampaignRole(roles: CampaignRole[]): CampaignRole | null {
 // - participant portal: "Participante";
 // - administrative panel: "Docente" when teaching in the active institution, otherwise the campaign role on that
 //   screen (or the best one the person has), "Administrador" for an institution admin without campaigns;
-// - institution screens: "Administrador" for an admin of the active institution, otherwise "Participante".
+// - institution screens: "Administrador" for an admin of the active institution, otherwise "Participante";
+// - NEXUS administration (#6): "Administrador de NEXUS" (only NEXUS admins reach it).
 export function roleLabel(input: { area: SessionArea; active: Membership | null; campaignRole?: CampaignRole | null; bestRole?: CampaignRole | null }) {
   if (input.area === "participant") return "Participante";
+  if (input.area === "nexus") return "Administrador de NEXUS";
   if (input.area === "admin") return input.active?.role === "admin" ? "Administrador" : "Participante";
   if (input.active?.role === "teacher") return "Docente";
   const role = input.campaignRole ?? input.bestRole ?? null;
@@ -49,5 +51,5 @@ export function pickActiveInstitution(memberships: Membership[], cookieValue: st
 }
 
 // Where to go after choosing another institution: the home of the same area (lists change with the institution).
-export const areaHome: Record<SessionArea, string> = { participant: "/alumno", panel: "/master", admin: "/instituciones" };
-export const isSessionArea = (value: unknown): value is SessionArea => value === "participant" || value === "panel" || value === "admin";
+export const areaHome: Record<SessionArea, string> = { participant: "/alumno", panel: "/master", admin: "/instituciones", nexus: "/nexus" };
+export const isSessionArea = (value: unknown): value is SessionArea => value === "participant" || value === "panel" || value === "admin" || value === "nexus";

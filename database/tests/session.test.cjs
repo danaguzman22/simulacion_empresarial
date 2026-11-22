@@ -14,7 +14,8 @@ assert.equal(roleLabel({area:'panel',active:B,bestRole:'master'}),'Master');
 assert.equal(roleLabel({area:'panel',active:C}),'Administrador');
 assert.equal(roleLabel({area:'admin',active:C}),'Administrador');
 assert.equal(roleLabel({area:'admin',active:B}),'Participante');
-for(const area of ['participant','panel','admin'])for(const active of [A,B,C,null])for(const campaignRole of [null,'master','co_master','observer'])
+assert.equal(roleLabel({area:'nexus',active:null}),'Administrador de NEXUS');
+for(const area of ['participant','panel','admin','nexus'])for(const active of [A,B,C,null])for(const campaignRole of [null,'master','co_master','observer'])
  assert(!/alumn/i.test(roleLabel({area,active,campaignRole})),'never "Alumno"');
 assert.equal(bestCampaignRole(['observer','master','co_master']),'master');assert.equal(bestCampaignRole(['observer','co_master']),'co_master');assert.equal(bestCampaignRole([]),null);
 // The person's name; without one, the e-mail.
@@ -28,7 +29,7 @@ assert.equal(pickActiveInstitution(memberships,B.id.toUpperCase()),B);
 for(const cookie of [C.id,'not-a-uuid','',null,undefined,"' or 1=1 --",B.id+'x'])assert.equal(pickActiveInstitution(memberships,cookie),A,'ignored: '+cookie);
 assert.equal(pickActiveInstitution([],A.id),null,'without memberships a cookie gives nothing');
 assert(isSessionArea('panel')&&!isSessionArea('/master')&&!isSessionArea(undefined));
-assert.deepEqual({...areaHome},{participant:'/alumno',panel:'/master',admin:'/instituciones'});
+assert.deepEqual({...areaHome},{participant:'/alumno',panel:'/master',admin:'/instituciones',nexus:'/nexus'});
 console.log('PASS active institution: cookie only chooses among active memberships');
 
 // Session change in another tab: reload only for a different stored key.

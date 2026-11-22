@@ -9,7 +9,7 @@ export function CampaignList({ campaigns }: { campaigns: CampaignListItem[] }) {
   if (campaigns.length === 0) {
     return (
       <p className="rounded-3xl border border-dashed border-white/10 p-10 text-center text-sm text-slate-400">
-        Esta empresa todavía no tiene campañas.
+        Esta empresa todavía no tiene campañas. Se crean con «Crear campaña».
       </p>
     );
   }
