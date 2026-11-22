@@ -15,7 +15,8 @@ export const getSession = cache(async () => {
   if (error || typeof userId !== "string") return null;
   const chosen = (await cookies()).get(ACTIVE_INSTITUTION_COOKIE)?.value;
   const [name, { memberships, active }, nexusAdmin] = await Promise.all([readProfileName(userId), readSessionInstitutions(userId, chosen), isNexusAdmin(userId)]);
-  return { userId, name: personName(name, typeof email === "string" ? email : null), memberships, active, nexusAdmin };
+  // email: the verified e-mail of the account (from the session claims), used as the responsible contact (#6).
+  return { userId, email: typeof email === "string" ? email : null, name: personName(name, typeof email === "string" ? email : null), memberships, active, nexusAdmin };
 });
 
 // Institution the lists are filtered by: an id, or null when the person has no active membership (nothing is

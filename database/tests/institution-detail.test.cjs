@@ -5,6 +5,8 @@ const mod={};
 vm.runInNewContext(code,{exports:mod,require(name){
  if(name==='next/link')return {default:function Link(){}};
  if(name==='./InstitutionForm')return {InstitutionForm:function InstitutionForm(){}};
+ if(name==='@/components/shared/Breadcrumbs')return {Breadcrumbs:function Breadcrumbs(){}};
+ if(name==='@/features/nexus/components/InstitutionDetails')return {ContactList:function ContactList(){}};
  return web(name);
 }});
 function text(node){

@@ -14,7 +14,7 @@ export default async function MyRequestsPage() {
       {data.requests.map(r => <li key={r.id} className="rounded-xl border border-white/10 p-3">{r.name} · {registrationStatusLabels[r.status]} · {day(r.requestedAt)}</li>)}</ul></section>}
     {data.registrations.length > 0 && <section><h2 className="text-lg font-bold">Registro de instituciones</h2><ul className="mt-3 space-y-2">
       {data.registrations.map(r => <li key={r.id} className="rounded-xl border border-white/10 p-3">
-        <p>{r.name} · {r.locality} · {registrationStatusLabels[r.status]} · {day(r.requestedAt)}</p>
+        <p>{r.displayName ?? r.name} · {r.locality}{r.province && `, ${r.province}`} · {registrationStatusLabels[r.status]}{r.createdByNexus && " (creada por el admin de NEXUS)"} · {day(r.requestedAt)}</p>
         {r.rejectionReason && <p className="mt-1 text-sm text-slate-400">Motivo: {r.rejectionReason}. Podés presentarla de nuevo como una solicitud nueva.</p>}
       </li>)}</ul></section>}
   </div>;

@@ -106,7 +106,11 @@ async function admin(email) {
     const created = await sql.begin(async tx => {
       const [institution] = await tx`select id from public.institutions where name = ${TEST_INSTITUTION} order by created_at, id limit 1`;
       if (!institution) {
-        const [{ registration }] = await tx`select public.register_institution(${person}, ${TEST_INSTITUTION}, 'educational', 'Local', 'Creada por npm run local:admin') as registration`;
+        // Complete test data (#6 form); the e-mail of the account is the responsible contact.
+        const data = { legalName: TEST_INSTITUTION, kind: "educational", educationLevel: "university", organizationKind: "direct", country: "AR", province: "Córdoba",
+          locality: "Local", postalCode: "5000", institutionalEmail: "contacto@prueba.local", institutionalPhone: "351 000 0000",
+          responsiblePosition: "Admin de prueba", responsibleArea: "Pruebas", message: "Creada por npm run local:admin" };
+        const [{ registration }] = await tx`select public.register_institution(${person}, ${email.toLowerCase()}, ${JSON.stringify(data)}::jsonb) as registration`;
         await tx`select public.approve_institution_registration(${approver}, ${registration})`;
         return true;
       }

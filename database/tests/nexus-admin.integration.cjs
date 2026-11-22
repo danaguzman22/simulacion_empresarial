@@ -194,5 +194,93 @@ async function main() {
  console.log('PASS privileges: anon/authenticated get nothing (contacts included); service_role reads and writes only through the functions');
  await appRepository({sql,a,b,c,d,e,fails,school,created,r3,data,register});
 }
-async function appRepository(){}
+
+// Through the app's repository: server-side checks, Spanish messages and privacy; the database re-checks every rule.
+async function appRepository({sql,a,b,c,d,e,fails,school,created,r3,data}) {
+ const repo=load(base+'/src/features/nexus/repositories/nexus.repository.ts'),inst=load(base+'/src/features/institutions/repositories/institution.repository.ts');
+ const plain=x=>JSON.parse(JSON.stringify(x));
+ const draft=overrides=>({...data(),authorized:true,...overrides});
+ // Only NEXUS admins read the panel.
+ for(const read of [repo.readPendingCount,repo.readPendingRegistrations,repo.readNexusAdmins])assert.equal(await read(c),null,'not a NEXUS admin: no panel data');
+ assert.equal(await repo.readInstitutions(c,''),null);assert.equal(await repo.readInstitutionForNexus(c,school),null);
+ assert.equal(await repo.readNexusHistory(c,{search:'',filter:'all',page:1,actionsPage:1}),null);assert.equal(await repo.readRegistrationForNexus(c,r3),null);
+ await fails(repo.approveRegistration(c,r3),/Necesitás ser admin de NEXUS/);
+ await fails(repo.grantNexusAdmin(c,'c@test.test'),/Necesitás ser admin de NEXUS/);
+ await fails(repo.addInstitutionAdmin(c,school,'a@test.test','Pedido'),/Necesitás ser admin de NEXUS/);
+ await fails(repo.nexusCreateInstitution(c,draft({legalName:'Por teléfono',locality:'Jesús María'}),'a@test.test'),/Necesitás ser admin de NEXUS/);
+
+ // Registering: validated in the server with clear messages; unique legal name + place and CUIT.
+ await fails(repo.registerInstitution(a,'a@test.test',draft({legalName:'<i>Uni</i>'})),/no puede tener/);
+ await fails(repo.registerInstitution(a,'a@test.test',draft({legalName:'universidad uno',locality:'CORDOBA'})),/Ya existe una institución con ese nombre en esa localidad/);
+ await fails(repo.registerInstitution(a,'a@test.test',draft({legalName:'Nueva',taxId:'20-12345678-0'})),/CUIT inválido/);
+ await fails(repo.registerInstitution(a,'a@test.test',draft({legalName:'Nueva',taxId:'20-12345678-6'})),/Ya hay una institución registrada con ese CUIT/);
+ await fails(repo.registerInstitution(a,'a@test.test',draft({legalName:'Nueva',authorized:false})),/autorizado/);
+ await repo.registerInstitution(a,'A@test.test',draft({legalName:'Instituto Nuevo',locality:'Alta Gracia',alternateName:'Luis',alternatePhone:'351 555 0000'}));
+ const [mine]=plain(await repo.myRegistrations(a)).filter(r=>r.name==='Instituto Nuevo');
+ assert.equal(mine.status,'pending');
+ // Pending registrations never appear in the institution search; public listings carry only public fields.
+ const search=plain(await inst.myInstitutions(d,'Universidad'));
+ assert.deepEqual(search.results.map(r=>r.name),['UNO']);
+ assert.deepEqual(Object.keys(search.results[0]).sort(),['id','locality','name','type'],'only visible name, type and locality');
+ const publicPayload=JSON.stringify(search);
+ for(const hidden of ['20123456786','institution@test.test','351 000 0000','Rectorado','Director','ana@uno.edu.ar','c@test.test'])assert(!publicPayload.includes(hidden),'public listing must not carry '+hidden);
+ assert.deepEqual(plain((await inst.myInstitutions(d,'Instituto Nuevo')).results),[]);
+
+ // Contacts are private: only the institution's admins and NEXUS admins read them.
+ assert.equal(await repo.readInstitutionContacts(e,created),null,'not an admin of that institution nor of NEXUS');
+ assert.equal(plain(await repo.readInstitutionContacts(c,created)).length,3,'its admin reads them');
+ const nexusContacts=plain(await repo.readInstitutionContacts(b,created));
+ assert.deepEqual(nexusContacts.map(x=>[x.kind,x.email]).sort(),[['alternate','ana@uno.edu.ar'],['institutional','institution@test.test'],['responsible','c@test.test']]);
+ assert.equal(nexusContacts.find(x=>x.kind==='responsible').name!==undefined,true);
+
+ // Bug fixed: members and admins are counted per institution (they all said 0 before).
+ const listed=plain(await repo.readInstitutions(b,''));
+ assert.deepEqual([listed.find(i=>i.id===created),listed.find(i=>i.id===school)].map(i=>[i.members,i.admins]),[[1,1],[2,2]]);
+ assert.deepEqual(plain(await repo.readInstitutions(b,'villa maria')).map(i=>i.id),[school],'search by locality ignoring accents and case');
+
+ // NEXUS creates an institution for a registered person; it is approved at once and recorded as created by NEXUS.
+ await fails(repo.nexusCreateInstitution(b,draft({legalName:'Por teléfono',locality:'Jesús María'}),'nadie@test.test'),/No hay ninguna cuenta/);
+ const phone=await repo.nexusCreateInstitution(b,draft({legalName:'Por teléfono',locality:'Jesús María'}),'a@test.test');
+ const phoneDetail=plain(await repo.readInstitutionForNexus(b,phone));
+ assert.equal(phoneDetail.registration.createdByNexus,true);assert.deepEqual(phoneDetail.admins.map(x=>x.profileId),[a]);
+ assert.equal(phoneDetail.history[0].action,'create_institution');
+ // Adding an admin: e-mail of a registered account and a required reason; never removing.
+ await fails(repo.addInstitutionAdmin(b,phone,'d@test.test','   '),/Motivo/);
+ await repo.addInstitutionAdmin(b,phone,'d@test.test','Lo pidió el rector por correo');
+ await fails(repo.addInstitutionAdmin(b,phone,'d@test.test','Otra vez'),/ya es admin de esta institución/);
+ const afterAdd=plain(await repo.readInstitutionForNexus(b,phone));
+ assert.deepEqual(afterAdd.admins.map(x=>x.profileId).sort(),[a,d].sort());
+ assert.deepEqual(afterAdd.history.map(h=>h.action),['add_institution_admin','create_institution']);
+ assert.equal(afterAdd.history[0].details.reason,'Lo pidió el rector por correo');
+ const [member]=await sql`select id,revision from institution_members where institution_id=${phone} and profile_id=${d}`;
+ await fails(inst.changeInstitutionMember(b,phone,member.id,member.revision,'revoke'),/Necesitás membresía|administrativa/,'a NEXUS admin cannot remove institution admins');
+
+ // History: filters, search, pages; one registration opens with all its data, contacts and actions.
+ const history=async options=>plain(await repo.readNexusHistory(b,{search:'',filter:'all',page:1,actionsPage:1,...options}));
+ assert.deepEqual((await history({filter:'nexus'})).resolved.map(r=>r.name).sort(),['Escuela Técnica','Por teléfono']);
+ assert.deepEqual((await history({filter:'rejected'})).resolved.map(r=>r.status),['rejected']);
+ assert.deepEqual((await history({filter:'approved'})).resolved.map(r=>r.name),['Universidad Uno']);
+ assert.deepEqual((await history({search:'Técnica'})).resolved.map(r=>r.name),['Escuela Técnica']);
+ const all=await history({});assert.equal(all.total,4);assert.equal(all.pages,1);
+ const beyond=await history({page:2});assert.deepEqual(beyond.resolved,[]);assert.equal(beyond.page,2);
+ assert.equal((await history({page:-3})).page,1,'invalid pages fall back to 1');
+ assert(all.actions.length>0&&all.actionsPages>=1);
+ const [{id:approvedId}]=await sql`select id from institution_registrations where institution_id=${created}`;
+ const detail=plain(await repo.readRegistrationForNexus(b,approvedId));
+ assert.equal(detail.contacts.length,3);assert.deepEqual(detail.history.map(h=>h.action),['approve_institution']);
+ assert.equal(detail.registration.taxId,'20123456786');
+
+ // Rejecting needs a reason; the registrant sees it in "Mis solicitudes".
+ await fails(repo.rejectRegistration(b,r3,''),/Motivo/);await fails(repo.rejectRegistration(b,r3,'    '),/Motivo/);
+ await repo.rejectRegistration(b,r3,'No pudimos verificarla');
+ assert.equal(plain(await repo.myRegistrations(c)).find(r=>r.id===r3).rejectionReason,'No pudimos verificarla');
+ await fails(repo.approveRegistration(b,r3),/ya fue resuelta/);
+ // NEXUS admins by e-mail; never the last one.
+ await fails(repo.grantNexusAdmin(b,'nadie@test.test'),/No hay ninguna cuenta/);
+ await fails(repo.grantNexusAdmin(b,'d@test.test'),/ya es admin de NEXUS/);
+ await repo.revokeNexusAdmin(b,d);await fails(repo.revokeNexusAdmin(b,b),/último admin de NEXUS/);
+ assert.deepEqual(plain(await repo.readNexusAdmins(b)).admins.map(x=>x.profileId),[b]);
+ assert.equal(await repo.readPendingCount(b),plain(await repo.readPendingRegistrations(b)).length);
+ console.log('PASS app repository: only NEXUS admins, validation and messages, CUIT, uniqueness, private contacts, member counts, create from NEXUS, add (never remove) admins, history filters and pages');
+}
 main().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>sql.end());
