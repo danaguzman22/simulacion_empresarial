@@ -33,7 +33,7 @@ Fuente de verdad de las decisiones del proyecto. Las issues de GitHub citan esto
 | D-23 | En cada partida nueva, el docente elige: mantener los departamentos de la anterior, repartir por sorteo entre los alumnos de la campaña o asignar a mano. | Pendiente |
 | D-24 | Los códigos y QR para entrar a una campaña vencen siempre. El código de la materia no vence (M-1). Solo el docente puede agregar alumnos a mano. | Pendiente |
 | D-25 | Co-Masters y Observers tienen que ser de la misma institución. Las colaboraciones entre instituciones quedan para más adelante. | Pendiente |
-| D-26 | Las instituciones se organizan como un árbol de unidades. El admin de una unidad administra todo lo que tiene adentro, pero no las unidades de al lado ni las de arriba. Cada unidad puede tener varios admins. Una institución chica usa un solo nivel. | Pendiente |
+| D-26 | Las instituciones se organizan como un árbol de unidades. El admin de una unidad administra todo lo que tiene adentro, pero no las unidades de al lado ni las de arriba. Cada unidad puede tener varios admins. Cada institución tiene un tipo de organización: **Directa** (la institución tiene sus áreas o materias directamente) o **Con sedes** (la raíz solo organiza sedes; cada sede tiene sus admins y sus áreas o materias; la raíz no trabaja directo: si necesita una oficina central, es una sede más). Por dentro es siempre el mismo árbol: el tipo solo cambia qué se puede crear en la raíz y qué se muestra. Se elige al crear la institución ("Directa" por defecto) y lo cambia su admin: de Directa a Con sedes, lo existente queda dentro de una primera sede; de Con sedes a Directa, solo si hay una sola sede. Actualizada el 22/11/2026 (antes decía "una institución chica usa un solo nivel"). | Pendiente |
 | D-27 | Reemplazada por M-1. | — |
 | D-28 | Cada institución puede declarar sus dominios de correo. Quien se registra con ese correo verificado entra directo como miembro, nunca como docente. | Pendiente |
 | D-29 | Los niveles de la institución se llaman "unidades" en el sistema y cada institución les pone su nombre. "Departamento" queda reservado para los de la simulación. | Pendiente |
@@ -71,7 +71,7 @@ UTN (institución)
 1. El admin de una unidad administra esa unidad y todo lo que tiene debajo, pero nada de al lado ni de arriba (D-26).
 2. Un miembro aprobado en una unidad pertenece también a la institución completa.
 3. La empresa simulada pasa a colgar de una unidad. Hoy cuelga de la institución (0030): hay que migrarla sin perder datos.
-4. Una institución chica puede no tener sub-unidades.
+4. Según su tipo de organización (D-26), la institución tiene sus áreas o materias directamente ("Directa") o solo sedes, cada una con sus áreas o materias ("Con sedes").
 
 ## Roles y permisos
 
@@ -81,8 +81,8 @@ Cada rol vale solo en un lugar, y una misma persona puede tener varios. NEXUS ad
 | --- | --- | --- | --- |
 | Admin de NEXUS | La plataforma | Otro admin de NEXUS (el primero, por script) | Administra instituciones: las aprueba o rechaza, las crea a pedido (D-43), les agrega admins (nunca los quita) y, más adelante, las suspende (#98). No entra al contenido de unidades ni campañas desde la app. |
 | Soporte técnico de NEXUS | La base de datos | Un admin de NEXUS | Solo ante un error grave que la institución no puede resolver: entra a la base para corregirlo. Cada intervención queda registrada. |
-| Admin de institución o unidad | Su unidad y todo lo de adentro | Un admin de NEXUS (el primero) o un admin de la unidad de arriba | Maneja personas: aprueba miembros, resuelve problemas de ingreso y nombra admins, soporte técnico y docentes. Elige los métodos de ingreso y los datos del registro, o delega esa elección en cada unidad. |
-| Soporte técnico de institución o unidad | Su unidad y todo lo de adentro | Un admin | Maneja la estructura: crea y organiza regionales, sucursales y materias. No maneja personas. |
+| Admin de institución o unidad | Su unidad y todo lo de adentro | Un admin de NEXUS (el primero) o un admin de la unidad de arriba | Maneja personas: aprueba miembros, resuelve problemas de ingreso y nombra admins, soporte técnico y docentes. Hace además todo lo del soporte técnico (crea y organiza unidades). Elige los métodos de ingreso y los datos del registro, o delega esa elección en cada unidad. (Actualizado el 22/11/2026.) |
+| Soporte técnico de institución o unidad | Su unidad y todo lo de adentro | Un admin | Rol para delegar solo la estructura: crea y organiza sedes, áreas y materias. No maneja personas ni permisos; en la administración ve solo Unidades y Actividad. (Actualizado el 22/11/2026.) |
 | Docente | Una materia | Un admin | Es Master automáticamente de todas las campañas de su materia. Crea campañas, códigos y QR, agrega alumnos y nombra Masters, Co-Masters y Observers. Si la materia tiene dos docentes, los dos son Masters. |
 | Master | Una campaña | Un docente | Dirige toda la campaña: partidas, fichas, KPIs, metas, situaciones, reglas, departamentos, registros y evaluación. Puede no ser docente (ayudante, laboratorio). |
 | Co-Master | Una campaña | Un docente (no el Master) | Hace todo lo del Master durante el juego. No da permisos ni maneja a otros Masters. |
