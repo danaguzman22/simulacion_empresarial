@@ -54,7 +54,10 @@ async function main() {
  const session=module('session/repositories/session.repository'),students=module('students/repositories/student.repository'),companies=module('companies/repositories/company.repository');
  const games=module('games/repositories/game.repository'),cards=module('cards/repositories/card.repository'),assignments=module('students/repositories/assignment.repository');
  // Three institutions: the person teaches in A, never belonged to B, and is revoked from C (where it also taught).
- const institution=async(name,admin,people)=>{const id=randomUUID();await sql`insert into institutions(id,name,type) values(${id},${name},'educational')`;
+ // Since 0034 (#6) a new institution comes from a registration approved by a NEXUS admin.
+ const nexus=randomUUID();await sql`INSERT INTO auth.users VALUES(${nexus},'nexus@test.test','{}')`;await sql`insert into nexus_admins(profile_id) values(${nexus})`;
+ const institution=async(name,admin,people)=>{const [{registration}]=await sql`select register_institution(${admin},${name},'educational','Test','') as registration`;
+  const [{id}]=await sql`select approve_institution_registration(${nexus},${registration}) as id`;people=people.filter(([profile])=>profile!==admin);
   for(const [profile,role] of people)await sql`insert into institution_members(institution_id,profile_id,role,granted_by) values(${id},${profile},${role},${admin})`;return id;};
  const A=await institution('ALFA-INST',masterA,[[masterA,'admin'],[person,'teacher']]);
  const B=await institution('BETA-INST',masterB,[[masterB,'admin']]);
