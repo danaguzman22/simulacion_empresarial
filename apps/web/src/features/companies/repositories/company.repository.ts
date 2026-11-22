@@ -1,5 +1,5 @@
 import "server-only";
-import { institutionAccessSql, requireInstitutionMember } from "@/features/institutions/repositories/institution-access";
+import { inActiveInstitution, institutionAccessSql, requireInstitutionMember } from "@/features/institutions/repositories/institution-access";
 import { canCreateSimulation, InstitutionError, validId } from "@/features/institutions/domain/institution";
 
 import {
@@ -48,14 +48,16 @@ export async function findCompanyByIdForOwner(
   return company ?? null;
 }
 
+// institutionId (#72): the active institution of the panel (see inActiveInstitution); undefined = all.
 export async function findCompaniesCreatedBy(
-  profileId: string
+  profileId: string,
+  institutionId?: string | null
 ) {
   return db
     .select()
     .from(companies)
     .where(
-      and(eq(companies.createdBy, profileId), institutionAccessSql(companies.id, profileId))
+      and(eq(companies.createdBy, profileId), institutionAccessSql(companies.id, profileId), inActiveInstitution(companies.institutionId, institutionId))
     )
     .orderBy(
       desc(

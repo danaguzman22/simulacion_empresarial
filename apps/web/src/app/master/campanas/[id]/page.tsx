@@ -1,3 +1,4 @@
+import { UserBar } from "@/features/session/components/UserBar";
 import { RoleCards } from "@/features/cards/components/RoleCards";
 import { notFound, redirect } from "next/navigation";
 import { listCampaignGames } from "@/features/games/application/list-campaign-games";
@@ -23,6 +24,8 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
   }
 
   return (
+    <>
+    <UserBar area="panel" campaignRole={result.memberRole} />
     <CampaignDetail
       campaign={result.campaign}
       canReturnToCompany={result.canReturnToCompany}
@@ -34,5 +37,6 @@ export default async function CampaignPage({ params }: CampaignPageProps) {
         canCreateGame={result.canCreateGame}
       />
     </CampaignDetail>
+    </>
   );
 }

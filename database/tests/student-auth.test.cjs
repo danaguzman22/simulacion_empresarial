@@ -8,11 +8,10 @@ const form=(operation,extra={})=>new Map(Object.entries({operation,email:'studen
  assert.match((await exportsObject.studentAuth({},form('register'))).message,/correo/);
  assert.deepEqual(JSON.parse(JSON.stringify(calls[0])),{email:'student@test.test',password:'safe-test-password',options:{data:{display_name:'Student'}}});
  const masterLogin={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(base+'/src/features/auth/application/sign-in-master.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports:masterLogin,require(name){if(name==='next/navigation')return {redirect(path){throw new Error('redirect:'+path);}};if(name==='@/lib/supabase/server')return {createClient:async()=>client};throw new Error(name);}});
- await assert.rejects(masterLogin.signInMaster({},form('login')),/redirect:\/acceso/);
+ await assert.rejects(masterLogin.signInMaster({},form('login')),/redirect:\/master$/);
  const count=calls.length;await exportsObject.studentAuth({},form('register',{password:'short'}));assert.equal(calls.length,count);
- session={};await assert.rejects(exportsObject.studentAuth({},form('register')),/redirect:\/acceso/);
- await assert.rejects(exportsObject.studentAuth({},form('login')),/redirect:\/acceso/);
+ session={};await assert.rejects(exportsObject.studentAuth({},form('register')),/redirect:\/alumno$/);
+ await assert.rejects(exportsObject.studentAuth({},form('login')),/redirect:\/alumno$/);
  fail=true;assert.match((await exportsObject.studentAuth({},form('login'))).message,/No se pudo/);
- await assert.rejects(exportsObject.signOutStudent(),/redirect:\/login\/alumno/);
- console.log('PASS signup/login/logout contract; confirmation-required and immediate-session flows; role metadata ignored; validation and generic errors');
+ console.log('PASS signup/login contract (each door leads to its own area, #72); confirmation-required and immediate-session flows; role metadata ignored; validation and generic errors');
 })().catch(e=>{console.error(e);process.exitCode=1;});

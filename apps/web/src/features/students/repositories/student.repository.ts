@@ -1,17 +1,21 @@
-import { institutionAccessSql } from "@/features/institutions/repositories/institution-access";
+import { inActiveInstitution, institutionAccessSql } from "@/features/institutions/repositories/institution-access";
 import "server-only";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { gameCardAssignments as assignments, gameRoleCards as cards, games, campaigns, companies, profiles, cardSecretReveals, rounds } from "@/db/schema";
 import { canReadAssignedCard } from "../domain/assignment";
 
-export async function listAssignedGames(actorId: string) {
+// institutionId (#72): the active institution of the portal; null means "no active membership" (nothing
+// listed). Without it, every institution the person can access. It only narrows the list: access is
+// still checked with institutionAccessSql.
+export async function listAssignedGames(actorId: string, institutionId?: string | null) {
   return db.select({ id: games.id, name: games.name, status: games.status, campaign: campaigns.name, company: companies.name,
     department: sql<string | null>`case when ${games.status} in ('active','paused','evaluation','completed') then ${cards.department} else null end`,
   }).from(assignments).innerJoin(games, eq(games.id, assignments.gameId))
     .innerJoin(cards, and(eq(cards.id, assignments.cardId), eq(cards.gameId, games.id), eq(cards.campaignId, games.campaignId)))
     .innerJoin(campaigns, eq(campaigns.id, games.campaignId)).innerJoin(companies, eq(companies.id, campaigns.companyId))
-    .where(and(eq(assignments.profileId, actorId), institutionAccessSql(companies.id, actorId))).orderBy(desc(games.createdAt), asc(games.id));
+    .where(and(eq(assignments.profileId, actorId), institutionAccessSql(companies.id, actorId), inActiveInstitution(companies.institutionId, institutionId)))
+    .orderBy(desc(games.createdAt), asc(games.id));
 }
 
 export async function readAssignedCard(gameId: string, actorId: string) {

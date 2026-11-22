@@ -5,9 +5,11 @@ import {
 } from "../repositories/company.repository";
 
 export async function listMasterCompanies(
-  profileId: string
+  profileId: string,
+  institutionId?: string | null
 ) {
   return findCompaniesCreatedBy(
-    profileId
+    profileId,
+    institutionId
   );
 }
