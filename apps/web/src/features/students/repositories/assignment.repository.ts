@@ -30,12 +30,12 @@ export async function changeAssignment(actorId: string, command: AssignmentComma
       const company = await requireCampaignInstitution(tx, game.campaignId, actorId, true);
       if (!company.institutionId) throw new AssignmentError("La empresa está pendiente de vinculación institucional. No admite nuevos integrantes.");
       const users = await tx.execute(sql`select f.profile_id from public.find_registered_profile_by_email(${command.email.trim()}) f join public.institution_members m on m.profile_id=f.profile_id where m.institution_id=${company.institutionId}::uuid and m.status='active'`);
-      if (users.length !== 1) throw new AssignmentError("No se encontró una cuenta con membresía aprobada en esta institución. El alumno debe solicitar acceso primero.");
+      if (users.length !== 1) throw new AssignmentError("No se encontró una cuenta con membresía aprobada en esta institución. La persona debe solicitar acceso primero.");
       const profileId = String(users[0].profile_id);
       await requireInstitutionMember(tx, company.institutionId, profileId, true);
       const [existing] = await tx.select().from(assignments).where(and(eq(assignments.gameId, game.id), eq(assignments.profileId, profileId)));
       if (existing?.cardId === command.cardId) return;
-      if (existing) throw new AssignmentError("El alumno ya tiene departamento. Usá Cambiar departamento para corregirlo.");
+      if (existing) throw new AssignmentError("El participante ya tiene departamento. Usá Cambiar departamento para corregirlo.");
       await tx.insert(assignments).values({ gameId: game.id, campaignId: game.campaignId, cardId: command.cardId, profileId, updatedBy: actorId });
       return;
     }

@@ -17,10 +17,6 @@ export async function studentAuth(_: { message: string }, form: FormData) {
     const { error } = await client.auth.signInWithPassword({ email, password });
     if (error) return { message: "No se pudo iniciar sesión. Revisá tus datos y la confirmación del correo." };
   }
-  redirect("/acceso");
-}
-export async function signOutStudent() {
-  const client = await createClient();
-  await client.auth.signOut();
-  redirect("/login/alumno");
+  // #72: the users door leads straight to the participant portal (D-31).
+  redirect("/alumno");
 }
