@@ -428,7 +428,7 @@ BEGIN
 END $$;
 --> statement-breakpoint
 -- D-43: a NEXUS admin adds an admin to an institution (by the person's account), with a required reason, recorded.
--- There is no function to remove admins: a NEXUS admin cannot take the role away from an institution's admins.
+-- Never someone the institution removed (revoked). There is no function to remove admins: a NEXUS admin cannot take the role away from an institution's admins.
 CREATE FUNCTION public.nexus_add_institution_admin(actor uuid, institution uuid, person uuid, reason text) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE m public.institution_members; clean text := btrim(coalesce(reason, ''));
@@ -439,6 +439,8 @@ BEGIN
  IF NOT FOUND THEN RAISE EXCEPTION 'Unknown institution'; END IF;
  SELECT * INTO m FROM public.institution_members WHERE institution_id = institution AND profile_id = person FOR UPDATE;
  IF FOUND AND m.role = 'admin' AND m.status = 'active' THEN RAISE EXCEPTION 'The person is already an admin of this institution'; END IF;
+ -- A person removed (revoked) by the institution is never brought back by NEXUS: the institution has to add them again.
+ IF FOUND AND m.status = 'revoked' THEN RAISE EXCEPTION 'The person was removed by the institution'; END IF;
  IF FOUND THEN
   UPDATE public.institution_members SET role = 'admin', status = 'active', revision = m.revision + 1, granted_by = actor, updated_at = now() WHERE id = m.id;
  ELSE
