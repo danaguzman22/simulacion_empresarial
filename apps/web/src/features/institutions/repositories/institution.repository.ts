@@ -16,7 +16,7 @@ export async function myInstitutions(actor: string, search: string) {
     // Only the latest request per institution: a rejected request followed by a new one is not shown twice.
     requests: (await tx.selectDistinctOn([requests.institutionId], { id: requests.id, institutionId: requests.institutionId, name: institutions.name, status: requests.status, requestedAt: requests.requestedAt }).from(requests).innerJoin(institutions, eq(institutions.id, requests.institutionId)).where(eq(requests.profileId, actor)).orderBy(requests.institutionId, desc(requests.requestedAt), desc(requests.id)).limit(100))
       .sort((a, b) => b.requestedAt.getTime() - a.requestedAt.getTime()),
-    results: search.trim().length >= 2 ? await tx.select({ id: institutions.id, name: institutions.name, type: institutions.type }).from(institutions).where(ilike(institutions.name, `%${search.trim().slice(0,160).replace(/[\\%_]/g, "\\$&")}%`)).orderBy(asc(institutions.name), asc(institutions.id)).limit(30) : [],
+    results: search.trim().length >= 2 ? await tx.select({ id: institutions.id, name: institutions.name, type: institutions.type, locality: institutions.locality }).from(institutions).where(ilike(institutions.name, `%${search.trim().slice(0,160).replace(/[\\%_]/g, "\\$&")}%`)).orderBy(asc(institutions.name), asc(institutions.id)).limit(30) : [],
   }), { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 export async function hasActiveMembership(actor: string) {

@@ -13,6 +13,6 @@ export async function UserBar({ area, campaignRole = null }: { area: SessionArea
   return <div className="flex justify-end bg-slate-950 px-5 pt-3">
     <UserMenu area={area} name={session.name} role={roleLabel({ area, active: session.active, campaignRole, bestRole })}
       active={session.active ? { id: session.active.id, name: session.active.name } : null}
-      institutions={session.memberships.map(m => ({ id: m.id, name: m.name }))} />
+      institutions={session.memberships.map(m => ({ id: m.id, name: m.name }))} nexusAdmin={session.nexusAdmin} />
   </div>;
 }
