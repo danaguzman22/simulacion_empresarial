@@ -32,14 +32,15 @@ export function validateReason(reason: unknown) {
   return text(reason, "reason", "Motivo del rechazo");
 }
 
-// D-41: duplicates are compared without upper case, accents or extra spaces ("Córdoba" = "cordoba").
-export function normalizeForCompare(value: string) {
-  return value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+// D-41: name + locality are unique, compared without upper case, accents or extra spaces ("Córdoba" = "cordoba").
+// Exactly the same mapping as public.normalize_institution_text in the database (0034).
+const accents = "ÁÀÄÂÃÉÈËÊÍÌÏÎÓÒÖÔÕÚÙÜÛÑÇáàäâãéèëêíìïîóòöôõúùüûñç", plain = "AAAAAEEEEIIIIOOOOOUUUUNCaaaaaeeeeiiiiooooouuuunc";
+export function normalizeForCompare(value: string | null) {
+  return [...(value ?? "")].map(c => { const i = accents.indexOf(c); return i < 0 ? c : plain[i]; }).join("").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-// Same name and locality. An existing institution without locality (created before 0034) with the same name also
-// counts, because it could be the same one.
-export function possibleDuplicate(candidate: { name: string; locality: string }, existing: { name: string; locality: string | null }) {
-  if (normalizeForCompare(candidate.name) !== normalizeForCompare(existing.name)) return false;
-  return existing.locality === null || normalizeForCompare(candidate.locality) === normalizeForCompare(existing.locality);
+export function sameNameAndLocality(a: { name: string; locality: string | null }, b: { name: string; locality: string | null }) {
+  return normalizeForCompare(a.name) === normalizeForCompare(b.name) && normalizeForCompare(a.locality) === normalizeForCompare(b.locality);
 }
+
+export const DUPLICATE_MESSAGE = "Ya existe una institución con ese nombre en esa localidad.";

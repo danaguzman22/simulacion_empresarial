@@ -5,18 +5,17 @@ import { NexusError } from "../domain/registration";
 import { approveRegistration, grantNexusAdmin, registerInstitution, rejectRegistration, revokeNexusAdmin } from "../repositories/nexus.repository";
 
 type Values = { name: string; kind: string; locality: string; message: string };
-export type RegisterState = { message: string; duplicates?: string[]; done?: boolean; values?: Values };
+export type RegisterState = { message: string; done?: boolean; values?: Values };
 
 // #6 (D-41): any signed-in person registers an institution; it waits for a NEXUS admin.
 export async function registerInstitutionAction(_: RegisterState, form: FormData): Promise<RegisterState> {
   const actor = await getAuthenticatedUserId();
   if (!actor) return { message: "Iniciá sesión nuevamente." };
-  // Sent back so the form keeps what was typed when it shows a warning or an error.
+  // Sent back so the form keeps what was typed when it shows an error.
   const values: Values = { name: String(form.get("name") ?? "").slice(0, 200), kind: String(form.get("kind") ?? "").slice(0, 20), locality: String(form.get("locality") ?? "").slice(0, 200), message: String(form.get("message") ?? "").slice(0, 1100) };
   try {
-    const result = await registerInstitution(actor, { name: form.get("name"), kind: form.get("kind"), locality: form.get("locality"), message: form.get("message") }, form.get("confirmDuplicate") === "yes");
-    if (result.status === "duplicate") return { message: "Ya hay una institución con ese nombre y localidad. Si es otra sede, revisá la localidad; si es otra institución, confirmá y enviala igual.", duplicates: result.matches, values };
-    revalidatePath("/instituciones"); revalidatePath("/nexus");
+    await registerInstitution(actor, { name: form.get("name"), kind: form.get("kind"), locality: form.get("locality"), message: form.get("message") });
+    revalidatePath("/instituciones", "layout"); revalidatePath("/nexus", "layout");
     return { message: "Solicitud enviada. Un admin de NEXUS la va a revisar; vas a ver el resultado en Mis solicitudes.", done: true };
   } catch (e) { return { message: e instanceof NexusError ? e.message : "No se pudo enviar la solicitud. Recargá e intentá nuevamente.", values }; }
 }
@@ -32,7 +31,7 @@ export async function nexusPanelAction(_: { message: string }, form: FormData): 
     else if (operation === "grant") await grantNexusAdmin(actor, form.get("email"));
     else if (operation === "revoke") await revokeNexusAdmin(actor, form.get("profileId"));
     else throw new NexusError("Operación inválida.");
-    revalidatePath("/nexus"); revalidatePath("/instituciones", "layout"); revalidatePath("/", "layout");
+    revalidatePath("/", "layout");
     return { message: "Operación registrada correctamente." };
   } catch (e) { return { message: e instanceof NexusError ? e.message : "No se pudo completar la operación. Recargá e intentá nuevamente." }; }
 }

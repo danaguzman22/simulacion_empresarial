@@ -17,7 +17,7 @@ export function NoticeWall({ items }: { items: WallItem[] }) {
       <select value={period} onChange={e => setPeriod(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800">
         <option value="all">Todos</option>{periods.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
       </select></label>}
-    {!shown.length && <p className="mt-3 text-sm text-slate-500">Todavía no hay avisos.</p>}
+    {!shown.length && <p className="mt-3 text-sm text-slate-500">Todavía no hay avisos. Acá aparecen los avisos del Master, las situaciones y las reglas visibles.</p>}
     <ol className="mt-3 space-y-2">
       {shown.map(item => { const Icon = icons[item.kind]; return <li key={item.id} className="flex gap-3 rounded-xl border border-slate-200/80 bg-white/60 p-3">
         <Icon aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-[#0b3159]" />

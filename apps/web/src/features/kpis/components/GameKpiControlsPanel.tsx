@@ -96,7 +96,7 @@ function KpiControl({ gameId, data, kpi }: { gameId: string; data: Data; kpi: Ga
 export function GameKpiControlsPanel({ gameId, data }: { gameId: string; data: Data }) {
   return <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.05] p-6 md:p-8" aria-labelledby="game-kpi-controls-title">
     <h2 id="game-kpi-controls-title" className="text-2xl font-black">Controles de la partida</h2>
-    {data.kpis.length === 0 ? <p className="mt-4 text-sm text-slate-400">No hay KPIs seleccionados para esta partida.</p> : <>
+    {data.kpis.length === 0 ? <p className="mt-4 text-sm text-slate-400">No hay KPIs seleccionados para esta partida. Se eligen en la pestaña KPIs mientras la partida está en preparación.</p> : <>
       <p className="mt-2 text-sm text-slate-400">Estado actual de los indicadores seleccionados.</p>
       <div className="mt-5 grid gap-4 md:grid-cols-2">{data.kpis.map((kpi) => <KpiControl key={kpi.id} gameId={gameId} data={data} kpi={kpi} />)}</div>
     </>}

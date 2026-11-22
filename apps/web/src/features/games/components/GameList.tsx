@@ -3,7 +3,7 @@ import { gameStatusLabels, gameTypeLabels, type GameListItem } from "../domain/g
 
 export function GameList({ games }: { games: GameListItem[] }) {
   if (games.length === 0) {
-    return <p className="rounded-3xl border border-dashed border-white/10 p-10 text-center text-sm text-slate-400">Esta campaña todavía no tiene partidas.</p>;
+    return <p className="rounded-3xl border border-dashed border-white/10 p-10 text-center text-sm text-slate-400">Esta campaña todavía no tiene partidas. Se crean con «Crear partida».</p>;
   }
 
   return (

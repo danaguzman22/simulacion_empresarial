@@ -15,10 +15,6 @@ export function RegisterInstitutionForm() {
       {Object.entries(institutionKindLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
     </select></label>
     <label className="text-sm sm:col-span-2">Mensaje para el admin de NEXUS (opcional)<textarea name="message" defaultValue={v?.message} maxLength={limits.message[1]} rows={3} className={field} /></label>
-    {state.duplicates && <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 p-3 text-sm text-amber-100 sm:col-span-2">
-      <p>Coincide con:</p><ul className="ml-5 list-disc">{state.duplicates.map(d => <li key={d}>{d}</li>)}</ul>
-      <label className="mt-2 flex items-center gap-2"><input type="checkbox" name="confirmDuplicate" value="yes" />Es otra institución: enviarla igual</label>
-    </div>}
     <div className="sm:col-span-2"><button disabled={pending} className="rounded border border-sky-500 px-3 py-2 text-sm disabled:opacity-50">Enviar solicitud</button></div>
     <p role="status" className="text-sm text-slate-300 sm:col-span-2">{state.message}</p>
   </form>;
