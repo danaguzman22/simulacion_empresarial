@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { currentSessionKey } from "@/features/session/application/session-key";
+import { SessionWatch } from "@/features/session/components/SessionWatch";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,13 +19,14 @@ export const metadata: Metadata = {
   description: "Plataforma educativa de simulación empresarial.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const sessionKey = await currentSessionKey();
   return (
     <html
       lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">{children}<SessionWatch sessionKey={sessionKey} /></body>
     </html>
   );
 }

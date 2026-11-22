@@ -1,3 +1,4 @@
+import { UserBar } from "@/features/session/components/UserBar";
 import { notFound, redirect } from "next/navigation";
 import { CompanyInstitutionLink } from "@/features/institutions/components/CompanyInstitutionLink";
 
@@ -30,6 +31,8 @@ export default async function CompanyPage({
   }
 
   return (
+    <>
+    <UserBar area="panel" />
     <CompanyDetail company={result.company}>
       {!result.company.institutionId && <CompanyInstitutionLink companyId={result.company.id} />}
       <CompanyCampaigns
@@ -38,5 +41,6 @@ export default async function CompanyPage({
         campaigns={result.campaigns}
       />
     </CompanyDetail>
+    </>
   );
 }

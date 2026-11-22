@@ -5,6 +5,6 @@ export const isUuid = (value: unknown): value is string => typeof value === "str
 export type AssignmentCommand = { gameId: string; cardId: string; email: string; assignmentId: string; expectedRevision: number; operation: "add" | "move" | "remove" };
 export function validateAssignment(c: AssignmentCommand) {
   if (!isUuid(c.gameId) || !["add", "move", "remove"].includes(c.operation) || (c.operation !== "remove" && !isUuid(c.cardId))) throw new AssignmentError("Revisá la partida y el departamento.");
-  if (c.operation === "add" && (typeof c.email !== "string" || c.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email.trim()))) throw new AssignmentError("Ingresá el correo registrado del alumno.");
+  if (c.operation === "add" && (typeof c.email !== "string" || c.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email.trim()))) throw new AssignmentError("Ingresá el correo registrado del participante.");
   if (c.operation !== "add" && (!isUuid(c.assignmentId) || !Number.isSafeInteger(c.expectedRevision) || c.expectedRevision < 0)) throw new AssignmentError("Recargá los integrantes antes de continuar.");
 }

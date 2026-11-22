@@ -52,5 +52,6 @@ export async function signInMaster(
     };
   }
 
-  redirect("/acceso");
+  // #72: the administrative door leads straight to the panel (D-31).
+  redirect("/master");
 }
