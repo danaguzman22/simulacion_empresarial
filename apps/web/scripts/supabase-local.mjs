@@ -110,7 +110,7 @@ async function admin(email) {
         const data = { legalName: TEST_INSTITUTION, kind: "educational", educationLevel: "university", organizationKind: "direct", country: "AR", province: "Córdoba",
           locality: "Local", postalCode: "5000", institutionalEmail: "contacto@prueba.local", institutionalPhone: "351 000 0000",
           responsiblePosition: "Admin de prueba", responsibleArea: "Pruebas", message: "Creada por npm run local:admin" };
-        const [{ registration }] = await tx`select public.register_institution(${person}, ${email.toLowerCase()}, ${JSON.stringify(data)}::jsonb) as registration`;
+        const [{ registration }] = await tx`select public.register_institution(${person}, ${email.toLowerCase()}, ${JSON.stringify(data)}::text::jsonb) as registration`;
         await tx`select public.approve_institution_registration(${approver}, ${registration})`;
         return true;
       }

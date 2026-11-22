@@ -20,7 +20,7 @@ module.exports=async function institutionFixture(sql,people,admin){
   if(!nexus){const person=randomUUID();await sql`insert into auth.users values(${person},${'nexus-fixture-'+person+'@test.test'},'{}')`;
    await sql`insert into nexus_admins(profile_id) values(${person})`;nexus={profile_id:person};}
   const data=registrationData({legalName:'Test institution',locality:'Test '+randomUUID().slice(0,8)});
-  const [{registration}]=await sql`select register_institution(${admin},'admin@test.test',${JSON.stringify(data)}::jsonb) as registration`;
+  const [{registration}]=await sql`select register_institution(${admin},'admin@test.test',${JSON.stringify(data)}::text::jsonb) as registration`;
   [{id}]=await sql`select approve_institution_registration(${nexus.profile_id},${registration}) as id`;
  }
  for(const person of people)if(person!==admin)await sql`insert into institution_members(institution_id,profile_id,role,granted_by) values(${id},${person},'member',${admin})`;

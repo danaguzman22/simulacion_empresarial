@@ -67,7 +67,7 @@ export async function registerInstitution(actor: string, actorEmail: string, raw
     const [{ pending }] = await tx.select({ pending: count() }).from(registrations).where(and(eq(registrations.profileId, actor), eq(registrations.status, "pending")));
     if (pending >= MAX_PENDING_REGISTRATIONS) throw new NexusError(`Ya tenés ${MAX_PENDING_REGISTRATIONS} solicitudes de institución pendientes. Esperá a que se resuelvan.`);
     await checkUnique(tx, input);
-    await tx.execute(sql`select public.register_institution(${actor}::uuid, ${actorEmail}, ${JSON.stringify(input)}::jsonb)`);
+    await tx.execute(sql`select public.register_institution(${actor}::uuid, ${actorEmail}, ${JSON.stringify(input)}::text::jsonb)`);
   }));
 }
 
@@ -79,7 +79,7 @@ export async function nexusCreateInstitution(actor: string, raw: Partial<Record<
   return translated(() => db.transaction(async tx => {
     const person = await profileByEmail(tx, adminEmail);
     await checkUnique(tx, input);
-    const [row] = await tx.execute<{ id: string }>(sql`select public.nexus_create_institution(${actor}::uuid, ${person.profileId}::uuid, ${person.email}, ${JSON.stringify(input)}::jsonb) as id`);
+    const [row] = await tx.execute<{ id: string }>(sql`select public.nexus_create_institution(${actor}::uuid, ${person.profileId}::uuid, ${person.email}, ${JSON.stringify(input)}::text::jsonb) as id`);
     return String(row.id);
   }));
 }

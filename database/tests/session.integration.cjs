@@ -57,7 +57,7 @@ async function main() {
  // Since 0034 (#6) a new institution comes from a registration approved by a NEXUS admin.
  const nexus=randomUUID();await sql`INSERT INTO auth.users VALUES(${nexus},'nexus@test.test','{}')`;await sql`insert into nexus_admins(profile_id) values(${nexus})`;
  const institution=async(name,admin,people)=>{const data=require('./institution-fixture.cjs').registrationData({legalName:name});
-  const [{registration}]=await sql`select register_institution(${admin},'admin@test.test',${JSON.stringify(data)}::jsonb) as registration`;
+  const [{registration}]=await sql`select register_institution(${admin},'admin@test.test',${JSON.stringify(data)}::text::jsonb) as registration`;
   const [{id}]=await sql`select approve_institution_registration(${nexus},${registration}) as id`;people=people.filter(([profile])=>profile!==admin);
   for(const [profile,role] of people)await sql`insert into institution_members(institution_id,profile_id,role,granted_by) values(${id},${profile},${role},${admin})`;return id;};
  const A=await institution('ALFA-INST',masterA,[[masterA,'admin'],[person,'teacher']]);
