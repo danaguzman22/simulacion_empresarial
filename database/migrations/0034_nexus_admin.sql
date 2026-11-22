@@ -101,6 +101,14 @@ BEGIN
 END $$;
 CREATE TRIGGER nexus_admins_guard BEFORE INSERT OR UPDATE OR DELETE ON public.nexus_admins FOR EACH ROW EXECUTE FUNCTION public.guard_nexus_admins();
 --> statement-breakpoint
+-- D-41 (updated 22/11/2026): name + locality are unique among approved institutions and pending registrations,
+-- compared without upper case, accents or extra spaces. Same normalization as the app (normalizeForCompare).
+CREATE FUNCTION public.normalize_institution_text(value text) RETURNS text LANGUAGE sql IMMUTABLE PARALLEL SAFE SET search_path = '' AS $$
+ SELECT btrim(regexp_replace(lower(translate(coalesce(value, ''),
+  'ÁÀÄÂÃÉÈËÊÍÌÏÎÓÒÖÔÕÚÙÜÛÑÇáàäâãéèëêíìïîóòöôõúùüûñç',
+  'AAAAAEEEEIIIIOOOOOUUUUNCaaaaaeeeeiiiiooooouuuunc')), '\s+', ' ', 'g'))
+$$;
+--> statement-breakpoint
 -- Registrations: they start pending, at most 3 pending per person; only an active NEXUS admin resolves them, once;
 -- their content never changes; an approval must have made the registrant the admin of a matching new institution.
 CREATE FUNCTION public.guard_institution_registrations() RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
@@ -111,6 +119,13 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtext('public.institution_registrations:' || NEW.profile_id::text));
   IF (SELECT count(*) FROM public.institution_registrations WHERE profile_id = NEW.profile_id AND status = 'pending') >= 3 THEN
    RAISE EXCEPTION 'At most 3 pending institution registrations per person';
+  END IF;
+  IF EXISTS(SELECT 1 FROM public.institutions WHERE public.normalize_institution_text(name) = public.normalize_institution_text(NEW.name)
+      AND public.normalize_institution_text(locality) = public.normalize_institution_text(NEW.locality))
+    OR EXISTS(SELECT 1 FROM public.institution_registrations WHERE status = 'pending'
+      AND public.normalize_institution_text(name) = public.normalize_institution_text(NEW.name)
+      AND public.normalize_institution_text(locality) = public.normalize_institution_text(NEW.locality)) THEN
+   RAISE EXCEPTION 'An institution with that name already exists in that locality';
   END IF;
   RETURN NEW;
  END IF;
@@ -130,6 +145,10 @@ BEGIN
  RETURN NEW;
 END $$;
 CREATE TRIGGER institution_registrations_guard BEFORE INSERT OR UPDATE OR DELETE ON public.institution_registrations FOR EACH ROW EXECUTE FUNCTION public.guard_institution_registrations();
+-- The same rule under concurrency: two pending registrations, or two institutions with locality, can never share
+-- name + locality. Institutions created before 0034 (locality null) are not affected.
+CREATE UNIQUE INDEX institutions_name_locality_unique ON public.institutions (public.normalize_institution_text(name), public.normalize_institution_text(locality)) WHERE locality IS NOT NULL;
+CREATE UNIQUE INDEX institution_registrations_pending_name_locality_unique ON public.institution_registrations (public.normalize_institution_text(name), public.normalize_institution_text(locality)) WHERE status = 'pending';
 --> statement-breakpoint
 -- Every NEXUS administration action is recorded by triggers, also when an operator script runs it: who to whom.
 CREATE FUNCTION public.audit_nexus_admins() RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
@@ -221,7 +240,8 @@ BEGIN
 END $$;
 --> statement-breakpoint
 REVOKE ALL ON FUNCTION public.guard_nexus_admins(), public.guard_institution_registrations(), public.audit_nexus_admins(),
- public.audit_institution_registrations(), public.reject_nexus_admin_history_change(), public.check_institution_from_registration() FROM PUBLIC, anon, authenticated;
+ public.audit_institution_registrations(), public.reject_nexus_admin_history_change(), public.check_institution_from_registration(),
+ public.normalize_institution_text(text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.is_nexus_admin(uuid), public.register_institution(uuid, text, public.institution_type, text, text),
  public.approve_institution_registration(uuid, uuid), public.reject_institution_registration(uuid, uuid, text),
  public.grant_nexus_admin(uuid, uuid), public.revoke_nexus_admin(uuid, uuid) FROM PUBLIC, anon, authenticated;
