@@ -31,7 +31,7 @@ export async function resolveInstitutionChoice(actor: string, raw: unknown): Pro
   return memberships.find(m => m.id.toLowerCase() === raw.toLowerCase())?.id ?? null;
 }
 
-// Best campaign role of the person in the active institution (companies without institution count too, as everywhere).
+// Best campaign role of the person in the active institution only.
 export async function readBestCampaignRole(actor: string, institutionId: string | null): Promise<CampaignRole | null> {
   const rows = await db.select({ role: campaignMembers.role }).from(campaignMembers)
     .innerJoin(campaigns, eq(campaigns.id, campaignMembers.campaignId)).innerJoin(companies, eq(companies.id, campaigns.companyId))

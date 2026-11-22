@@ -100,6 +100,7 @@ async function main() {
  assert.deepEqual(names(await companies.findCompaniesCreatedBy(person,A)),['OWN-A']);
  assert.deepEqual(names(await companies.findCompaniesCreatedBy(person,C)),[],'revoked: OWN-C is not listed even with its id');
  assert.deepEqual(names(await companies.findCompaniesCreatedBy(person,B)),[]);
+ assert.deepEqual(names(await companies.findCompaniesCreatedBy(person,null)),[],'without an active membership nothing is listed');
  // Role label source: the campaign role counts only in the active institution (Master in C no longer counts).
  assert.equal(await session.readBestCampaignRole(person,A),'observer');
  assert.equal(await session.readBestCampaignRole(person,C),null);

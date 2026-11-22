@@ -5,8 +5,8 @@ import { db } from "@/db";
 import { gameCardAssignments as assignments, gameRoleCards as cards, games, campaigns, companies, profiles, cardSecretReveals, rounds } from "@/db/schema";
 import { canReadAssignedCard } from "../domain/assignment";
 
-// institutionId (#72): the active institution of the portal; null means "no active membership" (only companies
-// without institution). Without it, every institution the person can access. It only narrows the list: access is
+// institutionId (#72): the active institution of the portal; null means "no active membership" (nothing
+// listed). Without it, every institution the person can access. It only narrows the list: access is
 // still checked with institutionAccessSql.
 export async function listAssignedGames(actorId: string, institutionId?: string | null) {
   return db.select({ id: games.id, name: games.name, status: games.status, campaign: campaigns.name, company: companies.name,

@@ -17,8 +17,8 @@ export const getSession = cache(async () => {
   return { userId, name: personName(name, typeof email === "string" ? email : null), memberships, active };
 });
 
-// Institution the lists are filtered by: an id, or null when the person has no active membership (only companies
-// without institution show then). Use this in every listing of the portal and of the panel.
+// Institution the lists are filtered by: an id, or null when the person has no active membership (nothing is
+// listed then). Use this in every listing of the portal and of the panel.
 export async function getActiveInstitutionId() {
   return (await getSession())?.active?.id ?? null;
 }

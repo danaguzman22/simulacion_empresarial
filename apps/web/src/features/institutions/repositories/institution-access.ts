@@ -1,14 +1,15 @@
 import "server-only";
-import { and, eq, isNull, or, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { campaigns, companies, institutionMembers } from "@/db/schema";
 import type { Transaction } from "@/features/preparation/repositories/preparation.repository";
 import { InstitutionError } from "../domain/institution";
 export const institutionAccessSql = (companyId: typeof companies.id, actorId: string) => sql<boolean>`public.company_institution_access(${companyId}, ${actorId}::uuid)`;
-// #72 / D-39: narrows a listing to the active institution (plus companies without institution, which belong to no
-// institution and are shown everywhere, as before). undefined = no narrowing. It never grants access: combine it
+// #72 / D-39: narrows a listing to the active institution only. Companies without institution are never listed as
+// belonging to any institution (on 22/11/2026 there were none, local or cloud, and the database no longer allows
+// new ones). null = no active membership: nothing. undefined = no narrowing. It never grants access: combine it
 // with institutionAccessSql, which still requires an active membership.
 export const inActiveInstitution = (institutionColumn: typeof companies.institutionId, institutionId: string | null | undefined) =>
-  institutionId === undefined ? undefined : institutionId === null ? isNull(institutionColumn) : or(isNull(institutionColumn), eq(institutionColumn, institutionId));
+  institutionId === undefined ? undefined : institutionId === null ? sql<boolean>`false` : eq(institutionColumn, institutionId);
 export async function requireInstitutionMember(tx: Transaction, institutionId: string, actor: string, write = false) {
   const query = tx.select().from(institutionMembers).where(and(eq(institutionMembers.institutionId, institutionId), eq(institutionMembers.profileId, actor), eq(institutionMembers.status, "active")));
   const [member] = write ? await query.for("share") : await query;
