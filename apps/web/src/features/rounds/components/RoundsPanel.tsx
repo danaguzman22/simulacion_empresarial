@@ -4,6 +4,7 @@ import { useActionState,useEffect,useRef,useState,type ReactNode } from "react";
 import { getRounds,roundAction } from "../application/round-actions";
 import { allPeriodsCompleted as everyPeriodCompleted,remainingMilliseconds,roundLabels } from "../domain/round";
 import { gameChannelName } from "@/features/dashboard/domain/dashboard";
+import { recoverIfStaleApp } from "@/features/app-version/components/stale-app";
 export type RoundsData=Awaited<ReturnType<typeof getRounds>>;
 type Data=RoundsData;
 export function Action({gameId,round,operation,label,confirmText,remainingText,children}:{gameId:string;round?:Data["rounds"][number];operation:string;label:string;confirmText?:string;remainingText?:string;children?:ReactNode}){
@@ -22,7 +23,7 @@ export function RoundsPanel({gameId,initial}:{gameId:string;initial:Data}){
  const allPeriodsCompleted=(data.gameStatus==="active"||data.gameStatus==="evaluation")&&everyPeriodCompleted(data.rounds);
  const clock=useRef({server:Date.parse(initial.serverNow),client:0});
  useEffect(()=>{let stopped=false,busy=false;clock.current.client=performance.now();
- const refresh=async()=>{if(busy)return;busy=true;const sent=performance.now();try{const next=await getRounds(gameId);if(!stopped){const received=performance.now();clock.current={server:Date.parse(next.serverNow)+(received-sent)/2,client:received};setNow(clock.current.server);setData(next);setError(false);if(gameStatus.current!==next.gameStatus||currentRevision.current!==next.currentRevision){gameStatus.current=next.gameStatus;currentRevision.current=next.currentRevision;router.refresh();}}}catch{if(!stopped)setError(true);}finally{busy=false;}};
+ const refresh=async()=>{if(busy)return;busy=true;const sent=performance.now();try{const next=await getRounds(gameId);if(!stopped){const received=performance.now();clock.current={server:Date.parse(next.serverNow)+(received-sent)/2,client:received};setNow(clock.current.server);setData(next);setError(false);if(gameStatus.current!==next.gameStatus||currentRevision.current!==next.currentRevision){gameStatus.current=next.gameStatus;currentRevision.current=next.currentRevision;router.refresh();}}}catch(error){if(!stopped&&!recoverIfStaleApp(error))setError(true);}finally{busy=false;}};
  void refresh();const poll=setInterval(()=>{void refresh();},3000);const tick=setInterval(()=>setNow(clock.current.server+performance.now()-clock.current.client),1000);const visible=()=>{if(document.visibilityState==="visible")void refresh();};document.addEventListener("visibilitychange",visible);
  return()=>{stopped=true;clearInterval(poll);clearInterval(tick);document.removeEventListener("visibilitychange",visible);};
  },[gameId,router]);

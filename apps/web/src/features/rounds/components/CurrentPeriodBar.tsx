@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { recoverIfStaleApp } from "@/features/app-version/components/stale-app";
 import { getRounds } from "../application/round-actions";
 import { periodBarState, remainingMilliseconds, roundLabels } from "../domain/round";
 import { Action, type RoundsData } from "./RoundsPanel";
@@ -28,7 +29,7 @@ export function CurrentPeriodBar({ gameId, initial }: { gameId: string; initial:
         // #83: when the game changes status (closing the last period moves it to evaluation), the rest of the page
         // (status, "Finalizar partida", tabs) must follow, not only this bar. Same as the Control tab.
         if (next.gameStatus !== gameStatus.current) { gameStatus.current = next.gameStatus; router.refresh(); }
-      } catch { /* keeps counting from the last server data */ } finally { busy = false; }
+      } catch (error) { if (!stopped) recoverIfStaleApp(error); /* otherwise keeps counting from the last server data */ } finally { busy = false; }
     };
     const poll = setInterval(() => { void refresh(); }, 5000), tick = setInterval(() => setNow(clock.current.server + performance.now() - clock.current.client), 1000);
     return () => { stopped = true; clearInterval(poll); clearInterval(tick); };
