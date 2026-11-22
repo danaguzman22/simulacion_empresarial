@@ -88,32 +88,3 @@ export async function findGamesByCampaign(campaignId: string, actorId: string) {
     .orderBy(asc(games.sequence));
 }
 
-export async function findGameByIdForMember(gameId: string, profileId: string) {
-  const [game] = await db
-    .select({
-      id: games.id,
-      sequence: games.sequence,
-      name: games.name,
-      description: games.description,
-      type: games.type,
-      status: games.status,
-      createdAt: games.createdAt,
-      campaignId: campaigns.id,
-      campaignName: campaigns.name,
-      memberRole: campaignMembers.role,
-    })
-    .from(games)
-    .innerJoin(campaigns, eq(campaigns.id, games.campaignId))
-    .innerJoin(
-      campaignMembers,
-      and(
-        eq(campaignMembers.campaignId, games.campaignId),
-        eq(campaignMembers.profileId, profileId)
-      )
-    )
-    .innerJoin(companies, eq(companies.id, campaigns.companyId))
-    .where(and(eq(games.id, gameId), institutionAccessSql(companies.id, profileId)))
-    .limit(1);
-
-  return game ?? null;
-}

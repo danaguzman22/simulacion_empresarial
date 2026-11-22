@@ -3,7 +3,7 @@ import { and,eq } from "drizzle-orm";
 import { games,rounds,roundChanges } from "@/db/schema";
 import type { Transaction } from "@/features/preparation/repositories/preparation.repository";
 import { executeRoundRules } from "@/features/rules/repositories/rule-execution.repository";
-import { RoundError } from "../domain/round";
+import { allPeriodsCompleted,RoundError } from "../domain/round";
 
 /** Caller owns campaign/game/round locks and the enclosing transaction. */
 export async function completeRound(tx:Transaction,old:typeof rounds.$inferSelect,input:{operationId:string;requestHash:string;actorId:string|null;reason:"manual"|"timer"}){
@@ -15,5 +15,5 @@ export async function completeRound(tx:Transaction,old:typeof rounds.$inferSelec
 }
 export async function moveToEvaluationIfComplete(tx:Transaction,gameId:string){
  const rows=await tx.select({status:rounds.status}).from(rounds).where(eq(rounds.gameId,gameId));
- if(rows.length&&rows.every(r=>r.status==="completed"))await tx.update(games).set({status:"evaluation"}).where(and(eq(games.id,gameId),eq(games.status,"active")));
+ if(allPeriodsCompleted(rows))await tx.update(games).set({status:"evaluation"}).where(and(eq(games.id,gameId),eq(games.status,"active")));
 }

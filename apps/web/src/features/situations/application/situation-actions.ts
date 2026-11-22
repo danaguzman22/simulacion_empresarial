@@ -20,7 +20,7 @@ export async function publishSituationAction(_previous:SituationActionState,form
     const ids=form.getAll("kpiId"),amounts=form.getAll("amount");
     if(ids.length!==amounts.length||ids.some(v=>typeof v!=="string")||amounts.some(v=>typeof v!=="string"))throw new SituationError("Efectos inválidos.");
     const result=await publishSituation(actor,{gameId,operationId:text("operationId"),expectedRevision:Number(revision),title:text("title"),description:text("description"),visibility:"display",effects:ids.map((id,i)=>({kpiId:id as string,amount:amounts[i] as string}))});
-    revalidatePath(`/master/partidas/${gameId}`);
+    revalidatePath(`/master/partidas/${gameId}`, "layout");
     return {success:"Situación publicada.",revision:result.revision};
   }catch(error){
     if(error instanceof PreparationError)return {error:error.message};

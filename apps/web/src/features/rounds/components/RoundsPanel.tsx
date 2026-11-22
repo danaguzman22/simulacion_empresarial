@@ -2,10 +2,14 @@
 import { useRouter } from "next/navigation";
 import { useActionState,useEffect,useRef,useState,type ReactNode } from "react";
 import { getRounds,roundAction } from "../application/round-actions";
-import { remainingMilliseconds,roundLabels } from "../domain/round";
-type Data=Awaited<ReturnType<typeof getRounds>>;
-function Action({gameId,round,operation,label,confirmText,remainingText,children}:{gameId:string;round?:Data["rounds"][number];operation:string;label:string;confirmText?:string;remainingText?:string;children?:ReactNode}){
+import { allPeriodsCompleted as everyPeriodCompleted,remainingMilliseconds,roundLabels } from "../domain/round";
+import { gameChannelName } from "@/features/dashboard/domain/dashboard";
+export type RoundsData=Awaited<ReturnType<typeof getRounds>>;
+type Data=RoundsData;
+export function Action({gameId,round,operation,label,confirmText,remainingText,children}:{gameId:string;round?:Data["rounds"][number];operation:string;label:string;confirmText?:string;remainingText?:string;children?:ReactNode}){
  const [state,action,pending]=useActionState(roundAction,{});const operationId=useRef<string|null>(null);
+ // Tell other windows of this game (the projection) to refresh now, even if the browser is slowing them down.
+ useEffect(()=>{if(!state.success||typeof BroadcastChannel==="undefined")return;const channel=new BroadcastChannel(gameChannelName(gameId));channel.postMessage("period");channel.close();},[state,gameId]);
  return <form action={action} className="mt-3 space-y-2" onChange={()=>{operationId.current=null;}} onSubmit={e=>{if(operation==="finish"&&!window.confirm(`¿Finalizar ${confirmText}? Quedan ${remainingText} y este tiempo se descartará.`)){e.preventDefault();return;}operationId.current??=crypto.randomUUID();(e.currentTarget.elements.namedItem("operationId") as HTMLInputElement).value=operationId.current;}}>
  <input type="hidden" name="gameId" value={gameId}/><input type="hidden" name="roundId" value={round?.id??""}/><input type="hidden" name="revision" value={round?.revision??0}/><input type="hidden" name="operation" value={operation}/><input type="hidden" name="operationId" defaultValue=""/>
  <fieldset disabled={pending} className="space-y-2">{children}<button disabled={pending} className="rounded-xl bg-sky-300 px-4 py-2 font-bold text-slate-950 disabled:opacity-50">{pending?"Guardando…":label}</button></fieldset>
@@ -15,7 +19,7 @@ function Action({gameId,round,operation,label,confirmText,remainingText,children
 export function RoundsPanel({gameId,initial}:{gameId:string;initial:Data}){
  const router=useRouter();const gameStatus=useRef(initial.gameStatus),currentRevision=useRef(initial.currentRevision);
  const [data,setData]=useState(initial),[now,setNow]=useState(Date.parse(initial.serverNow)),[error,setError]=useState(false);
- const allPeriodsCompleted=(data.gameStatus==="active"||data.gameStatus==="evaluation")&&data.rounds.length>0&&data.rounds.every(round=>round.status==="completed");
+ const allPeriodsCompleted=(data.gameStatus==="active"||data.gameStatus==="evaluation")&&everyPeriodCompleted(data.rounds);
  const clock=useRef({server:Date.parse(initial.serverNow),client:0});
  useEffect(()=>{let stopped=false,busy=false;clock.current.client=performance.now();
  const refresh=async()=>{if(busy)return;busy=true;const sent=performance.now();try{const next=await getRounds(gameId);if(!stopped){const received=performance.now();clock.current={server:Date.parse(next.serverNow)+(received-sent)/2,client:received};setNow(clock.current.server);setData(next);setError(false);if(gameStatus.current!==next.gameStatus||currentRevision.current!==next.currentRevision){gameStatus.current=next.gameStatus;currentRevision.current=next.currentRevision;router.refresh();}}}catch{if(!stopped)setError(true);}finally{busy=false;}};

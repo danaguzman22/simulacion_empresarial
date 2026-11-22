@@ -232,6 +232,13 @@
       "when": 1795023100829,
       "tag": "0032_rule_effect_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1795114801760,
+      "tag": "0033_section_requirements",
+      "breakpoints": true
     }
   ]
 }

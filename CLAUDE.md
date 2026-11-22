@@ -22,6 +22,7 @@ La dueña del proyecto es Dana. Ella decide. Hablale en español rioplatense, co
 - Las decisiones de diseño tienen código (`D-xx`, `M-1`) y están en `docs/DECISIONES.md`, que es la fuente de verdad. Las issues citan los códigos y remiten a ese archivo; no copian el texto. Si algo no está decidido ahí, preguntá; no lo inventes.
 - Los roles y permisos están en la sección "Roles y permisos" de `docs/DECISIONES.md`. No agregues permisos que no estén ahí.
 - Si una tarea cambia una decisión, actualizá `docs/DECISIONES.md` en el mismo Pull Request, con la fecha.
+- Si durante una tarea aparece una idea o mejora nueva que no bloquea el trabajo actual, se crea como issue sin sprint y se sigue con lo planeado. Solo entra al sprint actual si bloquea algo.
 
 ## Ramas y Pull Requests
 
@@ -41,6 +42,8 @@ La dueña del proyecto es Dana. Ella decide. Hablale en español rioplatense, co
 3. Nunca edites una migración ya aplicada: cualquier corrección va en una migración nueva.
 4. Cada migración que toca datos existentes lleva su `database/preflight/<número>.sql` de solo lectura.
 5. Mantené sincronizados el schema de Drizzle, el SQL, el snapshot y el journal.
+6. Los datos de prueba se crean por la app o con los scripts de semillas, nunca con `INSERT` directos en la base, para no saltear validaciones ni dejar datos que no se pueden producir con la app real.
+7. Si cambiás de rama para otra tarea (por ejemplo, commitear en `develop`), volvé a la rama en la que se está probando y reiniciá la app borrando el caché `apps/web/.next/dev` antes de pedirle a Dana que pruebe: el caché de desarrollo puede quedar con rutas de otra rama y dar 404 falsos.
 
 ## Lo que nunca hacés sin que Dana lo apruebe en ese momento
 

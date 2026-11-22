@@ -4,6 +4,7 @@ import { getAuthenticatedUserId } from "@/features/auth/application/get-authenti
 import { PreparationError, UUID_PATTERN } from "@/features/preparation/domain/preparation";
 import { RoundError } from "@/features/rounds/domain/round";
 import { startGame } from "../repositories/start-game.repository";
+import { databaseErrorMessage, startErrorMessage } from "../domain/start-errors";
 export type StartGameState = { error?: string; success?: string };
 export async function startGameAction(_previous: StartGameState, form: FormData): Promise<StartGameState> {
   try {
@@ -17,12 +18,15 @@ export async function startGameAction(_previous: StartGameState, form: FormData)
     if (!/^\d+$/.test(periodRevision) || !Number.isSafeInteger(Number(periodRevision)) || Number(periodRevision) >= 2147483647) throw new PreparationError("Revisión de períodos inválida.");
     if (form.get("confirmed") !== "on") throw new PreparationError("Confirmá que querés iniciar con los valores guardados.");
     await startGame(actorId, { gameId, operationId, expectedRevision: Number(revision), expectedPeriodRevision: Number(periodRevision), catalogToken });
-    revalidatePath("/master/partidas/[id]", "page");
+    revalidatePath("/master/partidas/[id]", "layout");
     revalidatePath("/master/campanas/[id]", "page");
     return { success: "Partida activa." };
   } catch (error) {
     if (error instanceof PreparationError || error instanceof RoundError) return { error: error.message };
     console.error("Error iniciando partida:", error);
-    return { error: "No se pudo iniciar la partida. Recargá los datos y comprobá su estado antes de reintentar." };
+    // A database rule can still reject the start: show its concrete reason, never the generic message.
+    const databaseMessage = databaseErrorMessage(error);
+    if (databaseMessage) return { error: startErrorMessage(databaseMessage) };
+    return { error: "Error inesperado del servidor al iniciar la partida. Quedó registrado; avisá al equipo técnico." };
   }
 }

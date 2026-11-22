@@ -38,6 +38,8 @@ function load(file) {
 async function main(){
  await sql.unsafe('CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY,email text,raw_user_meta_data jsonb);');
  for(const f of fs.readdirSync(root+'/database/migrations').filter(f=>f.endsWith('.sql')).sort())await sql.begin(async tx=>{for(const q of fs.readFileSync(root+'/database/migrations/'+f,'utf8').replace(/^\uFEFF/,'').split('--> statement-breakpoint'))if(q.trim())await tx.unsafe(q);});
+ // Not about D-33 (0033): games created here start with optional goals, as before 0033.
+ await sql.unsafe("ALTER TABLE games ALTER COLUMN goals_required SET DEFAULT false");
  const master=randomUUID(),co=randomUUID(),observer=randomUUID();for(const id of [master,co,observer])await sql`INSERT INTO auth.users VALUES(${id},'test@example.test','{}')`;
  const institution=await require('./institution-fixture.cjs')(sql,[master,co,observer],master);
  const company=randomUUID();await sql`INSERT INTO companies(id,name,created_by,institution_id)VALUES(${company},'Test',${master},${institution})`;
@@ -50,6 +52,14 @@ async function main(){
  async function request(game){const d=await prep.readPreparation(game,master);return {gameId:game,operationId:randomUUID(),expectedRevision:d.revision,catalogToken:d.catalogToken,expectedPeriodRevision:(await periods.readPeriodConfiguration(game,master)).revision};}
  async function fill(game){const d=await prep.readPreparation(game,master);await prep.writePreparation(master,{...await request(game),operation:'save_values',sourceId:null,values:Object.fromEntries(d.definitions.map(k=>[k.id,k.valueType==='numeric'?'35.50':'medium']))});}
  const a=await fixture();await assert.rejects(repo.startGame(master,await request(a.game)),/obligatorios/);await fill(a.game);
+ // #69: the setup summary behind the preparation tabs mirrors the server start checks and the read access rules.
+ const setupRepo=load(base+'/src/features/games/repositories/game-setup.repository.ts');const s69=await fixture();
+ let setup=await setupRepo.readGameSetup(s69.game,master);assert.equal(setup.complete.kpis,false);assert.equal(setup.complete.tiempos,true);assert(setup.missing.some(m=>/^KPIs: .*obligatorios/.test(m)));
+ for(const tab of ['metas','reglas','fichas','equipos'])assert.equal(setup.complete[tab],false);
+ await fill(s69.game);setup=await setupRepo.readGameSetup(s69.game,master);assert.equal(setup.complete.kpis,true);assert.deepEqual([...setup.missing],[]);
+ assert((await setupRepo.readGameSetup(s69.game,observer)).missing.some(m=>/Solo Master o Co-Master/.test(m)),'observer reads the summary but cannot start');
+ await assert.rejects(setupRepo.readGameSetup(s69.game,randomUUID()),'non-members get no summary');
+ console.log('PASS #69 setup summary: tab completion, missing items, observer cannot start, outsiders denied');
  await assert.rejects(repo.startGame(observer,await request(a.game)));
  const input=await request(a.game);const result=await Promise.allSettled([repo.startGame(master,input),repo.startGame(co,{...input,operationId:randomUUID()})]);assert.equal(result.filter(r=>r.status==='fulfilled').length,1);
  const audit=await sql`SELECT actor_id,operation_id FROM game_preparation_changes WHERE operation='start_game'`;const winner=audit[0].actor_id;const winningInput={...input,operationId:audit[0].operation_id};assert.equal((await repo.startGame(winner,winningInput)).replayed,true);

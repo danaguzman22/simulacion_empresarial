@@ -339,7 +339,7 @@ export async function createKpiAction(
   }
 
   revalidatePath(
-    `/master/partidas/${gameId}`
+    `/master/partidas/${gameId}`, "layout"
   );
 
   return {
@@ -516,7 +516,7 @@ export async function savePreparationAction(
   }
 
   revalidatePath(
-    `/master/partidas/${gameId}`
+    `/master/partidas/${gameId}`, "layout"
   );
 
   return {
@@ -669,7 +669,7 @@ export async function manageKpiAction(
 
     revalidatePath(
       "/master/partidas/[id]",
-      "page"
+      "layout"
     );
 
     return {

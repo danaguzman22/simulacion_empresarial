@@ -43,6 +43,8 @@ function load(file) {
 async function main() {
  await sql.unsafe('CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY,email text,raw_user_meta_data jsonb);');
  for(const file of fs.readdirSync(root+'/database/migrations').filter(f=>f.endsWith('.sql')).sort()) await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/'+file,'utf8').replace(/^\uFEFF/,'').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
+ // Not about D-33 (0033): games created here start with optional goals, as before 0033.
+ await sql.unsafe("ALTER TABLE games ALTER COLUMN goals_required SET DEFAULT false");
  const master=randomUUID(),co=randomUUID(),observer=randomUUID(),company=randomUUID();
  for(const id of [master,co,observer])await sql`INSERT INTO auth.users VALUES(${id},'goals@test.test','{}')`;
  const institution=await require('./institution-fixture.cjs')(sql,[master,co,observer],master);

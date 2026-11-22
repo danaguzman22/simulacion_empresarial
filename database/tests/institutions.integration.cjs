@@ -60,6 +60,8 @@ async function main() {
  for(const t of Object.keys(baseline))assert.deepEqual(await sql.unsafe("select to_jsonb(t)"+(t==='companies'?"-'institution_id'":"")+' row from '+t+' t order by id'),baseline[t]);
  assert.equal((await sql`select * from institutions`).length,0);assert.equal((await sql`select * from institution_members`).length,0);
  await migrate('0031_card_secret_reveals.sql');
+ // Not about D-33 (0033): games created here start with optional goals, as before 0033.
+ await migrate('0032_rule_effect_messages.sql');await migrate('0033_section_requirements.sql');await sql.unsafe("ALTER TABLE games ALTER COLUMN goals_required SET DEFAULT false");
  const module=n=>load(base+'/src/features/'+n+'.ts');
  const repo=module('institutions/repositories/institution.repository'),companyRepo=module('companies/repositories/company.repository'),assignment=module('students/repositories/assignment.repository'),students=module('students/repositories/student.repository');
  const teacher=module('auth/repositories/teacher-access.repository'),prep=module('preparation/repositories/preparation.repository'),manage=module('preparation/repositories/kpi-management.repository'),periods=module('rounds/repositories/period-configuration.repository'),start=module('games/repositories/start-game.repository'),rounds=module('rounds/repositories/round.repository'),lifecycle=module('games/repositories/game-lifecycle.repository');
@@ -108,6 +110,10 @@ async function main() {
  await sql.unsafe('drop trigger zz_test_resolution on institution_access_requests; drop function test_reject_resolution();');
  await Promise.all([repo.resolveRequest(master,i,request.id,'approved'),repo.resolveRequest(master,i,request.id,'approved')]);
  const [studentMember]=await sql`select * from institution_members where profile_id=${student} and institution_id=${i}`;assert.equal(studentMember.role,'member');
+ // #74: an active member cannot request access again, and "Mis solicitudes" shows one row per institution (latest request).
+ await assert.rejects(repo.requestAccess(student,i,'Already member'),/Ya sos miembro/);
+ assert((await sql`select count(*)::int n from institution_access_requests where profile_id=${student} and institution_id=${i}`)[0].n>1,'history keeps every request');
+ const latestRequests=(await repo.myInstitutions(student,'')).requests.filter(r=>r.institutionId===i);assert.equal(latestRequests.length,1);assert.equal(latestRequests[0].status,'approved');
  // The student kept its pre-0030 assignment, so it is a participant: no welcome message.
  sessionActor=student;assert.deepEqual({...await module('auth/application/get-experiences').getExperiences()},{teacher:false,participant:true,member:true});sessionActor=null;
  assert.equal((await repo.readInstitution(student,i)).requests.length,0);
@@ -151,7 +157,7 @@ async function main() {
  await begin();let r=(await rounds.readRounds(game,master)).rounds[0];await rounds.mutateRound(master,{gameId:game,roundId:r.id,operation:'start',operationId:randomUUID(),expectedRevision:r.revision});r=(await rounds.readRounds(game,master)).rounds[0];await rounds.mutateRound(master,{gameId:game,roundId:r.id,operation:'finish',operationId:randomUUID(),expectedRevision:r.revision});await lifecycle.finishGame(master,{gameId:game,operationId:randomUUID()});
  assert((await students.readAssignedCard(game,late)).game.status==='completed');
  const successor=(await module('games/repositories/game.repository').createGame({campaignId:campaign,profileId:master,name:'Successor',type:'custom'})).game.id;
- assert.equal((await sql`select * from game_card_assignments where game_id=${successor}`).length,0);
+ // D-34 (#87): the successor inherits only the previous members who are still active in the institution. const stillActive=await sql`select a.profile_id from game_card_assignments a join institution_members m on m.profile_id=a.profile_id and m.institution_id=${i} and m.status='active' where a.game_id=${game} order by a.profile_id`; assert.deepEqual((await sql`select profile_id from game_card_assignments where game_id=${successor} order by profile_id`).map(r=>r.profile_id),stillActive.map(r=>r.profile_id)); assert((await sql`select count(*)::int n from game_card_assignments where game_id=${game}`)[0].n>stillActive.length,'a revoked member was left out');
  for(const role of ['anon','authenticated'])for(const table of ['institutions','institution_members','institution_access_requests'])assert.equal((await sql`select has_table_privilege(${role},${table},'SELECT,INSERT,UPDATE,DELETE') as allowed`)[0].allowed,false);
  assert.equal((await sql`select has_function_privilege('authenticated','public.institution_pending_requests(uuid,uuid)','EXECUTE') allowed`)[0].allowed,false);
  console.log('PASS Reset/successor, historical reads, server-only RLS/grants; no migrations executed remotely');

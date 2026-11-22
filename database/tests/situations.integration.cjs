@@ -83,6 +83,8 @@ async function main() {
  assert.equal((await sql`select count(*)::int n from game_situations`)[0].n,0);
  console.log('PASS: real 0022 -> 0023 upgrade preserves snapshots, values, operational/preparation audits, goals and results.');
  for(const file of fs.readdirSync(root+'/database/migrations').filter(f=>f.endsWith('.sql')&&Number(f.slice(0,4))>23).sort())await sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/'+file,'utf8').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
+ // Not about D-33 (0033): games created here start with optional goals, as before 0033.
+ await sql.unsafe("ALTER TABLE games ALTER COLUMN goals_required SET DEFAULT false");
  legacyCode=false;cache.clear();reload();
  // After 0030, new campaigns need a linked company: approve everyone and link it like an admin would.
  const institution=await require('./institution-fixture.cjs')(sql,[master,co,observer],master);

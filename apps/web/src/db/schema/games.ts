@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 
 import {
+  boolean,
   check,
   index,
   integer,
@@ -47,6 +48,9 @@ export const games = pgTable(
     periodLabel: text("period_label"),
     periodDurationSeconds: integer("period_duration_seconds"),
     periodRevision: integer("period_revision").notNull().default(0),
+    // D-33: "Obligatorio" switches for the Metas and Reglas tabs (0033).
+    goalsRequired: boolean("goals_required").notNull().default(true),
+    rulesRequired: boolean("rules_required").notNull().default(false),
 
     type: gameTypeEnum("type")
       .default("development")
