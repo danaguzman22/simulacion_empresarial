@@ -1,5 +1,5 @@
 {
-  "id": "fd927936-9efc-4187-bba6-364e69523731",
+  "id": "ba50d665-6e46-432f-aa50-f2de43d0cd6a",
   "prevId": "fd44ffb4-6808-48ef-bdea-519e91edc882",
   "version": "7",
   "dialect": "postgresql",
@@ -5752,8 +5752,80 @@
           "primaryKey": false,
           "notNull": true
         },
+        "legal_name": {
+          "name": "legal_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "locality": {
           "name": "locality",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "education_level": {
+          "name": "education_level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sector": {
+          "name": "sector",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "company_size": {
+          "name": "company_size",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "organization_kind": {
+          "name": "organization_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tax_id": {
+          "name": "tax_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "website": {
+          "name": "website",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "country": {
+          "name": "country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "province": {
+          "name": "province",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "postal_code": {
+          "name": "postal_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address": {
+          "name": "address",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -5776,9 +5848,238 @@
           "name": "institutions_name_valid",
           "value": "length(trim(\"institutions\".\"name\")) between 2 and 160"
         },
+        "institutions_legal_name_valid": {
+          "name": "institutions_legal_name_valid",
+          "value": "\"institutions\".\"legal_name\" is null or (length(trim(\"institutions\".\"legal_name\")) between 2 and 160 and \"institutions\".\"legal_name\" !~ '[<>]')"
+        },
         "institutions_locality_valid": {
           "name": "institutions_locality_valid",
           "value": "\"institutions\".\"locality\" is null or (length(trim(\"institutions\".\"locality\")) between 2 and 120 and \"institutions\".\"locality\" !~ '[<>]')"
+        },
+        "institutions_display_name_valid": {
+          "name": "institutions_display_name_valid",
+          "value": "\"institutions\".\"display_name\" is null or (length(trim(\"institutions\".\"display_name\")) between 2 and 80 and \"institutions\".\"display_name\" !~ '[<>]')"
+        },
+        "institutions_education_level_valid": {
+          "name": "institutions_education_level_valid",
+          "value": "\"institutions\".\"education_level\" is null or \"institutions\".\"education_level\" in ('university', 'tertiary', 'secondary', 'vocational', 'other')"
+        },
+        "institutions_sector_valid": {
+          "name": "institutions_sector_valid",
+          "value": "\"institutions\".\"sector\" is null or \"institutions\".\"sector\" in ('technology', 'industry', 'commerce', 'services', 'finance', 'health', 'agro', 'construction', 'energy', 'other')"
+        },
+        "institutions_company_size_valid": {
+          "name": "institutions_company_size_valid",
+          "value": "\"institutions\".\"company_size\" is null or \"institutions\".\"company_size\" in ('1-10', '11-50', '51-200', '201-1000', '1000+')"
+        },
+        "institutions_organization_kind_valid": {
+          "name": "institutions_organization_kind_valid",
+          "value": "\"institutions\".\"organization_kind\" is null or \"institutions\".\"organization_kind\" in ('direct', 'branches')"
+        },
+        "institutions_tax_id_valid": {
+          "name": "institutions_tax_id_valid",
+          "value": "\"institutions\".\"tax_id\" is null or (length(trim(\"institutions\".\"tax_id\")) between 3 and 40 and \"institutions\".\"tax_id\" !~ '[<>]')"
+        },
+        "institutions_website_valid": {
+          "name": "institutions_website_valid",
+          "value": "\"institutions\".\"website\" is null or (length(\"institutions\".\"website\") <= 200 and \"institutions\".\"website\" ~ '^https://[^[:space:]<>\"'']+[.][^[:space:]<>\"'']+$')"
+        },
+        "institutions_country_valid": {
+          "name": "institutions_country_valid",
+          "value": "\"institutions\".\"country\" is null or \"institutions\".\"country\" ~ '^[A-Z]{2}$'"
+        },
+        "institutions_province_valid": {
+          "name": "institutions_province_valid",
+          "value": "\"institutions\".\"province\" is null or (length(trim(\"institutions\".\"province\")) between 2 and 100 and \"institutions\".\"province\" !~ '[<>]')"
+        },
+        "institutions_postal_code_valid": {
+          "name": "institutions_postal_code_valid",
+          "value": "\"institutions\".\"postal_code\" is null or (length(trim(\"institutions\".\"postal_code\")) between 3 and 12 and \"institutions\".\"postal_code\" !~ '[<>]')"
+        },
+        "institutions_address_valid": {
+          "name": "institutions_address_valid",
+          "value": "\"institutions\".\"address\" is null or (length(trim(\"institutions\".\"address\")) between 3 and 200 and \"institutions\".\"address\" !~ '[<>]')"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.institution_contacts": {
+      "name": "institution_contacts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "registration_id": {
+          "name": "registration_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "profile_id": {
+          "name": "profile_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "position": {
+          "name": "position",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "area": {
+          "name": "area",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "institution_contacts_registration_idx": {
+          "name": "institution_contacts_registration_idx",
+          "columns": [
+            {
+              "expression": "registration_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "institution_contacts_institution_idx": {
+          "name": "institution_contacts_institution_idx",
+          "columns": [
+            {
+              "expression": "institution_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "institution_contacts_registration_id_institution_registrations_id_fk": {
+          "name": "institution_contacts_registration_id_institution_registrations_id_fk",
+          "tableFrom": "institution_contacts",
+          "tableTo": "institution_registrations",
+          "columnsFrom": [
+            "registration_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "institution_contacts_institution_id_institutions_id_fk": {
+          "name": "institution_contacts_institution_id_institutions_id_fk",
+          "tableFrom": "institution_contacts",
+          "tableTo": "institutions",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "institution_contacts_profile_id_profiles_id_fk": {
+          "name": "institution_contacts_profile_id_profiles_id_fk",
+          "tableFrom": "institution_contacts",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "profile_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "institution_contacts_kind_valid": {
+          "name": "institution_contacts_kind_valid",
+          "value": "\"institution_contacts\".\"kind\" in ('institutional', 'responsible', 'alternate')"
+        },
+        "institution_contacts_name_valid": {
+          "name": "institution_contacts_name_valid",
+          "value": "\"institution_contacts\".\"name\" is null or (length(trim(\"institution_contacts\".\"name\")) between 2 and 120 and \"institution_contacts\".\"name\" !~ '[<>]')"
+        },
+        "institution_contacts_position_valid": {
+          "name": "institution_contacts_position_valid",
+          "value": "\"institution_contacts\".\"position\" is null or (length(trim(\"institution_contacts\".\"position\")) between 2 and 80 and \"institution_contacts\".\"position\" !~ '[<>]')"
+        },
+        "institution_contacts_area_valid": {
+          "name": "institution_contacts_area_valid",
+          "value": "\"institution_contacts\".\"area\" is null or (length(trim(\"institution_contacts\".\"area\")) between 2 and 120 and \"institution_contacts\".\"area\" !~ '[<>]')"
+        },
+        "institution_contacts_email_valid": {
+          "name": "institution_contacts_email_valid",
+          "value": "\"institution_contacts\".\"email\" is null or (length(\"institution_contacts\".\"email\") <= 254 and \"institution_contacts\".\"email\" ~ '^[^[:space:]@<>]+@[^[:space:]@<>]+[.][^[:space:]@<>]+$')"
+        },
+        "institution_contacts_phone_valid": {
+          "name": "institution_contacts_phone_valid",
+          "value": "\"institution_contacts\".\"phone\" is null or (length(\"institution_contacts\".\"phone\") <= 30 and \"institution_contacts\".\"phone\" ~ '^[+]?[0-9 ()-]+$' and length(regexp_replace(\"institution_contacts\".\"phone\", '[^0-9]', '', 'g')) >= 6)"
+        },
+        "institution_contacts_shape_valid": {
+          "name": "institution_contacts_shape_valid",
+          "value": "(\"institution_contacts\".\"kind\" = 'institutional' and \"institution_contacts\".\"email\" is not null and \"institution_contacts\".\"phone\" is not null and \"institution_contacts\".\"profile_id\" is null)\n    or (\"institution_contacts\".\"kind\" = 'responsible' and \"institution_contacts\".\"profile_id\" is not null and \"institution_contacts\".\"position\" is not null and \"institution_contacts\".\"area\" is not null and \"institution_contacts\".\"email\" is not null)\n    or (\"institution_contacts\".\"kind\" = 'alternate' and \"institution_contacts\".\"name\" is not null and (\"institution_contacts\".\"email\" is not null or \"institution_contacts\".\"phone\" is not null) and \"institution_contacts\".\"profile_id\" is null)"
         }
       },
       "isRLSEnabled": true
@@ -5819,12 +6120,97 @@
           "primaryKey": false,
           "notNull": true
         },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "education_level": {
+          "name": "education_level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sector": {
+          "name": "sector",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "company_size": {
+          "name": "company_size",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "organization_kind": {
+          "name": "organization_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tax_id": {
+          "name": "tax_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "website": {
+          "name": "website",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "country": {
+          "name": "country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "province": {
+          "name": "province",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "postal_code": {
+          "name": "postal_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "message": {
           "name": "message",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "default": "''"
+        },
+        "authorized_at": {
+          "name": "authorized_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by_nexus": {
+          "name": "created_by_nexus",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "status": {
           "name": "status",
@@ -5924,6 +6310,19 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
+        "institution_registrations_created_by_profiles_id_fk": {
+          "name": "institution_registrations_created_by_profiles_id_fk",
+          "tableFrom": "institution_registrations",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "institution_registrations_resolved_by_profiles_id_fk": {
           "name": "institution_registrations_resolved_by_profiles_id_fk",
           "tableFrom": "institution_registrations",
@@ -5966,6 +6365,50 @@
         "institution_registrations_message_valid": {
           "name": "institution_registrations_message_valid",
           "value": "length(\"institution_registrations\".\"message\") <= 1000 and \"institution_registrations\".\"message\" !~ '[<>]'"
+        },
+        "institution_registrations_display_name_valid": {
+          "name": "institution_registrations_display_name_valid",
+          "value": "\"institution_registrations\".\"display_name\" is null or (length(trim(\"institution_registrations\".\"display_name\")) between 2 and 80 and \"institution_registrations\".\"display_name\" !~ '[<>]')"
+        },
+        "institution_registrations_education_level_valid": {
+          "name": "institution_registrations_education_level_valid",
+          "value": "\"institution_registrations\".\"education_level\" is null or \"institution_registrations\".\"education_level\" in ('university', 'tertiary', 'secondary', 'vocational', 'other')"
+        },
+        "institution_registrations_sector_valid": {
+          "name": "institution_registrations_sector_valid",
+          "value": "\"institution_registrations\".\"sector\" is null or \"institution_registrations\".\"sector\" in ('technology', 'industry', 'commerce', 'services', 'finance', 'health', 'agro', 'construction', 'energy', 'other')"
+        },
+        "institution_registrations_company_size_valid": {
+          "name": "institution_registrations_company_size_valid",
+          "value": "\"institution_registrations\".\"company_size\" is null or \"institution_registrations\".\"company_size\" in ('1-10', '11-50', '51-200', '201-1000', '1000+')"
+        },
+        "institution_registrations_organization_kind_valid": {
+          "name": "institution_registrations_organization_kind_valid",
+          "value": "\"institution_registrations\".\"organization_kind\" is null or \"institution_registrations\".\"organization_kind\" in ('direct', 'branches')"
+        },
+        "institution_registrations_tax_id_valid": {
+          "name": "institution_registrations_tax_id_valid",
+          "value": "\"institution_registrations\".\"tax_id\" is null or (length(trim(\"institution_registrations\".\"tax_id\")) between 3 and 40 and \"institution_registrations\".\"tax_id\" !~ '[<>]')"
+        },
+        "institution_registrations_website_valid": {
+          "name": "institution_registrations_website_valid",
+          "value": "\"institution_registrations\".\"website\" is null or (length(\"institution_registrations\".\"website\") <= 200 and \"institution_registrations\".\"website\" ~ '^https://[^[:space:]<>\"'']+[.][^[:space:]<>\"'']+$')"
+        },
+        "institution_registrations_country_valid": {
+          "name": "institution_registrations_country_valid",
+          "value": "\"institution_registrations\".\"country\" is null or \"institution_registrations\".\"country\" ~ '^[A-Z]{2}$'"
+        },
+        "institution_registrations_province_valid": {
+          "name": "institution_registrations_province_valid",
+          "value": "\"institution_registrations\".\"province\" is null or (length(trim(\"institution_registrations\".\"province\")) between 2 and 100 and \"institution_registrations\".\"province\" !~ '[<>]')"
+        },
+        "institution_registrations_postal_code_valid": {
+          "name": "institution_registrations_postal_code_valid",
+          "value": "\"institution_registrations\".\"postal_code\" is null or (length(trim(\"institution_registrations\".\"postal_code\")) between 3 and 12 and \"institution_registrations\".\"postal_code\" !~ '[<>]')"
+        },
+        "institution_registrations_address_valid": {
+          "name": "institution_registrations_address_valid",
+          "value": "\"institution_registrations\".\"address\" is null or (length(trim(\"institution_registrations\".\"address\")) between 3 and 200 and \"institution_registrations\".\"address\" !~ '[<>]')"
         },
         "institution_registrations_reason_valid": {
           "name": "institution_registrations_reason_valid",
@@ -6111,7 +6554,7 @@
       "checkConstraints": {
         "nexus_admin_actions_action_valid": {
           "name": "nexus_admin_actions_action_valid",
-          "value": "\"nexus_admin_actions\".\"action\" in ('grant_admin', 'revoke_admin', 'approve_institution', 'reject_institution')"
+          "value": "\"nexus_admin_actions\".\"action\" in ('grant_admin', 'revoke_admin', 'approve_institution', 'reject_institution', 'create_institution', 'add_institution_admin')"
         },
         "nexus_admin_actions_actor_valid": {
           "name": "nexus_admin_actions_actor_valid",
@@ -6512,7 +6955,9 @@
       "values": [
         "educational",
         "company",
-        "other"
+        "other",
+        "public_agency",
+        "ngo"
       ]
     },
     "public.institution_registration_status": {

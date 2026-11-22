@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
-import { check, index, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, index, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { profiles } from "./profiles";
-import { institutions, institutionType } from "./institutions";
+import { institutionProfileChecks, institutionProfileColumns, institutions, institutionType } from "./institutions";
 
 // #6 (D-16, D-17, D-18): NEXUS administration. Writes go only through the SECURITY DEFINER functions of 0034,
 // and triggers re-check every rule (only an active NEXUS admin grants the role, never the last one is revoked,
@@ -13,8 +13,13 @@ export const institutionRegistrationStatus = pgEnum("institution_registration_st
 export const institutionRegistrations = pgTable("institution_registrations", {
   id: uuid("id").defaultRandom().primaryKey(),
   profileId: uuid("profile_id").notNull().references(() => profiles.id),
-  name: text("name").notNull(), type: institutionType("type").notNull(), locality: text("locality").notNull(),
+  // "name" is the legal name (razón social); the visible name is display_name (D-41).
+  name: text("name").notNull(), type: institutionType("type").notNull(), locality: text("locality").notNull(), ...institutionProfileColumns(),
   message: text("message").notNull().default(""),
+  // "Declaro que estoy autorizado/a a registrar esta institución": when it was declared (required for new ones).
+  authorizedAt: timestamp("authorized_at", { withTimezone: true }),
+  // Who sent it: the registrant, or a NEXUS admin who created it for that person (D-43).
+  createdBy: uuid("created_by").references(() => profiles.id), createdByNexus: boolean("created_by_nexus").notNull().default(false),
   status: institutionRegistrationStatus("status").notNull().default("pending"),
   requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }), resolvedBy: uuid("resolved_by").references(() => profiles.id),
@@ -26,10 +31,34 @@ export const institutionRegistrations = pgTable("institution_registrations", {
   check("institution_registrations_name_valid", sql`length(trim(${t.name})) between 2 and 160 and ${t.name} !~ '[<>]'`),
   check("institution_registrations_locality_valid", sql`length(trim(${t.locality})) between 2 and 120 and ${t.locality} !~ '[<>]'`),
   check("institution_registrations_message_valid", sql`length(${t.message}) <= 1000 and ${t.message} !~ '[<>]'`),
+  ...institutionProfileChecks("institution_registrations", t),
   check("institution_registrations_reason_valid", sql`${t.rejectionReason} is null or (length(trim(${t.rejectionReason})) between 3 and 1000 and ${t.rejectionReason} !~ '[<>]')`),
   check("institution_registrations_resolution_valid", sql`(${t.status} = 'pending' and ${t.resolvedAt} is null and ${t.resolvedBy} is null and ${t.rejectionReason} is null and ${t.institutionId} is null)
     or (${t.status} = 'approved' and ${t.resolvedAt} is not null and ${t.resolvedBy} is not null and ${t.rejectionReason} is null and ${t.institutionId} is not null)
     or (${t.status} = 'rejected' and ${t.resolvedAt} is not null and ${t.resolvedBy} is not null and ${t.rejectionReason} is not null and ${t.institutionId} is null)`),
+]).enableRLS();
+
+// Contacts of a registration and, once approved, of its institution (D-41). One row per contact with its kind, so more
+// can be added in the future. Private: only NEXUS admins and the admins of that institution read them (server side);
+// anon and authenticated get nothing. "responsible" is the registrant (its name and e-mail come from its account).
+export const institutionContacts = pgTable("institution_contacts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  registrationId: uuid("registration_id").notNull().references(() => institutionRegistrations.id),
+  institutionId: uuid("institution_id").references(() => institutions.id),
+  kind: text("kind").notNull(), profileId: uuid("profile_id").references(() => profiles.id),
+  name: text("name"), position: text("position"), area: text("area"), email: text("email"), phone: text("phone"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  index("institution_contacts_registration_idx").on(t.registrationId), index("institution_contacts_institution_idx").on(t.institutionId),
+  check("institution_contacts_kind_valid", sql`${t.kind} in ('institutional', 'responsible', 'alternate')`),
+  check("institution_contacts_name_valid", sql`${t.name} is null or (length(trim(${t.name})) between 2 and 120 and ${t.name} !~ '[<>]')`),
+  check("institution_contacts_position_valid", sql`${t.position} is null or (length(trim(${t.position})) between 2 and 80 and ${t.position} !~ '[<>]')`),
+  check("institution_contacts_area_valid", sql`${t.area} is null or (length(trim(${t.area})) between 2 and 120 and ${t.area} !~ '[<>]')`),
+  check("institution_contacts_email_valid", sql`${t.email} is null or (length(${t.email}) <= 254 and ${t.email} ~ '^[^[:space:]@<>]+@[^[:space:]@<>]+[.][^[:space:]@<>]+$')`),
+  check("institution_contacts_phone_valid", sql`${t.phone} is null or (length(${t.phone}) <= 30 and ${t.phone} ~ '^[+]?[0-9 ()-]+$' and length(regexp_replace(${t.phone}, '[^0-9]', '', 'g')) >= 6)`),
+  check("institution_contacts_shape_valid", sql`(${t.kind} = 'institutional' and ${t.email} is not null and ${t.phone} is not null and ${t.profileId} is null)
+    or (${t.kind} = 'responsible' and ${t.profileId} is not null and ${t.position} is not null and ${t.area} is not null and ${t.email} is not null)
+    or (${t.kind} = 'alternate' and ${t.name} is not null and (${t.email} is not null or ${t.phone} is not null) and ${t.profileId} is null)`),
 ]).enableRLS();
 
 // NEXUS admins. A row is never deleted: revoking sets revoked_at/revoked_by; granting again adds a new row.
@@ -57,6 +86,6 @@ export const nexusAdminActions = pgTable("nexus_admin_actions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, t => [
   index("nexus_admin_actions_created_idx").on(t.createdAt),
-  check("nexus_admin_actions_action_valid", sql`${t.action} in ('grant_admin', 'revoke_admin', 'approve_institution', 'reject_institution')`),
+  check("nexus_admin_actions_action_valid", sql`${t.action} in ('grant_admin', 'revoke_admin', 'approve_institution', 'reject_institution', 'create_institution', 'add_institution_admin')`),
   check("nexus_admin_actions_actor_valid", sql`${t.actorId} is not null or ${t.action} = 'grant_admin'`),
 ]).enableRLS();
