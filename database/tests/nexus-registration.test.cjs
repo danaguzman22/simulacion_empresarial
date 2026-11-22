@@ -4,7 +4,7 @@ const cache=new Map();
 function load(file){file=path.resolve(file);if(cache.has(file))return cache.get(file);const exports={};cache.set(file,exports);
  vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports,Error,Object,String,
   require:name=>name.startsWith('@/')?load(base+'/src/'+name.slice(2)+'.ts'):name.startsWith('.')?load(path.resolve(path.dirname(file),name+'.ts')):(()=>{throw new Error('unexpected import '+name)})()});return exports;}
-const {validateRegistration,validateReason,normalizeForCompare,possibleDuplicate,institutionKindLabels,NexusError}=load(base+'/src/features/nexus/domain/registration.ts');
+const {validateRegistration,validateReason,normalizeForCompare,sameNameAndLocality,DUPLICATE_MESSAGE,institutionKindLabels,NexusError}=load(base+'/src/features/nexus/domain/registration.ts');
 const ok={name:'  Universidad  Uno ',kind:'educational',locality:' Córdoba ',message:''};
 
 // D-41: name, type, locality (required) and an optional message; trimmed; length limits; no HTML.
@@ -17,14 +17,16 @@ bad({message:'x'.repeat(1001)},/Mensaje: hasta 1000/);bad({message:'<script>'},/
 assert.equal(validateRegistration({...ok,message:null}).message,'');
 // D-43: the rejection reason is required.
 assert.equal(validateReason('  Falta la sede  '),'Falta la sede');
-for(const reason of ['',null,'ab','x'.repeat(1001),'<a>'])assert.throws(()=>validateReason(reason),NexusError,String(reason));
+for(const reason of ['','   ',null,undefined,'ab','  ab  ','x'.repeat(1001),'<a>'])assert.throws(()=>validateReason(reason),NexusError,String(reason));
 assert.equal(institutionKindLabels.educational,'Educativa');
 console.log('PASS registration form: required fields, trimmed, length limits, no HTML; rejection reason required');
 
-// Duplicates: same name and locality without upper case, accents or extra spaces.
+// Name + locality are unique: compared without upper case, accents or extra spaces (same mapping as the database).
 assert.equal(normalizeForCompare('  Universidad   Tecnológica  NACIONAL '),'universidad tecnologica nacional');
-assert.equal(possibleDuplicate({name:'universidad tecnologica',locality:'CORDOBA'},{name:'Universidad Tecnológica',locality:'Córdoba'}),true);
-assert.equal(possibleDuplicate({name:'Universidad Tecnológica',locality:'Rosario'},{name:'Universidad Tecnológica',locality:'Córdoba'}),false,'another branch');
-assert.equal(possibleDuplicate({name:'Otra',locality:'Córdoba'},{name:'Universidad',locality:'Córdoba'}),false);
-assert.equal(possibleDuplicate({name:'UTN',locality:'Córdoba'},{name:'utn',locality:null}),true,'an institution without locality (before 0034) with the same name could be the same');
-console.log('PASS duplicates: same name and locality ignoring case, accents and spaces; another locality is another branch');
+assert.equal(normalizeForCompare('ÑANDÚ Ç'),'nandu c');assert.equal(normalizeForCompare(null),'');
+assert.equal(sameNameAndLocality({name:'universidad tecnologica',locality:'CORDOBA'},{name:'Universidad  Tecnológica',locality:'Córdoba '}),true);
+assert.equal(sameNameAndLocality({name:'Universidad Tecnológica',locality:'Rosario'},{name:'Universidad Tecnológica',locality:'Córdoba'}),false,'another locality is allowed');
+assert.equal(sameNameAndLocality({name:'Otra',locality:'Córdoba'},{name:'Universidad',locality:'Córdoba'}),false);
+assert.equal(sameNameAndLocality({name:'UTN',locality:'Córdoba'},{name:'utn',locality:null}),false,'an institution without locality (before 0034) is not the same locality');
+assert.equal(DUPLICATE_MESSAGE,'Ya existe una institución con ese nombre en esa localidad.');
+console.log('PASS uniqueness: same name and locality ignoring case, accents and spaces; another locality is allowed');
