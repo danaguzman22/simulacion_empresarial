@@ -162,9 +162,14 @@ async function main() {
  assert.deepEqual((await sql`select profile_id,role,status,granted_by from institution_members where institution_id=${school} order by created_at`).map(r=>({...r})),[
   {profile_id:e,role:'admin',status:'active',granted_by:b},{profile_id:d,role:'admin',status:'active',granted_by:b}]);
  await fails(sql`select nexus_add_institution_admin(${b},${school},${d},'Otra vez')`,/already an admin/);
+ // Someone the institution removed (revoked) is never brought back by NEXUS.
+ await sql`insert into institution_members(institution_id,profile_id,role,granted_by) values(${school},${c},'member',${e})`;
+ await sql`update institution_members set status='revoked',revision=revision+1 where institution_id=${school} and profile_id=${c}`;
+ await fails(sql`select nexus_add_institution_admin(${b},${school},${c},'Pedido por correo')`,/removed by the institution/);
+ assert.equal((await sql`select status from institution_members where institution_id=${school} and profile_id=${c}`)[0].status,'revoked');
  const [{removers}]=await sql`select count(*)::int removers from pg_proc where proname ~ 'remove_institution_admin|nexus_revoke_institution'`;
  assert.equal(removers,0,'there is no function for a NEXUS admin to remove institution admins');
- console.log('PASS NEXUS creates institutions for someone and adds admins with a reason; it cannot remove them');
+ console.log('PASS NEXUS creates institutions for someone and adds admins with a reason; never someone the institution removed; it cannot remove them');
 
  // Every action recorded, who to whom; the record is append-only.
  const log=(await sql`select actor_id,action,target_profile_id,details from nexus_admin_actions order by created_at,action`).map(r=>({...r,details:{...r.details}}));
@@ -248,6 +253,9 @@ async function appRepository({sql,a,b,c,d,e,fails,school,created,r3,data}) {
  await fails(repo.addInstitutionAdmin(b,phone,'d@test.test','   '),/Motivo/);
  await repo.addInstitutionAdmin(b,phone,'d@test.test','Lo pidió el rector por correo');
  await fails(repo.addInstitutionAdmin(b,phone,'d@test.test','Otra vez'),/ya es admin de esta institución/);
+ await sql`insert into institution_members(institution_id,profile_id,role,granted_by) values(${phone},${e},'member',${a})`;
+ await sql`update institution_members set status='revoked',revision=revision+1 where institution_id=${phone} and profile_id=${e}`;
+ await fails(repo.addInstitutionAdmin(b,phone,'e@test.test','Pedido por correo'),/Esta persona fue dada de baja por la institución: la institución tiene que volver a sumarla/);
  const afterAdd=plain(await repo.readInstitutionForNexus(b,phone));
  assert.deepEqual(afterAdd.admins.map(x=>x.profileId).sort(),[a,d].sort());
  assert.deepEqual(afterAdd.history.map(h=>h.action),['add_institution_admin','create_institution']);

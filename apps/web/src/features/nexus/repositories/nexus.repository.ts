@@ -9,6 +9,7 @@ import { DUPLICATE_MESSAGE, DUPLICATE_TAX_ID_MESSAGE, MAX_PENDING_REGISTRATIONS,
 
 // #6: every write goes through the SECURITY DEFINER functions of 0034, which re-check the rules in the database.
 // Here the server checks first (signed-in person, NEXUS admin, valid input) and turns database errors into Spanish.
+const REMOVED_BY_INSTITUTION = "Esta persona fue dada de baja por la institución: la institución tiene que volver a sumarla.";
 const databaseMessages: Array<[RegExp, string]> = [
   [/already exists in that locality|name_place_unique/, DUPLICATE_MESSAGE],
   [/tax id already exists|tax_id_unique/, DUPLICATE_TAX_ID_MESSAGE],
@@ -20,6 +21,7 @@ const databaseMessages: Array<[RegExp, string]> = [
   [/nexus_admins_active_unique/, "Esa persona ya es admin de NEXUS."],
   [/not an active NEXUS admin/, "Esa persona ya no es admin de NEXUS."],
   [/already an admin of this institution/, "Esa persona ya es admin de esta institución."],
+  [/removed by the institution/, REMOVED_BY_INSTITUTION],
   [/reason between 3 and 1000/, "Motivo: entre 3 y 1000 caracteres."],
 ];
 async function translated<T>(work: () => Promise<T>): Promise<T> {
@@ -239,13 +241,17 @@ export async function rejectRegistration(actor: string, registrationId: unknown,
   await translated(() => db.execute(sql`select public.reject_institution_registration(${actor}::uuid, ${registrationId}::uuid, ${clean})`));
 }
 
-// D-43: a NEXUS admin adds an admin to an institution, with a required reason. It can never remove admins.
+// D-43: a NEXUS admin adds an admin to an institution, with a required reason. It can never remove admins, nor bring
+// back someone the institution removed.
 export async function addInstitutionAdmin(actor: string, institutionId: unknown, email: unknown, reason: unknown) {
   if (!isUuid(institutionId)) throw new NexusError("Institución inválida.");
   const clean = validateReason(reason);
   await requireNexusAdmin(actor);
   await translated(() => db.transaction(async tx => {
     const person = await profileByEmail(tx, email);
+    // Never someone the institution removed (revoked): the institution has to add them again (the database checks it too).
+    const [membership] = await tx.select({ status: members.status }).from(members).where(and(eq(members.institutionId, institutionId), eq(members.profileId, person.profileId)));
+    if (membership?.status === "revoked") throw new NexusError(REMOVED_BY_INSTITUTION);
     await tx.execute(sql`select public.nexus_add_institution_admin(${actor}::uuid, ${institutionId}::uuid, ${person.profileId}::uuid, ${clean})`);
   }));
 }
