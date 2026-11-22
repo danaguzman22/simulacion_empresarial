@@ -7,8 +7,11 @@ export const institutionMemberStatus = pgEnum("institution_member_status", ["act
 export const institutionRequestStatus = pgEnum("institution_request_status", ["pending", "approved", "rejected"]);
 export const institutions = pgTable("institutions", {
   id: uuid("id").defaultRandom().primaryKey(), name: text("name").notNull(), type: institutionType("type").notNull(),
+  // #6: locality distinguishes branches with the same name. Null only for institutions created before 0034.
+  locality: text("locality"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, t => [check("institutions_name_valid", sql`length(trim(${t.name})) between 2 and 160`)]).enableRLS();
+}, t => [check("institutions_name_valid", sql`length(trim(${t.name})) between 2 and 160`),
+  check("institutions_locality_valid", sql`${t.locality} is null or (length(trim(${t.locality})) between 2 and 120 and ${t.locality} !~ '[<>]')`)]).enableRLS();
 export const institutionMembers = pgTable("institution_members", {
   id: uuid("id").defaultRandom().primaryKey(), institutionId: uuid("institution_id").notNull().references(() => institutions.id),
   profileId: uuid("profile_id").notNull().references(() => profiles.id), role: institutionRole("role").notNull().default("member"),

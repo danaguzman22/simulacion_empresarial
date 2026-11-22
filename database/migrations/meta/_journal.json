@@ -239,6 +239,13 @@
       "when": 1795114801760,
       "tag": "0033_section_requirements",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1795324270549,
+      "tag": "0034_nexus_admin",
+      "breakpoints": true
     }
   ]
 }
