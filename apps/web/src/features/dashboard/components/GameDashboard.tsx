@@ -3,6 +3,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { MonitorUp } from "lucide-react";
 import { gameStatusLabels } from "@/features/games/domain/game";
+import { recoverIfStaleApp } from "@/features/app-version/components/stale-app";
 import { getDashboard } from "../application/dashboard-actions";
 import { canProjectDashboard, DASHBOARD_REFRESH_MS, gameChannelName } from "../domain/dashboard";
 import type { DashboardData } from "../repositories/dashboard.repository";
@@ -30,7 +31,7 @@ export function GameDashboard({ initial, mode }: { initial: DashboardData; mode:
         const received = performance.now();
         clock.current = { server: Date.parse(next.serverNow) + (received - sent) / 2, client: received };
         setData(next); setNow(clock.current.server); setOffline(false);
-      } catch { if (!stopped) setOffline(true); } finally { busy = false; }
+      } catch (error) { if (!stopped && !recoverIfStaleApp(error)) setOffline(true); } finally { busy = false; }
     };
     const poll = setInterval(() => { void refresh(); }, DASHBOARD_REFRESH_MS);
     const tick = setInterval(() => setNow(clock.current.server + performance.now() - clock.current.client), 1000);

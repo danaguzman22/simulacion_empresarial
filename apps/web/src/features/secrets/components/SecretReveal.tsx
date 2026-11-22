@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { recoverIfStaleApp } from "@/features/app-version/components/stale-app";
 import { requestSecret } from "../application/reveal-actions";
 import type { RevealSummary } from "../domain/reveal";
 
@@ -34,7 +35,8 @@ export function SecretReveal({ gameId, summary }: { gameId: string; summary: Rev
         }
       }
       if (consume) router.refresh();
-    } catch { if (mounted.current) setMessage("No se pudo confirmar la respuesta. Reintentá: se conservará la misma operación."); }
+    // #85: an old version of the app never reached the server (nothing was consumed): reload to the new one.
+    } catch (error) { if (mounted.current && !recoverIfStaleApp(error)) setMessage("No se pudo confirmar la respuesta. Reintentá: se conservará la misma operación."); }
     finally { inFlight.current = false; if (mounted.current) setBusy(false); }
   }, [gameId, router]);
   useEffect(() => {
