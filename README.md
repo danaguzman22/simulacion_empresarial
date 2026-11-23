@@ -31,10 +31,29 @@ npm install
 Creá `apps/web/.env.local` (está ignorado por git; nunca lo commitees) con las variables de la sección siguiente, y después:
 
 ```bash
-npm run dev      # http://localhost:3000
+npm run dev:cloud   # http://localhost:3300 contra Supabase en la nube
 npm run lint
 npm run build
 ```
+
+## Puertos: local y nube
+
+Cada base tiene su puerto fijo, para no confundir nunca a cuál está conectada la app:
+
+| Comando (desde `apps/web`) | Base | Dirección |
+| --- | --- | --- |
+| `npm run local:dev` | Local (Supabase en Docker) | http://localhost:3100 |
+| `npm run dev:cloud` | Nube (usa `.env.local`) | http://localhost:3300 |
+
+No uses `npm run dev` a secas: arranca en el 3000 contra la nube y no se distingue de la local.
+
+Si la app no arranca con `listen EACCES: permission denied`, el puerto está en un rango que Windows reservó (lo hacen Hyper-V, Docker o WinNAT). Ya pasó con 3000, 3001 y el rango 3101–3200. Los rangos pueden cambiar después de reiniciar la PC. Para verlos:
+
+```
+netsh int ipv4 show excludedportrange protocol=tcp
+```
+
+Si un puerto de la tabla queda dentro de un rango reservado, se elige otro libre, se actualiza el script y esta tabla, y se avisa en la issue correspondiente.
 
 ## Variables de entorno
 
@@ -71,7 +90,7 @@ npm run local:stop                  # apaga los contenedores; los datos quedan p
 - Correos de prueba: http://127.0.0.1:54324. En local no hace falta confirmar el correo para entrar.
 - Si agregás una migración nueva: `npm run local:migrate`.
 - Los scripts se detienen si la base o la API no están en `127.0.0.1`.
-- `npm run dev` sigue apuntando a Supabase en la nube, como siempre.
+- Para la app contra la nube: `npm run dev:cloud` (puerto 3300; ver "Puertos: local y nube").
 
 ## Migraciones
 
