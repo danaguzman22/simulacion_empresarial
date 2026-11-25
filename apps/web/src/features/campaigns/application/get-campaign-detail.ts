@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { getAuthenticatedUserId } from "@/features/auth/application/get-authenticated-user-id";
 import { canViewCampaignDetail } from "../domain/campaign-access";
 import { findCampaignByIdForMember } from "../repositories/campaign.repository";
@@ -7,7 +8,8 @@ import { findCampaignByIdForMember } from "../repositories/campaign.repository";
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function getCampaignDetail(campaignId: string) {
+// Cached per request: the campaign layout and the open tab read the same campaign without repeating the query.
+export const getCampaignDetail = cache(async (campaignId: string) => {
   const userId = await getAuthenticatedUserId();
 
   if (!userId) {
@@ -38,4 +40,4 @@ export async function getCampaignDetail(campaignId: string) {
     canReturnToCompany: campaign.companyOwnerId === userId,
     memberRole: campaign.memberRole,
   } as const;
-}
+});
