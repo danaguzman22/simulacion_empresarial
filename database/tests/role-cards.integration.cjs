@@ -29,7 +29,7 @@ function load(file) {
   vm.runInNewContext(code, { exports, Date, console, require: (name) => {
     if (name === "server-only") return {};
     if (name === "next/link") return { default: ({children,...props}) => localRequire("react").createElement("a",props,children) };
-    if (name === "next/navigation") return { redirect(){throw new Error("redirect");}, notFound(){throw new Error("not-found");} };
+    if (name === "next/navigation") return { redirect(){throw new Error("redirect");}, notFound(){throw new Error("not-found");}, useRouter(){return {push(){},refresh(){}};} };
     if (name === "next/cache") return { revalidatePath() {} };
     if (name === "@/features/auth/application/get-authenticated-user-id") return {getAuthenticatedUserId:async()=>sessionActor};
     if (name === "@/db") return { db };
@@ -121,8 +121,14 @@ async function main() {
  sessionActor=legacyActor;
  const render=localRequire('react-dom/server').renderToStaticMarkup;
  const {RoleCards}=load(base+'/src/features/cards/components/RoleCards.tsx');
+ // #78: the form lives in the card's own screen (loadCardEditor + CardEditor), with the same checks as the list.
+ const {CardEditor,loadCardEditor}=load(base+'/src/features/cards/components/CardEditor.tsx');
  for(const scope of [campaignScope(legacyCampaign),gameScope(legacyGame)]) {
-  const markup=render(await RoleCards({scope}));
+  render(await RoleCards({scope}));
+  const listed=(await cards.readCards(scope,legacyActor)).cards[0];
+  const editor=await loadCardEditor(scope,listed.id);
+  await assert.rejects(loadCardEditor(scope,randomUUID()),/not-found/);
+  const markup=render(CardEditor({scope,...editor,doneHref:'/lista'}));
   assert(markup.includes(legacyText),'existing accented text must render unchanged');
   assert(markup.includes('value="'+legacyText+'"'),'existing text is a checkbox option');
   assert(/<input(?=[^>]*name="responsibility")(?=[^>]*checked="")[^>]*>/.test(markup),'legacy responsibility stays selected');
@@ -268,6 +274,8 @@ async function main() {
   const data=await cards.readCards(scope,actor);assert.equal(data.cards[0].restrictions.length,1);
   assert(!JSON.stringify(data).includes('PRIVATE_'));assert(!JSON.stringify(data).includes('SECRETO-PRUEBA'));
   sessionActor=actor;const markup=render(await RoleCards({scope}));assert(!markup.includes('PRIVATE_'));assert(!markup.includes('SECRETO-PRUEBA'));
+  // #78: only whoever can edit cards opens a card's own screen; Co-Master and Observer get "not found".
+  await assert.rejects(loadCardEditor(scope,scope.kind==='game'?vc.id:vb.id),/not-found/);
   await assert.rejects(cards.saveCard(scope,actor,{id:scope.kind==='game'?vc.id:vb.id,revision:0,fields,structure:configured}));
  }
  sessionActor=null;

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 import type { ReactNode } from "react";
 import type { getCampaignDetail } from "../application/get-campaign-detail";
 import { CampaignStatus } from "./CampaignStatus";
@@ -10,22 +10,20 @@ type DetailResult = Extract<
 
 type CampaignDetailProps = Pick<DetailResult, "campaign" | "canReturnToCompany"> & {
   children?: ReactNode;
+  nav?: ReactNode;
 };
 
 export function CampaignDetail({
   campaign,
   canReturnToCompany,
   children,
+  nav,
 }: CampaignDetailProps) {
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
       <div className="mx-auto max-w-6xl">
-        <Link
-          href={canReturnToCompany ? `/master/empresas/${campaign.companyId}` : "/master"}
-          className="rounded text-xs font-black uppercase tracking-widest text-slate-400 transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-400"
-        >
-          ← {canReturnToCompany ? "Volver a la empresa" : "Volver al Panel Master"}
-        </Link>
+        {/* D-44: the route on top; the company is a link only for whoever can open its page (its owner). */}
+        <Breadcrumbs items={[{ label: "Panel", href: "/master" }, { label: campaign.companyName, href: canReturnToCompany ? `/master/empresas/${campaign.companyId}` : undefined }, { label: campaign.name }]} />
 
         <article className="mt-8 rounded-3xl border border-white/10 bg-white/[0.05] p-6 md:p-8">
           <header>
@@ -63,15 +61,8 @@ export function CampaignDetail({
           </dl>
         </article>
 
+        {nav}
         {children}
-        <section aria-label="Próximas secciones de la campaña" className="mt-8 grid gap-5 md:grid-cols-2">
-          {["Miembros", "Sala"].map((title) => (
-            <div key={title} className="rounded-3xl border border-dashed border-white/10 p-6">
-              <h2 className="text-xl font-black">{title}</h2>
-              <p className="mt-3 text-sm text-slate-400">Próximamente</p>
-            </div>
-          ))}
-        </section>
       </div>
     </main>
   );
