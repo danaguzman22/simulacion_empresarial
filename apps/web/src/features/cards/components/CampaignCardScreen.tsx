@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DetailShell } from "@/components/shared/DetailShell";
 import { getCampaignDetail } from "@/features/campaigns/application/get-campaign-detail";
@@ -23,6 +24,7 @@ export async function CampaignCardScreen({ campaignId, cardId }: { campaignId: s
   const title = editor.card ? `${editor.card.name}` : "Nueva ficha";
   return <DetailShell title={editor.card ? `Editar: ${title}` : title} subtitle={editor.card ? "Ficha base de la campaña. Los cambios se usan al copiarla a una partida." : "Ficha base de la campaña."}
     crumbs={[...crumbs, ...(editor.card ? [{ label: editor.card.name, href: `${base}/fichas/${editor.card.id}` }, { label: "Editar" }] : [{ label: "Nueva ficha" }])]}>
+    <div className="mb-5"><Link href={`${base}/fichas`} className="inline-flex items-center gap-1 rounded-xl border border-white/15 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-sky-400">← Volver a Fichas</Link></div>
     <CardEditor scope={scope} {...editor} doneHref={editor.card ? `${base}/fichas/${editor.card.id}` : `${base}/fichas`} />
   </DetailShell>;
 }
@@ -32,6 +34,7 @@ export async function CampaignCardView({ campaignId, cardId }: { campaignId: str
   const { scope, base, crumbs } = await campaignCrumbs(campaignId);
   const view = await loadCardView(scope, cardId);
   return <DetailShell title={view.card.name} subtitle="Ficha base de la campaña." crumbs={[...crumbs, { label: view.card.name }]}>
+    <div className="mb-5"><Link href={`${base}/fichas`} className="inline-flex items-center gap-1 rounded-xl border border-white/15 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-sky-400">← Volver a Fichas</Link></div>
     <CardSheet scope={scope} {...view} editHref={`${base}/fichas/${view.card.id}/editar`} />
   </DetailShell>;
 }

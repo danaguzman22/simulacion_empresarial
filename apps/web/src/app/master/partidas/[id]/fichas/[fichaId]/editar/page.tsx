@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 import { requireGameTab } from "@/features/games/application/game-tab";
 import { CardEditor, loadCardEditor } from "@/features/cards/components/CardEditor";
@@ -12,6 +13,7 @@ export default async function GameCardEditPage({ params }: { params: Promise<{ i
   const editor = await loadCardEditor(scope, fichaId);
   const list = `/master/partidas/${game.id}/fichas`, view = `${list}/${fichaId}`;
   return <div className="mt-8 space-y-4">
+    <Link href={list} className="inline-flex items-center gap-1 rounded-xl border border-white/15 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-sky-400">← Volver a Fichas</Link>
     <Breadcrumbs items={[{ label: "Fichas de la partida", href: list }, { label: editor.card?.name ?? "Ficha", href: view }, { label: "Editar" }]} />
     <h2 className="text-2xl font-black">Editar: {editor.card?.name}</h2>
     <CardEditor scope={scope} {...editor} doneHref={view} />
