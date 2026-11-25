@@ -4,6 +4,7 @@ import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { gameCardAssignments as assignments, gameRoleCards as cards, games, campaigns, companies, profiles, cardSecretReveals, rounds } from "@/db/schema";
 import { canReadAssignedCard } from "../domain/assignment";
+import { resolveArchetype } from "@/features/cards/domain/archetype";
 
 // institutionId (#72): the active institution of the portal; null means "no active membership" (nothing
 // listed). Without it, every institution the person can access. It only narrows the list: access is
@@ -32,7 +33,7 @@ export async function readAssignedCard(gameId: string, actorId: string) {
       configuredModifiers: cards.configuredModifiers, ana: cards.ana, vis: cards.vis, neg: cards.neg, ope: cards.ope, ada: cards.ada,
       secretRevealLimit: cards.secretRevealLimit, secretRevealSeconds: cards.secretRevealSeconds,
       hasSecret: sql<boolean>`coalesce(length(btrim(${cards.secretObjective})) > 0, false)`,
-      abilities: cards.abilities, weaknesses: cards.weaknesses, restrictions: cards.restrictions, revision: cards.revision,
+      abilities: cards.abilities, weaknesses: cards.weaknesses, restrictions: cards.restrictions, revision: cards.revision, archetype: cards.archetype,
     }).from(cards).where(and(eq(cards.id, assignment.cardId), eq(cards.gameId, gameId), eq(cards.campaignId, assignment.campaignId)));
     if (!card) return null;
     const teammates = await tx.select({ name: profiles.displayName }).from(assignments).innerJoin(profiles, eq(profiles.id, assignments.profileId))
@@ -46,6 +47,7 @@ export async function readAssignedCard(gameId: string, actorId: string) {
       .from(rounds).where(and(eq(rounds.gameId, gameId), eq(rounds.campaignId, assignment.campaignId), inArray(rounds.status, ["active", "paused"])));
     const time = await tx.execute<{ now: Date }>(sql`select clock_timestamp() as now`);
     const clock = { serverNow: new Date(time[0].now).toISOString(), period: round ? { label: `${assignment.periodLabel ?? "Ronda"} ${round.sequence}`, name: round.name, status: round.status, endsAt: round.endsAt?.toISOString() ?? null, remainingMs: round.remainingMs } : null };
-    return { reveal, clock, game: { id: gameId, name: assignment.name, status: assignment.status }, card, teammates };
+    // #106: archetype deduced on read for cards created before 0035 (same rule as the Master screens).
+    return { reveal, clock, game: { id: gameId, name: assignment.name, status: assignment.status }, card: { ...card, archetype: resolveArchetype(card.archetype, card.visualIdentity) }, teammates };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }

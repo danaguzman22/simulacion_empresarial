@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { cardModifierDefinitions, cardResponsibilities, campaignMembers, campaigns, campaignRoleCards, gameRoleCards, gameStateSets } from "@/db/schema";
 import { access, type Transaction } from "@/features/preparation/repositories/preparation.repository";
 import { UUID_PATTERN } from "@/features/preparation/domain/preparation";
+import { isArchetype, resolveArchetype, type Archetype } from "../domain/archetype";
 import { CardError, responsibilityKey, validateResponsibilities, validateModifiers, canEditCards, cardsEditable, validateCard, type CardScope } from "../domain/card";
 
 function validId(id: string) { if (!UUID_PATTERN.test(id)) throw new CardError("Ficha no disponible."); }
@@ -33,7 +34,10 @@ const publicColumns = {
   id: gameRoleCards.id, revision: gameRoleCards.revision, name: gameRoleCards.name, department: gameRoleCards.department,
   description: gameRoleCards.description, responsibilities: gameRoleCards.responsibilities,
   publicInformation: gameRoleCards.publicInformation, visualIdentity: gameRoleCards.visualIdentity, individualObjective: gameRoleCards.individualObjective,
+  archetype: gameRoleCards.archetype,
 };
+// #106: cards created before 0035 have no archetype; it is deduced on read (resolveArchetype), never backfilled.
+const withArchetype = <T extends { archetype: string | null; visualIdentity: string }>(rows: T[]) => rows.map(row => ({ ...row, archetype: resolveArchetype(row.archetype, row.visualIdentity) }));
 export async function readCards(scope: CardScope, actor: string) {
   return db.transaction(async tx => {
     const ctx = await context(tx, scope, actor, false);
@@ -46,8 +50,8 @@ export async function readCards(scope: CardScope, actor: string) {
         individualObjective: campaignRoleCards.individualObjective,
         configuredModifiers: campaignRoleCards.configuredModifiers, abilities: campaignRoleCards.abilities, weaknesses: campaignRoleCards.weaknesses,
         restrictions: visibleRestrictions(campaignRoleCards.restrictions, ctx.role === "master"),
-        selectedResponsibilities: campaignRoleCards.selectedResponsibilities, ana: campaignRoleCards.ana, vis: campaignRoleCards.vis, neg: campaignRoleCards.neg, ope: campaignRoleCards.ope, ada: campaignRoleCards.ada, id: campaignRoleCards.id, revision: campaignRoleCards.revision, name: campaignRoleCards.name, department: campaignRoleCards.department, description: campaignRoleCards.description, responsibilities: campaignRoleCards.responsibilities, publicInformation: campaignRoleCards.publicInformation, visualIdentity: campaignRoleCards.visualIdentity }).from(campaignRoleCards).where(eq(campaignRoleCards.campaignId, ctx.campaignId)).orderBy(asc(campaignRoleCards.createdAt), asc(campaignRoleCards.id));
-      return { cards, modifierCatalogue, responsibilityCatalogue, available: [], canEdit, canReadPrivate: ctx.role === "master", campaignId: ctx.campaignId };
+        selectedResponsibilities: campaignRoleCards.selectedResponsibilities, ana: campaignRoleCards.ana, vis: campaignRoleCards.vis, neg: campaignRoleCards.neg, ope: campaignRoleCards.ope, ada: campaignRoleCards.ada, id: campaignRoleCards.id, revision: campaignRoleCards.revision, name: campaignRoleCards.name, department: campaignRoleCards.department, description: campaignRoleCards.description, responsibilities: campaignRoleCards.responsibilities, publicInformation: campaignRoleCards.publicInformation, visualIdentity: campaignRoleCards.visualIdentity, archetype: campaignRoleCards.archetype }).from(campaignRoleCards).where(eq(campaignRoleCards.campaignId, ctx.campaignId)).orderBy(asc(campaignRoleCards.createdAt), asc(campaignRoleCards.id));
+      return { cards: withArchetype(cards), modifierCatalogue, responsibilityCatalogue, available: [], canEdit, canReadPrivate: ctx.role === "master", campaignId: ctx.campaignId };
     }
     // Private columns never enter the DTO/query for Co-Master or Observer.
     const columns = ctx.role === "master" ? { ...publicColumns, privateInformation: gameRoleCards.privateInformation, secretObjective: gameRoleCards.secretObjective } : publicColumns;
@@ -55,18 +59,19 @@ export async function readCards(scope: CardScope, actor: string) {
     const associated = await tx.select({ id: gameRoleCards.sourceCardId }).from(gameRoleCards).where(eq(gameRoleCards.gameId, scope.id));
     const catalogue = canEdit ? await tx.select({ id: campaignRoleCards.id, name: campaignRoleCards.name }).from(campaignRoleCards).where(eq(campaignRoleCards.campaignId, ctx.campaignId)).orderBy(asc(campaignRoleCards.name), asc(campaignRoleCards.id)) : [];
     const used = new Set(associated.map(c => c.id));
-    return { cards, modifierCatalogue, responsibilityCatalogue, available: catalogue.filter(c => !used.has(c.id)), canEdit, canReadPrivate: ctx.role === "master", campaignId: ctx.campaignId };
+    return { cards: withArchetype(cards), modifierCatalogue, responsibilityCatalogue, available: catalogue.filter(c => !used.has(c.id)), canEdit, canReadPrivate: ctx.role === "master", campaignId: ctx.campaignId };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
-export async function saveCard(scope: CardScope, actor: string, input: { id?: string; revision?: number; fields: Record<string, unknown>; selectedResponsibilities?: unknown; modifiers?: Record<string, unknown>; structure?: unknown }) {
+export async function saveCard(scope: CardScope, actor: string, input: { id?: string; revision?: number; fields: Record<string, unknown>; selectedResponsibilities?: unknown; modifiers?: Record<string, unknown>; structure?: unknown; archetype?: unknown }) {
   const content = validateCard(input.fields, scope.kind === "game");
+  if (input.archetype !== undefined && !isArchetype(input.archetype)) throw new CardError("Arquetipo inválido.");
   const responsibilities = input.selectedResponsibilities === undefined ? undefined : validateResponsibilities(input.selectedResponsibilities);
   const modifiers = input.modifiers === undefined ? {} : validateModifiers(input.modifiers);
   const structure = input.structure === undefined ? undefined : validateStructure(input.structure);
   const privateFields = scope.kind === "campaign" ? Object.fromEntries(["privateInformation", "individualObjective", "secretObjective"].filter(key => input.fields[key] !== undefined).map(key => {
     const value = input.fields[key]; if (typeof value !== "string" || value.length > 5000) throw new CardError("Objetivos o informaci\u00f3n privada inv\u00e1lidos."); return [key,value.trim()];
   })) : {};
-  const fields = { ...content, ...privateFields, ...modifiers, ...structure, ...(responsibilities === undefined ? {} : { responsibilities: "", selectedResponsibilities: responsibilities }) };
+  const fields = { ...content, ...privateFields, ...modifiers, ...structure, ...(responsibilities === undefined ? {} : { responsibilities: "", selectedResponsibilities: responsibilities }), ...(input.archetype === undefined ? {} : { archetype: input.archetype as Archetype }) };
   if (input.id) { validId(input.id); if (!Number.isSafeInteger(input.revision) || input.revision! < 0) throw new CardError("Revisión inválida."); }
   return db.transaction(async tx => {
     const ctx = await context(tx, scope, actor, true);
@@ -97,7 +102,7 @@ export async function saveCard(scope: CardScope, actor: string, input: { id?: st
   });
 }
 function copiedFields(c: typeof campaignRoleCards.$inferSelect) {
-  return { configuredModifiers: c.configuredModifiers, abilities: c.abilities, weaknesses: c.weaknesses, restrictions: c.restrictions, privateInformation: c.privateInformation, individualObjective: c.individualObjective, secretObjective: c.secretObjective, selectedResponsibilities: c.selectedResponsibilities, ana: c.ana, vis: c.vis, neg: c.neg, ope: c.ope, ada: c.ada, name: c.name, department: c.department, description: c.description, responsibilities: c.responsibilities, publicInformation: c.publicInformation, visualIdentity: c.visualIdentity };
+  return { configuredModifiers: c.configuredModifiers, abilities: c.abilities, weaknesses: c.weaknesses, restrictions: c.restrictions, privateInformation: c.privateInformation, individualObjective: c.individualObjective, secretObjective: c.secretObjective, selectedResponsibilities: c.selectedResponsibilities, ana: c.ana, vis: c.vis, neg: c.neg, ope: c.ope, ada: c.ada, name: c.name, department: c.department, description: c.description, responsibilities: c.responsibilities, publicInformation: c.publicInformation, visualIdentity: c.visualIdentity, archetype: c.archetype };
 }
 // Called inside the existing campaign-locked creation transaction. No runtime data copied.
 export async function copyCampaignCards(tx: Transaction, campaignId: string, gameId: string, actor: string, sourceId?: string) {

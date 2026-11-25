@@ -23,7 +23,7 @@ export async function cardAction(_previous: CardActionState, form: FormData): Pr
       const cardId = String(form.get("cardId") ?? "");
       let structure: unknown;
       try { structure = JSON.parse(String(form.get("structure") ?? "")); } catch { return { error: "Configuración de ficha inválida." }; }
-      await saveCard({ kind, id }, actor, { id: cardId || undefined, revision: Number(form.get("revision")), selectedResponsibilities: form.getAll("responsibility"), structure, fields: Object.fromEntries(gameCardFields.map(field => [field, String(form.get(field) ?? "")])) });
+      await saveCard({ kind, id }, actor, { id: cardId || undefined, revision: Number(form.get("revision")), selectedResponsibilities: form.getAll("responsibility"), structure, archetype: form.has("archetype") ? String(form.get("archetype")) : undefined, fields: Object.fromEntries(gameCardFields.map(field => [field, String(form.get(field) ?? "")])) });
     } else return { error: "Operación inválida." };
     // "layout": also the screens inside (the card list and the card's own screen, #78).
     revalidatePath(kind === "game" ? `/master/partidas/${id}` : `/master/campanas/${id}`, "layout");

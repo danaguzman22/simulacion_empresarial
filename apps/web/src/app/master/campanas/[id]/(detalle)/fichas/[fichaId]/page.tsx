@@ -1,8 +1,9 @@
-import { CampaignCardScreen } from "@/features/cards/components/CampaignCardScreen";
+import { CampaignCardView } from "@/features/cards/components/CampaignCardScreen";
 
 export const dynamic = "force-dynamic";
 
+// #106: a campaign base card as a card (view mode). Editing is at ./editar.
 export default async function CampaignCardPage({ params }: { params: Promise<{ id: string; fichaId: string }> }) {
   const { id, fichaId } = await params;
-  return <CampaignCardScreen campaignId={id} cardId={fichaId} />;
+  return <CampaignCardView campaignId={id} cardId={fichaId} />;
 }

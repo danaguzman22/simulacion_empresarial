@@ -7,6 +7,7 @@ import { gameCardFields, responsibilityKey, selectedResponsibilities, type CardS
 import { CardStructureEditor, type StructureSection } from "./CardStructureEditor";
 import { effectiveModifiers, type CardStructure, type ModifierDefinition } from "../domain/card-structure";
 import { cardPresets } from "../domain/card-presets";
+import { archetypeInfo, archetypeLabels, archetypes, isArchetype, type Archetype } from "../domain/archetype";
 
 const labels = { name: "Nombre del rol", department: "Departamento", description: "Descripción", responsibilities: "Responsabilidades", publicInformation: "Información pública", visualIdentity: "Identificación visual (texto o emoji)", individualObjective: "Objetivo individual o del departamento", privateInformation: "Información privada · Solo Master", secretObjective: "Objetivo secreto · Solo Master" };
 type Section = "identidad" | "responsabilidades" | StructureSection | "objetivos";
@@ -16,6 +17,8 @@ export function CardForm({ scope, card, catalogue, modifierCatalogue, doneHref }
   const [state, action, pending] = useActionState(cardAction, {});
   const router = useRouter();
   const [section, setSection] = useState<Section>("identidad");
+  // #106 / D-46: existing cards come with their archetype already resolved (deduced if it was never set).
+  const [archetype, setArchetype] = useState<Archetype>(card?.archetype ?? "ninguno");
   // After saving, back to the list of cards (it shows the saved card).
   useEffect(() => { if (state.success) router.push(doneHref); }, [state, router, doneHref]);
   const [fields, setFields] = useState(() => Object.fromEntries(gameCardFields.map(key => [key, card?.[key] ?? ""])));
@@ -48,6 +51,8 @@ export function CardForm({ scope, card, catalogue, modifierCatalogue, doneHref }
     const preset = cardPresets.find(p => p.id === id);
     if (!preset) return;
     setFields(old => ({ ...old, ...preset.fields }));
+    // NEXUS templates are named after their archetype (buho, zorro, castor, toro, ardilla).
+    setArchetype(isArchetype(preset.id) ? preset.id : "ninguno");
     setStructure({ configuredModifiers: preset.configuredModifiers.map(m=>({...m})), abilities: preset.abilities.map(a=>({...a})), weaknesses: preset.weaknesses.map(w=>({...w})), restrictions: preset.restrictions.map(r=>({...r})) });
     setSelected([...preset.responsibilities]);
   }
@@ -80,6 +85,12 @@ export function CardForm({ scope, card, catalogue, modifierCatalogue, doneHref }
     </nav>
     <div className="min-w-0 space-y-4">
     <section hidden={section !== "identidad"} data-section="identidad" className="space-y-3 rounded-xl border border-white/15 p-4"><h3 className="text-lg font-bold">Identidad e información</h3>
+    <label className="block text-sm text-slate-300">Arquetipo
+      <select name="archetype" value={archetype} onChange={e => setArchetype(e.target.value as Archetype)} className="mt-1 block w-full rounded-xl border border-white/15 bg-slate-950 p-3 text-white">
+        {archetypes.map(key => <option key={key} value={key}>{key === "ninguno" ? "Ninguno (se usa la identificación visual)" : `${archetypeInfo[key].emoji} ${archetypeLabels[key]}`}</option>)}
+      </select>
+      <span className="mt-1 block text-xs text-slate-400">En la carta, el arquetipo pone el dibujo y el color. Sin arquetipo se usa el emoji de la identificación visual.</span>
+    </label>
     {gameCardFields.filter(field => !["responsibilities", "individualObjective", "secretObjective"].includes(field)).map(field => <label key={field} className="block text-sm text-slate-300">{labels[field]}
       <textarea name={field} value={fields[field]} onChange={e => setFields(old => ({ ...old, [field]: e.target.value }))} required={field === "name"} maxLength={["name", "department", "visualIdentity"].includes(field) ? 160 : 5000} rows={["name", "department", "visualIdentity"].includes(field) ? 1 : 3} className="mt-1 block w-full rounded-xl border border-white/15 bg-slate-950 p-3 text-white" />
     </label>)}
