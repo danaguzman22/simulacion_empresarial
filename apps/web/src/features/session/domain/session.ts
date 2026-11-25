@@ -53,3 +53,12 @@ export function pickActiveInstitution(memberships: Membership[], cookieValue: st
 // Where to go after choosing another institution: the home of the same area (lists change with the institution).
 export const areaHome: Record<SessionArea, string> = { participant: "/alumno", panel: "/master", admin: "/instituciones", nexus: "/nexus" };
 export const isSessionArea = (value: unknown): value is SessionArea => value === "participant" || value === "panel" || value === "admin" || value === "nexus";
+
+// "Ir a" in the user menu: every area the person can use, in a fixed order. Each flag comes from the server
+// (readAreaAccess); "Mis instituciones" is always available. "Administración" (units, #7) joins when it exists.
+export type AreaAccess = { participant: boolean; panel: boolean; nexus: boolean };
+export const areaLabels: Record<SessionArea, string> = { participant: "Mis partidas", panel: "Panel", admin: "Mis instituciones", nexus: "Administración de NEXUS" };
+export function availableAreas(access: AreaAccess): { area: SessionArea; label: string; href: string }[] {
+  const order: SessionArea[] = ["participant", "panel", "admin", "nexus"];
+  return order.filter(area => area === "admin" || access[area]).map(area => ({ area, label: areaLabels[area], href: areaHome[area] }));
+}
