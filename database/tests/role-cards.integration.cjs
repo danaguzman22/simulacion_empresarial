@@ -81,7 +81,7 @@ async function main() {
  await migrate('0030_institutions.sql');
  await migrate('0031_card_secret_reveals.sql');
  // Not about D-33 (0033): games created here start with optional goals, as before 0033.
- await migrate('0032_rule_effect_messages.sql');await migrate('0033_section_requirements.sql');await sql.unsafe("ALTER TABLE games ALTER COLUMN goals_required SET DEFAULT false");
+ await migrate('0032_rule_effect_messages.sql');await migrate('0033_section_requirements.sql');await migrate('0035_card_archetype.sql');await sql.unsafe("ALTER TABLE games ALTER COLUMN goals_required SET DEFAULT false");
  const master=randomUUID(),co=randomUUID(),observer=randomUUID(),company=randomUUID();
  for(const id of [master,co,observer])await sql`INSERT INTO auth.users VALUES(${id},'goals@test.test','{}')`;
  const institution=await require('./institution-fixture.cjs')(sql,[master,co,observer],master);
@@ -309,6 +309,49 @@ async function main() {
  assert(presets.every(p=>p.abilities.length===3&&p.weaknesses.length===0&&p.restrictions.length===0));
  for(const role of ['anon','authenticated'])assert.equal((await sql`select has_table_privilege(${role},'public.card_modifier_definitions','SELECT,INSERT,UPDATE,DELETE') allowed`)[0].allowed,false);
  console.log('PASS 0028: zero compatibility; selectable/custom modifiers; own catalogue; limited/passive abilities; weaknesses; private restrictions and SSR; presets; DB validation; stale revision; historical independence; Reset/successor.');
+
+ // #106 / D-46: archetype. Copied in every path (base -> game, successor, Reset, restart of a completed game), frozen
+ // with the rest of the card after Start, deduced on read only from the exact template text when it was never set.
+ const z=await fixture(),zs=campaignScope(z.campaign),castorPreset=presets.find(p=>p.id==='castor');
+ await cards.saveCard(zs,master,{fields:{...fields,...castorPreset.fields},archetype:'castor'});
+ await cards.saveCard(zs,master,{fields:{...fields,name:'Sin arquetipo',department:'Recursos Humanos',visualIdentity:'🧭'}});
+ await cards.saveCard(zs,master,{fields:{...fields,name:'Zorro previo',visualIdentity:'El Zorro'}});
+ await cards.saveCard(zs,master,{fields:{...fields,name:'Emoji solo',visualIdentity:'🐂'}});
+ await assert.rejects(cards.saveCard(zs,master,{fields,archetype:'leon'}),/Arquetipo inválido/);
+ await assert.rejects(sql`update campaign_role_cards set archetype='leon',revision=revision+1 where campaign_id=${z.campaign}`,/archetype_valid/);
+ const byName=list=>Object.fromEntries(list.map(c=>[c.name,c.archetype]));
+ const expected={[castorPreset.fields.name]:'castor','Sin arquetipo':'ninguno','Zorro previo':'zorro','Emoji solo':'toro'};
+ assert.deepEqual(byName((await cards.readCards(zs,master)).cards),expected,'campaign cards: explicit or deduced on read');
+ // Not set = stored null (never backfilled); the deduction only happens on read.
+ assert.deepEqual((await sql`select name,archetype from campaign_role_cards where campaign_id=${z.campaign} order by name`).map(r=>[r.name,r.archetype]),
+  [['Emoji solo',null],[castorPreset.fields.name,'castor'],['Sin arquetipo',null],['Zorro previo',null]]);
+ for(const c of (await cards.readCards(zs,master)).cards)await cards.addCardToGame(z.game,master,c.id);
+ const zg=()=>cards.readCards(gameScope(z.game),master);
+ assert.deepEqual(byName((await zg()).cards),expected,'base -> game copies the archetype');
+ assert.equal((await sql`select archetype from game_role_cards where game_id=${z.game} and name=${castorPreset.fields.name}`)[0].archetype,'castor');
+ for(const actor of [co,observer])assert.deepEqual(byName((await cards.readCards(gameScope(z.game),actor)).cards),expected,'every staff role sees the archetype');
+ // In preparation the game copy can change its archetype independently of the base.
+ const zc=(await zg()).cards.find(c=>c.name===castorPreset.fields.name);
+ await cards.saveCard(gameScope(z.game),master,{id:zc.id,revision:zc.revision,fields:{...fields,...castorPreset.fields},archetype:'buho'});
+ assert.equal((await zg()).cards.find(c=>c.id===zc.id).archetype,'buho');assert.equal(byName((await cards.readCards(zs,master)).cards)[castorPreset.fields.name],'castor');
+ const expectedGame={...expected,[castorPreset.fields.name]:'buho'};
+ // Frozen after Start: guard_role_card rejects the archetype like any other field.
+ await startGame(z.game);
+ await assert.rejects(sql`update game_role_cards set archetype='toro',revision=revision+1 where id=${zc.id}`,/ROLE_CARD_FROZEN/);
+ await assert.rejects(cards.saveCard(gameScope(z.game),master,{id:zc.id,revision:zc.revision+1,fields:{...fields,...castorPreset.fields},archetype:'toro'}));
+ assert.deepEqual(byName((await zg()).cards),expectedGame);
+ // Reset keeps the pre-Start archetypes.
+ await lifecycle.resetGame(master,{gameId:z.game,operationId:randomUUID()});assert.deepEqual(byName((await zg()).cards),expectedGame,'Reset keeps the archetype');
+ // Successor (next game) and restart of a completed game copy it from the previous game.
+ await startGame(z.game);await roundAction(z.game,'start');await roundAction(z.game,'finish');await lifecycle.finishGame(master,{gameId:z.game,operationId:randomUUID()});
+ const zNext=(await games.createGame({campaignId:z.campaign,profileId:master,name:'Arquetipo siguiente',type:'custom'})).game.id;
+ assert.deepEqual(byName((await cards.readCards(gameScope(zNext),master)).cards),expectedGame,'successor copies the archetype');
+ assert.deepEqual((await sql`select name,archetype from game_role_cards where game_id=${zNext} order by name`).map(r=>r.archetype),[null,'buho',null,null],'copies keep null (deduced on read), never backfilled');
+ await lifecycle.deleteGame(master,{gameId:zNext,operationId:randomUUID()});
+ const restarted=(await lifecycle.restartCompletedGame(master,{gameId:z.game,operationId:randomUUID()}));
+ const restartedId=restarted.gameId??restarted.game?.id??restarted.id;
+ assert.deepEqual(byName((await cards.readCards(gameScope(restartedId),master)).cards),expectedGame,'restarting a completed game copies the archetype');
+ console.log('PASS 0035: archetype copied base->game, successor, Reset and restart; frozen after Start; deduced on read only from template text; CHECK and server validation.');
  console.log('PASS Fichas: base create/edit; independent copies; secret projection; membership/roles; revision concurrency; preparation/Start/evaluation/completed guards; Reset; successor; Delete; empty game; composite FK; RLS.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>sql.end());

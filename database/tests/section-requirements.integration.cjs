@@ -56,7 +56,7 @@ async function main() {
  const legacyCampaign=randomUUID();await sql`INSERT INTO campaigns(id,company_id,name,created_by) VALUES(${legacyCampaign},${company},'Legacy',${master})`;
  const legacy={};
  await sql.begin(async tx=>{await tx`SET LOCAL session_replication_role = replica`;let n=0;for(const status of ['draft','ready','active','evaluation','completed']){legacy[status]=randomUUID();await tx`INSERT INTO games(id,campaign_id,sequence,name,status) VALUES(${legacy[status]},${legacyCampaign},${n++},${'Legacy '+status},${status})`;}});
- await migrate('0033_section_requirements.sql');
+ await migrate('0033_section_requirements.sql');await migrate('0035_card_archetype.sql');
  for(const [status,id] of Object.entries(legacy)){const [g]=await sql`SELECT goals_required,rules_required FROM games WHERE id=${id}`;assert.equal(g.goals_required,!['draft','ready'].includes(status),status);assert.equal(g.rules_required,false,status);}
  console.log('PASS option (b): only draft/ready games end with goals optional; rules stay optional; others keep defaults');
 
