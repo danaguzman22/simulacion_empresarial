@@ -45,7 +45,9 @@ export function RoleCardView({ card, secret, actions }: { card: RoleCardData; se
         })}
       </div>}
       {card.abilities.length > 0 && <ul className="grid gap-1.5">{card.abilities.map((a, i) => <li key={i} className="flex gap-2 rounded-lg border border-white/10 bg-slate-800/50 px-2.5 py-2 text-xs text-slate-300">
-        {a.useLimit !== null && <span className="flex shrink-0 flex-col gap-0.5 pt-0.5" aria-label={`${scopeLabel(a)}`}>{Array.from({ length: Math.min(a.useLimit, 6) }, (_, k) => <span key={k} className="block size-3.5 rounded-[3px] border" style={{ borderColor: accent }} />)}</span>}
+        {/* Passive abilities are always on: no use boxes. Limited ones show one box per use (visual only; see "Habilidades utilizables"). */}
+        {a.type === "passive" ? <span className="h-fit shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider" style={{ borderColor: accent, color: accent }}>Siempre activa</span>
+          : a.useLimit !== null && <span className="flex shrink-0 flex-col gap-0.5 pt-0.5" aria-label={`${scopeLabel(a)}`}>{Array.from({ length: Math.min(a.useLimit, 6) }, (_, k) => <span key={k} className="block size-3.5 rounded-[3px] border" style={{ borderColor: accent }} />)}</span>}
         <span><b className="block text-[13px] text-white">{a.name}</b>
           <em className="my-0.5 block text-[10px] font-extrabold uppercase not-italic tracking-[0.1em]" style={{ color: accent }}>{abilityTypes[a.type]}{scopeLabel(a) ? ` · ${scopeLabel(a)}` : ""}</em>
           <span className="whitespace-pre-wrap">{a.description}</span>{a.condition && <span className="mt-0.5 block text-slate-400">Se activa: {a.condition}</span>}</span>
@@ -58,7 +60,8 @@ export function RoleCardView({ card, secret, actions }: { card: RoleCardData; se
         <p className="text-[10px] font-extrabold uppercase tracking-[0.17em] text-amber-300">Objetivos</p>
         <p className="text-xs text-slate-300"><b className="text-[11px] uppercase tracking-wider text-white">Público</b> — {card.individualObjective || "Sin configurar."}</p>
         {secret}
-        {card.restrictions.map((r, i) => <p key={i} className="text-[11px] italic text-slate-400">Restricción{r.visibility === "private" ? " (privada)" : ""}: {r.name}{r.description ? ` — ${r.description}` : ""}{r.condition ? ` (${r.condition})` : ""}</p>)}
+        {/* Every restriction says its visibility the same way: "Pública" or "Privada". */}
+        {card.restrictions.map((r, i) => <p key={i} className="text-[11px] italic text-slate-400"><span className={`mr-1 rounded px-1 py-px text-[9px] font-bold uppercase not-italic tracking-wider ${r.visibility === "private" ? "bg-amber-400/15 text-amber-300" : "bg-white/10 text-slate-300"}`}>{r.visibility === "private" ? "Privada" : "Pública"}</span>Restricción: {r.name}{r.description ? ` — ${r.description}` : ""}{r.condition ? ` (${r.condition})` : ""}</p>)}
       </div>
       {actions && <div className="relative z-10 flex flex-wrap gap-2 border-t border-white/10 pt-2.5">{actions}</div>}
     </div>
