@@ -41,6 +41,25 @@ assert.equal(cardAccent({archetype:'ninguno',department:'Ventas'}),departmentCol
 console.log('PASS colors: archetype palette, department palette of 8');
 
 // Templates are plain text: no LaTeX leftovers like $2\text{d}12$ (they used to reach the cards as is).
-for(const p of presets){const text=JSON.stringify(p);assert(!/\$[^$]*\$/.test(text)&&!/\\[a-zA-Z]+\{/.test(text),`LaTeX in template ${p.id}`);}
+// Dollar amounts ($7.000) are fine; LaTeX commands (\text{…}) are not, inside $…$ or alone.
+for(const p of presets){const text=JSON.stringify(p);assert(!/\\\\[a-zA-Z]+\{/.test(text)&&!/\$[^$\s]*\\\\/.test(text),`LaTeX in template ${p.id}`);}
+assert(/\\\\[a-zA-Z]+\{/.test(JSON.stringify({d:'tirar $2\\text{d}12$'})),'the check catches the old LaTeX');
 assert(JSON.stringify(presets.find(p=>p.id==='zorro')).includes('tirar 2d12 y quedarse'));
 console.log('PASS templates without LaTeX');
+
+// D-47: each template carries the C&D prototype's objectives, weakness and restriction, exactly.
+const expected={
+ buho:{pub:'Lead Time ≤ 15 días con un presupuesto ≤ $10.000 USD.',sec:'Lograr el objetivo gastando ≤ $7.000 USD.',weak:['Aversión al Riesgo','Desventaja en decisiones si el presupuesto disponible baja de $3.000 USD.'],res:['Revelación tardía','Revela su meta secreta recién en la Ronda 3.','private']},
+ zorro:{pub:'Garantizar la satisfacción del cliente principal.',sec:'El cliente tolera hasta 20 días de plazo si la calidad es consistente.',weak:['Sobrevender','Penalización general de −2 si incumple un plazo que prometió.'],res:['Tolerancia oculta','Oculta la tolerancia de 20 días hasta que haya riesgo de quiebra en R4.','private']},
+ castor:{pub:'Modernizar la tecnología de la planta.',sec:'Comprar el software ERP ($8.000 USD) en la Ronda 1 o 2.',weak:['Perfeccionismo','−2 en Negociación si la mesa rechaza el ERP en R1 o R2.'],res:['Rigor técnico','Bloquea propuestas informales que no pasen una tirada de Análisis CD 9.','public']},
+ toro:{pub:'Resolver la capacidad física del taller.',sec:'Comprar el Adaptador CNC ($2.500 USD) en la Ronda 1 o 2.',weak:['Intolerancia a la burocracia','−2 en sus tiradas si la mesa debate sobre software más de 3 minutos.'],res:['Rechazo al gasto en software','Vota en contra de todo gasto en software superior a $5.000 USD.','public']},
+ ardilla:{pub:'Mantener el flujo de caja positivo.',sec:'Reducir el inventario ($1.000 USD por semana) mediante un sistema Pull.',weak:['Resistencia al cambio','−2 en sus tiradas durante la ronda siguiente a un evento financiero imprevisto.'],res:['Tope de gasto','Bloquea todo gasto superior a $5.000 USD, salvo que Dirección use Visión Sistémica.','public']},
+};
+assert.deepEqual(JSON.parse(JSON.stringify(presets.map(p=>p.id))).sort(),Object.keys(expected).sort());
+for(const p of presets){
+ const e=expected[p.id],plain=x=>JSON.parse(JSON.stringify(x));
+ assert.equal(p.fields.individualObjective,e.pub,p.id+' public objective');assert.equal(p.fields.secretObjective,e.sec,p.id+' secret objective');
+ assert.deepEqual(plain(p.weaknesses),[{name:e.weak[0],description:'',condition:'',consequence:e.weak[1]}],p.id+' weakness');
+ assert.deepEqual(plain(p.restrictions),[{name:e.res[0],description:e.res[1],condition:'',visibility:e.res[2]}],p.id+' restriction');
+}
+console.log('PASS templates carry the C&D objectives, weakness and restriction (secret-related restrictions private)');

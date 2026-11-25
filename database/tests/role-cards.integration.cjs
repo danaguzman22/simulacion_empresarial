@@ -209,7 +209,8 @@ async function main() {
 
  const presets=module('cards/domain/card-presets').cardPresets,domain=module('cards/domain/card');
  assert.equal(presets.length,5);assert.deepEqual(JSON.parse(JSON.stringify(presets.find(p=>p.id==='castor').modifiers)),{ana:3,vis:1,neg:0,ope:1,ada:0});
- for(const preset of presets) {assert.equal(preset.responsibilities.length,5);assert(!('secretObjective' in preset.fields));}
+ // D-47: templates bring public and secret objectives (the secret is only ever read by the Master).
+ for(const preset of presets) {assert.equal(preset.responsibilities.length,5);assert(preset.fields.individualObjective&&preset.fields.secretObjective);}
  const x=await fixture(),xs=campaignScope(x.campaign);
  const custom=await cards.createResponsibility(xs,master,'  Coordinar   la operacion. ');
  await cards.createResponsibility(xs,master,'COORDINAR LA OPERACION');
@@ -306,7 +307,7 @@ async function main() {
  assert.equal(JSON.stringify((await cards.readCards(gameScope(v.game),master)).cards),beforeV);
  assert.equal(presets.find(p=>p.id==='castor').configuredModifiers.length,3);
  assert(presets.find(p=>p.id==='castor').abilities.find(a=>a.name.startsWith('Filtro')).description.includes('CD 11'));
- assert(presets.every(p=>p.abilities.length===3&&p.weaknesses.length===0&&p.restrictions.length===0));
+ assert(presets.every(p=>p.abilities.length===3&&p.weaknesses.length===1&&p.restrictions.length===1),'D-47: one weakness and one restriction per template');
  for(const role of ['anon','authenticated'])assert.equal((await sql`select has_table_privilege(${role},'public.card_modifier_definitions','SELECT,INSERT,UPDATE,DELETE') allowed`)[0].allowed,false);
  console.log('PASS 0028: zero compatibility; selectable/custom modifiers; own catalogue; limited/passive abilities; weaknesses; private restrictions and SSR; presets; DB validation; stale revision; historical independence; Reset/successor.');
 
