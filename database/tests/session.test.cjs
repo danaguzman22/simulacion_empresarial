@@ -2,7 +2,13 @@ const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),asse
 const {createRequire}=require('node:module');const base=path.resolve(__dirname,'../../apps/web'),req=createRequire(base+'/package.json'),ts=req('typescript');
 const run=(file,require)=>{const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(base+'/src/'+file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports,require:require??(()=>{throw new Error('unexpected import');}),process});return exports;};
 const domain=run('features/session/domain/session.ts'),watch=run('features/session/domain/session-watch.ts');
-const {roleLabel,personName,pickActiveInstitution,bestCampaignRole,isSessionArea,areaHome}=domain;
+const {roleLabel,personName,pickActiveInstitution,bestCampaignRole,isSessionArea,areaHome,availableAreas}=domain;
+// "Ir a": fixed order, Mis instituciones always, the rest only with access.
+const areas=a=>JSON.parse(JSON.stringify(availableAreas(a))).map(x=>[x.label,x.href]);
+assert.deepEqual(areas({participant:false,panel:false,nexus:false}),[['Mis instituciones','/instituciones']]);
+assert.deepEqual(areas({participant:true,panel:true,nexus:true}),[['Mis partidas','/alumno'],['Panel','/master'],['Mis instituciones','/instituciones'],['Administración de NEXUS','/nexus']]);
+assert.deepEqual(areas({participant:false,panel:true,nexus:false}),[['Panel','/master'],['Mis instituciones','/instituciones']]);
+console.log('PASS Ir a: only the areas with access, Mis instituciones always');
 const A={id:'11111111-1111-4111-8111-111111111111',name:'Alfa',role:'teacher'},B={id:'22222222-2222-4222-8222-222222222222',name:'Beta',role:'member'},C={id:'33333333-3333-4333-8333-333333333333',name:'Gama',role:'admin'};
 
 // D-38: generic labels; the interface never says "Alumno".

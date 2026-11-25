@@ -111,5 +111,24 @@ async function main() {
  const payload=JSON.stringify([await students.listAssignedGames(person,B),await students.listAssignedGames(person,C),await companies.findCompaniesCreatedBy(person,B),await companies.findCompaniesCreatedBy(person,C)]);
  for(const hidden of ['BETA','GAMA','GAME-B','GAME-C','COMPANY-B','COMPANY-C','OWN-C'])assert(!payload.includes(hidden),'nothing of B or C: '+hidden);
  console.log('PASS listings: participant games and panel companies of the active institution only; nothing of a foreign or revoked institution');
+
+ // "Ir a" (user menu): areas decided on the server with each area's own rule.
+ const plain=x=>JSON.parse(JSON.stringify(x));
+ assert.deepEqual(plain(await session.readAreaAccess(person)),{participant:true,panel:true},'card in A and teacher in A');
+ assert.deepEqual(plain(await session.readAreaAccess(masterB)),{participant:false,panel:true},'Master of a campaign, no card');
+ const outsider=randomUUID(),observerOnly=randomUUID(),revokedPlayer=randomUUID();
+ await sql`INSERT INTO auth.users VALUES(${outsider},'outsider@test.test','{}'),(${observerOnly},'observer-only@test.test','{}'),(${revokedPlayer},'revoked-player@test.test','{}')`;
+ assert.deepEqual(plain(await session.readAreaAccess(outsider)),{participant:false,panel:false},'nothing: only Mis instituciones');
+ await sql`insert into institution_members(institution_id,profile_id,role,granted_by) values(${B},${observerOnly},'member',${masterB})`;
+ await sql`INSERT INTO campaign_members(campaign_id,profile_id,role) VALUES(${b.campaign},${observerOnly},'observer')`;
+ assert.deepEqual(plain(await session.readAreaAccess(observerOnly)),{participant:false,panel:true},'an Observer reaches the panel');
+ // A card in an institution the person was later removed from does not open "Mis partidas".
+ await sql`insert into institution_members(institution_id,profile_id,role,granted_by) values(${A},${revokedPlayer},'member',${masterA})`;
+ await assignments.changeAssignment(masterA,{gameId:a.game,cardId:(await cards.readCards({kind:'game',id:a.game},masterA)).cards[0].id,email:'revoked-player@test.test',operation:'add',assignmentId:'',expectedRevision:0});
+ assert.deepEqual(plain(await session.readAreaAccess(revokedPlayer)),{participant:true,panel:false});
+ const [removed]=await sql`select id,revision from institution_members where institution_id=${A} and profile_id=${revokedPlayer}`;
+ await module('institutions/repositories/institution.repository').changeInstitutionMember(masterA,A,removed.id,removed.revision,'revoke');
+ assert.deepEqual(plain(await session.readAreaAccess(revokedPlayer)),{participant:false,panel:false},'revoked: the old card does not count');
+ console.log('PASS Ir a: Mis partidas only with a card, Panel for teachers and campaign staff, nothing from a revoked institution');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>sql.end());
