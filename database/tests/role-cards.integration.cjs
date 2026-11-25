@@ -352,6 +352,45 @@ async function main() {
  const restartedId=restarted.gameId??restarted.game?.id??restarted.id;
  assert.deepEqual(byName((await cards.readCards(gameScope(restartedId),master)).cards),expectedGame,'restarting a completed game copies the archetype');
  console.log('PASS 0035: archetype copied base->game, successor, Reset and restart; frozen after Start; deduced on read only from template text; CHECK and server validation.');
+
+ // "Traer fichas de la campaña": base cards created after the game, all or some, only in preparation, never duplicated.
+ const y=await fixture(),ys=campaignScope(y.campaign),yg=gameScope(y.game);
+ assert.equal((await cards.readCards(yg,master)).cards.length,0,'the game was created before any base card');
+ for(const name of ['Base uno','Base dos','Base tres'])await cards.saveCard(ys,master,{fields:{...fields,name}});
+ const bases=Object.fromEntries((await cards.readCards(ys,master)).cards.map(c=>[c.name,c.id]));
+ const offered=()=>cards.readCards(yg,master).then(d=>JSON.parse(JSON.stringify(d.available)).map(c=>c.name).sort());
+ assert.deepEqual(await offered(),['Base dos','Base tres','Base uno']);
+ assert.deepEqual(JSON.parse(JSON.stringify((await cards.readCards(yg,master)).available[0])).department!==undefined,true,'the list shows the department');
+ assert.equal((await cards.addCampaignCardsToGame(y.game,master,[bases['Base uno']])).added,1);
+ const first=(await cards.readCards(yg,master)).cards[0];
+ await cards.saveCard(yg,master,{id:first.id,revision:first.revision,fields:{...fields,name:'Base uno',description:'Cambiada en la partida'}});
+ // Bringing again (all): only the missing ones; the one already in the game is not touched nor duplicated.
+ assert.equal((await cards.addCampaignCardsToGame(y.game,master,Object.values(bases))).added,2);
+ const inGame=(await cards.readCards(yg,master)).cards;
+ assert.equal(inGame.length,3);assert.equal(inGame.find(c=>c.id===first.id).description,'Cambiada en la partida');assert.equal(inGame.find(c=>c.id===first.id).revision,first.revision+1);
+ assert.deepEqual(await offered(),[]);
+ assert.equal((await cards.addCampaignCardsToGame(y.game,master,Object.values(bases))).added,0,'nothing left to bring');
+ // Who added each copy, when and from which base stays in the copy.
+ for(const row of await sql`select created_by,source_card_id from game_role_cards where game_id=${y.game}`){assert.equal(row.created_by,master);assert(Object.values(bases).includes(row.source_card_id));}
+ // Server validation: only base cards of this campaign, a list of valid ids, only the Master.
+ const foreign=(await cards.readCards(campaignScope(z.campaign),master)).cards[0].id;
+ await assert.rejects(cards.addCampaignCardsToGame(y.game,master,[foreign]),/Ficha base no disponible/);
+ for(const bad of [[],'x',['not-a-uuid'],null])await assert.rejects(cards.addCampaignCardsToGame(y.game,master,bad));
+ await cards.saveCard(ys,master,{fields:{...fields,name:'Base cuatro'}});const fourth=(await cards.readCards(ys,master)).cards.find(c=>c.name==='Base cuatro').id;
+ for(const actor of [co,observer])await assert.rejects(cards.addCampaignCardsToGame(y.game,actor,[fourth]));
+ // Never in a started game: the server refuses and the database too.
+ await startGame(y.game);
+ await assert.rejects(cards.addCampaignCardsToGame(y.game,master,[fourth]),/preparación/);
+ await assert.rejects(sql`insert into game_role_cards(game_id,campaign_id,source_card_id,name,created_by,updated_by) values(${y.game},${y.campaign},${fourth},'Directa',${master},${master})`,/ROLE_CARD_FROZEN/);
+ assert.equal((await cards.readCards(yg,master)).cards.length,3);
+ // The form action: "add_many" with several sourceId values.
+ const y2=await fixture(),y2s=campaignScope(y2.campaign);
+ for(const name of ['Accion uno','Accion dos'])await cards.saveCard(y2s,master,{fields:{...fields,name}});
+ const formData=new Map([['kind','game'],['scopeId',y2.game],['operation','add_many']]);
+ const ids=(await cards.readCards(y2s,master)).cards.map(c=>c.id);
+ sessionActor=master;const result=await actions.cardAction({},{get:k=>formData.get(k)??null,getAll:k=>k==='sourceId'?ids:[]});sessionActor=null;
+ assert.equal(result.success,'Se trajeron 2 fichas de la campaña.');assert.equal((await cards.readCards(gameScope(y2.game),master)).cards.length,2);
+ console.log('PASS bring campaign cards: missing ones only, all or some, never duplicated nor touched, Master only, never after Start (server and database).');
  console.log('PASS Fichas: base create/edit; independent copies; secret projection; membership/roles; revision concurrency; preparation/Start/evaluation/completed guards; Reset; successor; Delete; empty game; composite FK; RLS.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>sql.end());

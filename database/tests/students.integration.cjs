@@ -207,5 +207,34 @@ async function main() {
  await assert.rejects(sql`insert into game_card_assignments(game_id,campaign_id,card_id,profile_id,updated_by) values(${b.game},${b.campaign},${engineering},${s3},${master})`);
  assert.equal((await sql`select * from game_card_assignments where game_id=${a.game}`).length,2);
  console.log('PASS RLS/privileges and composite FK prevent cross-campaign assignment');
+
+ // Equipos picker (0036): active members of the institution not yet in the game, with their e-mail, only for the Master.
+ const pickA=randomUUID(),pickB=randomUUID(),pickRevoked=randomUUID(),pickOutsider=randomUUID();
+ await sql`INSERT INTO auth.users VALUES(${pickA},'pick-a@test.test','{}'),(${pickB},'pick-b@test.test','{}'),(${pickRevoked},'pick-revoked@test.test','{}'),(${pickOutsider},'pick-outsider@test.test','{}')`;
+ for(const profile of [pickA,pickB,pickRevoked])await sql`insert into institution_members(institution_id,profile_id,granted_by) values(${institution},${profile},${master})`;
+ const [revokedRow]=await sql`select id,revision from institution_members where institution_id=${institution} and profile_id=${pickRevoked}`;
+ await module('institutions/repositories/institution.repository').changeInstitutionMember(master,institution,revokedRow.id,revokedRow.revision,'revoke');
+ const p=await fixture(),pickCard=await makeCard(p,'Picker');
+ const emails=async(actor=master)=>JSON.parse(JSON.stringify((await assignments.readParticipants(p.game,actor)).candidates)).map(c=>c.email).sort();
+ let offered=await emails();
+ assert(offered.includes('pick-a@test.test')&&offered.includes('pick-b@test.test'),'active members are offered with their e-mail');
+ assert(!offered.includes('pick-revoked@test.test'),'a revoked member is not offered');assert(!offered.includes('pick-outsider@test.test'),'someone outside the institution is not offered');
+ const named=JSON.parse(JSON.stringify((await assignments.readParticipants(p.game,master)).candidates)).find(c=>c.email==='pick-a@test.test');
+ assert.deepEqual(Object.keys(named).sort(),['email','id','name']);assert.equal(named.id,pickA);
+ // Chosen from the list: added by profile id with the same checks as by e-mail.
+ const addById=(profileId,actor=master)=>assignments.changeAssignment(actor,{gameId:p.game,cardId:pickCard,email:'',profileId,operation:'add',assignmentId:'',expectedRevision:0});
+ await addById(pickA);
+ offered=await emails();assert(!offered.includes('pick-a@test.test'),'whoever is already in the game is not offered again');assert(offered.includes('pick-b@test.test'));
+ await assert.rejects(addById(pickRevoked),/membresía aprobada/);await assert.rejects(addById(pickOutsider),/membresía aprobada/);await assert.rejects(addById(randomUUID()),/membresía aprobada/);
+ await assert.rejects(addById('not-a-uuid'),/Elegí al integrante/);
+ for(const actor of [co,observer])await assert.rejects(addById(pickB,actor));
+ // Typing the e-mail still works for someone who is not in the list.
+ await assignments.changeAssignment(master,{gameId:p.game,cardId:pickCard,email:'pick-b@test.test',operation:'add',assignmentId:'',expectedRevision:0});
+ assert.equal((await assignments.readParticipants(p.game,master)).members.length,2);
+ // Only the Master gets candidates; the database function returns nothing to anyone else and is not callable from the browser roles.
+ for(const actor of [co,observer]){const r=await assignments.readParticipants(p.game,actor);assert.equal(r.canManage,false);assert.equal(r.candidates.length,0);}
+ for(const actor of [co,observer,pickB,pickOutsider])assert.equal((await sql`select * from public.game_assignment_candidates(${p.game}::uuid,${actor}::uuid)`).length,0,'no candidates for '+actor);
+ for(const role of ['anon','authenticated'])assert.equal((await sql`select has_function_privilege(${role},'public.game_assignment_candidates(uuid,uuid)','EXECUTE') as allowed`)[0].allowed,false);
+ console.log('PASS Equipos picker: active members not in the game with e-mail, Master only, add by id or by e-mail with the same checks');
 }
 main().then(()=>sql.end()).catch(async error=>{console.error(error);await sql.end();process.exitCode=1;});
