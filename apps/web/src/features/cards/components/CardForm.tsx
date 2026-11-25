@@ -73,7 +73,7 @@ export function CardForm({ scope, card, catalogue, modifierCatalogue, doneHref }
     <input type="hidden" name="kind" value={scope.kind} /><input type="hidden" name="scopeId" value={scope.id} /><input type="hidden" name="operation" value="save" />
     <input type="hidden" name="cardId" value={card?.id ?? ""} /><input type="hidden" name="revision" value={card?.revision ?? 0} />
     <label className="block text-sm">Ficha prediseñada<select defaultValue="" onChange={e => applyPreset(e.target.value)} className="mt-1 block w-full rounded-xl border border-white/15 bg-slate-950 p-3"><option value="">Elegir una plantilla…</option>{cardPresets.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
-    <p className="text-xs text-slate-400">Elegir una plantilla completa los campos públicos, responsabilidades, modificadores y habilidades de todas las secciones. Podés editarlos antes de guardar.</p>
+    <p className="text-xs text-slate-400">Elegir una plantilla completa todas las secciones: identidad, responsabilidades, modificadores, habilidades, debilidad, restricción y objetivos (el secreto queda como Solo Master). Podés editarlos antes de guardar.</p>
     <div className="grid gap-6 md:grid-cols-[14rem_1fr]">
     <nav aria-label="Secciones de la ficha" className="overflow-x-auto md:overflow-visible">
       <ul className="flex min-w-max gap-2 border-b border-white/10 pb-2 md:min-w-0 md:flex-col md:border-b-0 md:border-r md:pb-0 md:pr-4">
