@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { archetypeInfo, cardAccent, type Archetype } from "../domain/archetype";
 import { abilityTypes, type Ability, type CardModifier, type Restriction, type Weakness } from "../domain/card-structure";
-import { ArchetypeArt } from "./ArchetypeArt";
+import { ArchetypeIllustration } from "./ArchetypeIllustration";
 
 // What the card shows. It only receives what the server already lets this person see (readCards / readAssignedCard):
 // private fields and secrets simply are not in the object for whoever cannot read them.
@@ -24,7 +24,7 @@ export function RoleCardView({ card, secret, actions }: { card: RoleCardData; se
   const style = { "--acc": accent, borderColor: `color-mix(in srgb, ${accent} 40%, transparent)` } as CSSProperties;
   return <article style={style} className="flex flex-col overflow-hidden rounded-2xl border bg-gradient-to-b from-slate-900 to-slate-950 shadow-xl shadow-black/40">
     <div className="relative aspect-[16/10] overflow-hidden bg-slate-950">
-      {archetype ? <ArchetypeArt archetype={archetype} idPrefix={`c${card.id}-`} />
+      {archetype ? <ArchetypeIllustration archetype={archetype} idPrefix={`c${card.id}-`} />
         : <div className="grid h-full place-items-center text-6xl" style={{ background: `radial-gradient(circle at 50% 40%, color-mix(in srgb, ${accent} 45%, transparent), #020617 70%)` }} aria-hidden>{card.visualIdentity || "◆"}</div>}
       <span className="pointer-events-none absolute inset-[7px] rounded-md border" style={{ borderColor: `color-mix(in srgb, ${accent} 45%, transparent)` }} />
       <span className="absolute left-3 top-3 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-white shadow" style={{ background: `color-mix(in srgb, ${accent} 85%, black)` }}>{card.department || "Sin departamento"}</span>
