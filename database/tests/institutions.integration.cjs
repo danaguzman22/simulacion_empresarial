@@ -142,8 +142,11 @@ async function main() {
  await begin();assert.equal((await students.readAssignedCard(game,student)).card.privateInformation,'PRIVATE');assert(!JSON.stringify(await students.readAssignedCard(game,student)).includes('SECRET'));
  sessionActor=master;assert.equal((await module('auth/application/get-experiences').getExperiences()).participant,false);
  sessionActor=student;assert.equal((await module('auth/application/get-experiences').getExperiences()).teacher,false);
- // A genuine dual relationship enables both experiences, not the login URL.
- await assignment.changeAssignment(master,{gameId:game,cardId:card,email:'master@test.test',operation:'add',assignmentId:'',expectedRevision:0});sessionActor=master;const dual=await module('auth/application/get-experiences').getExperiences();assert(dual.teacher&&dual.participant);
+ // D-48: the Master is never a member of their own campaign's games.
+ await assert.rejects(assignment.changeAssignment(master,{gameId:game,cardId:card,email:'master@test.test',operation:'add',assignmentId:'',expectedRevision:0}),/Master, Co-Master u Observador/);
+ // A genuine dual relationship (teacher in the institution and member of a game where they have no campaign role) enables both experiences, not the login URL.
+ const [lateMember]=await sql`select * from institution_members where profile_id=${late} and institution_id=${i}`;await repo.changeInstitutionMember(master,i,lateMember.id,lateMember.revision,'teacher');
+ sessionActor=late;const dual=await module('auth/application/get-experiences').getExperiences();assert(dual.teacher&&dual.participant);
  await repo.changeInstitutionMember(master,i,studentMember.id,studentMember.revision,'revoke');
  assert.equal(await students.readAssignedCard(game,student),null);assert.equal((await students.listAssignedGames(student)).length,0);
  const [coMember]=await sql`select * from institution_members where profile_id=${co} and institution_id=${i}`;
@@ -153,7 +156,7 @@ async function main() {
  await assert.rejects(prep.readPreparation(game,co));assert.equal(await teacher.isTeacherAccount(co),false);
  await assert.rejects(repo.changeInstitutionMember(master,i,studentMember.id,studentMember.revision,'teacher'),/Recarg/);
  console.log('PASS explicit linking, no unlink/reparent, approved assignments only, cross-institution denial, dual experiences, immediate revocation and stale revision');
- await lifecycle.resetGame(master,{gameId:game,operationId:randomUUID()});assert.equal((await sql`select * from game_card_assignments where game_id=${game}`).length,3);
+ await lifecycle.resetGame(master,{gameId:game,operationId:randomUUID()});assert.equal((await sql`select * from game_card_assignments where game_id=${game}`).length,2,'student and late (D-48: the Master is not a member)');
  await begin();let r=(await rounds.readRounds(game,master)).rounds[0];await rounds.mutateRound(master,{gameId:game,roundId:r.id,operation:'start',operationId:randomUUID(),expectedRevision:r.revision});r=(await rounds.readRounds(game,master)).rounds[0];await rounds.mutateRound(master,{gameId:game,roundId:r.id,operation:'finish',operationId:randomUUID(),expectedRevision:r.revision});await lifecycle.finishGame(master,{gameId:game,operationId:randomUUID()});
  assert((await students.readAssignedCard(game,late)).game.status==='completed');
  const successor=(await module('games/repositories/game.repository').createGame({campaignId:campaign,profileId:master,name:'Successor',type:'custom'})).game.id;

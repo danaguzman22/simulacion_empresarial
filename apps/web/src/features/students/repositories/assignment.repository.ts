@@ -42,6 +42,9 @@ export async function changeAssignment(actorId: string, command: AssignmentComma
       if (users.length !== 1) throw new AssignmentError("No se encontró una cuenta con membresía aprobada en esta institución. La persona debe solicitar acceso primero.");
       const profileId = String(users[0].profile_id);
       await requireInstitutionMember(tx, company.institutionId, profileId, true);
+      // D-48: whoever has a role in the campaign (Master, Co-Master, Observer) is never a member of its games (the database refuses it too).
+      if ((await tx.execute(sql`select 1 from public.campaign_members where campaign_id=${game.campaignId}::uuid and profile_id=${profileId}::uuid`)).length)
+        throw new AssignmentError("Quien es Master, Co-Master u Observador de la campaña no puede ser integrante de sus partidas.");
       const [existing] = await tx.select().from(assignments).where(and(eq(assignments.gameId, game.id), eq(assignments.profileId, profileId)));
       if (existing?.cardId === command.cardId) return;
       if (existing) throw new AssignmentError("El participante ya tiene departamento. Usá Cambiar departamento para corregirlo.");
@@ -74,6 +77,8 @@ export async function copySuccessorAssignments(tx: Transaction, previousGameId: 
     join public.companies co on co.id = ca.company_id and co.institution_id is not null
     join public.institution_members m on m.institution_id = co.institution_id and m.profile_id = a.profile_id and m.status = 'active'
     where a.game_id = ${previousGameId}::uuid
+      -- D-48: someone who now has a role in the campaign is not carried over (same rule as adding a member).
+      and not exists (select 1 from public.campaign_members cm where cm.campaign_id = ${campaignId}::uuid and cm.profile_id = a.profile_id)
     returning id`);
   return copied.length;
 }
