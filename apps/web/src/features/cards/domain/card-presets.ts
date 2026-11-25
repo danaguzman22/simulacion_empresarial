@@ -135,7 +135,7 @@ export const cardPresets: CardPreset[] = [
       {
         "name": "Endulzar el Trato",
         "type": "passive",
-        "description": "Otorga Ventaja (tirar $2\\text{d}12$ y quedarse con el dado más alto) en cualquier tirada de Negociación frente a un cliente o proveedor externo exigente (NPC).",
+        "description": "Otorga Ventaja (tirar 2d12 y quedarse con el dado más alto) en cualquier tirada de Negociación frente a un cliente o proveedor externo exigente (NPC).",
         "condition": "",
         "useLimit": null,
         "useScope": null

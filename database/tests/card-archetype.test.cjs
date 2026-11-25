@@ -39,3 +39,8 @@ assert(departmentPalette.includes(departmentColor('Logística')));
 assert.equal(cardAccent({archetype:'zorro',department:'Ventas'}),'#ef8f4e');
 assert.equal(cardAccent({archetype:'ninguno',department:'Ventas'}),departmentColor('Ventas'));
 console.log('PASS colors: archetype palette, department palette of 8');
+
+// Templates are plain text: no LaTeX leftovers like $2\text{d}12$ (they used to reach the cards as is).
+for(const p of presets){const text=JSON.stringify(p);assert(!/\$[^$]*\$/.test(text)&&!/\\[a-zA-Z]+\{/.test(text),`LaTeX in template ${p.id}`);}
+assert(JSON.stringify(presets.find(p=>p.id==='zorro')).includes('tirar 2d12 y quedarse'));
+console.log('PASS templates without LaTeX');
