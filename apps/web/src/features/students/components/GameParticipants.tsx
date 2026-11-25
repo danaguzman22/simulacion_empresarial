@@ -10,6 +10,6 @@ export async function GameParticipants({ gameId }: { gameId: string }) {
       {!data.members.some(m => m.cardId === d.id) && <p className="text-slate-400">Sin integrantes.</p>}
       {data.members.filter(m => m.cardId === d.id).map(m => <div key={m.id} className="mt-3 flex flex-wrap items-end gap-x-4"><p className="pb-2 font-semibold">{m.name}</p>{data.canManage && <ParticipantForm key={`${m.id}-${m.revision}`} gameId={gameId} departments={data.departments} canAssign={!data.legacy} member={m} />}</div>)}
     </article>)}
-    {data.canManage && !data.legacy && data.departments.length > 0 && <ParticipantForm gameId={gameId} departments={data.departments} />}
+    {data.canManage && !data.legacy && data.departments.length > 0 && <ParticipantForm gameId={gameId} departments={data.departments} candidates={data.candidates} />}
   </section>;
 }
