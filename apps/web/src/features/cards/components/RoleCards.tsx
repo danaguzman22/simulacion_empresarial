@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCards } from "../application/card-actions";
 import type { CardScope, CardView } from "../domain/card";
-import { AddCardForm } from "./CardForm";
+import { BringCampaignCards } from "./BringCampaignCards";
 import { RoleCardView } from "./RoleCardView";
 
 // Where a card is seen and edited (#78, #106): its own screens, inside the campaign or the game.
@@ -38,6 +38,7 @@ export async function RoleCards({ scope }: { scope: CardScope }) {
         <Link href={view} aria-label={`Ver ${card.name}`} className="absolute inset-0 z-0 rounded-2xl focus-visible:outline-2 focus-visible:outline-sky-400" />
       </div>;
     })}</div>
-    {data.canEdit && scope.kind === "game" && data.available.length > 0 && <AddCardForm gameId={scope.id} available={data.available} />}
+    {/* Only while the game is in preparation (canEdit) and only for the Master. */}
+    {data.canEdit && scope.kind === "game" && <BringCampaignCards key={data.available.map(c => c.id).join()} gameId={scope.id} available={data.available} />}
   </section>;
 }

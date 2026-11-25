@@ -57,7 +57,7 @@ export async function readCards(scope: CardScope, actor: string) {
     const columns = ctx.role === "master" ? { ...publicColumns, privateInformation: gameRoleCards.privateInformation, secretObjective: gameRoleCards.secretObjective } : publicColumns;
     const cards = await tx.select({ ...columns, restrictions: visibleRestrictions(gameRoleCards.restrictions, ctx.role === "master") }).from(gameRoleCards).where(and(eq(gameRoleCards.gameId, scope.id), eq(gameRoleCards.campaignId, ctx.campaignId))).orderBy(asc(gameRoleCards.createdAt), asc(gameRoleCards.id));
     const associated = await tx.select({ id: gameRoleCards.sourceCardId }).from(gameRoleCards).where(eq(gameRoleCards.gameId, scope.id));
-    const catalogue = canEdit ? await tx.select({ id: campaignRoleCards.id, name: campaignRoleCards.name }).from(campaignRoleCards).where(eq(campaignRoleCards.campaignId, ctx.campaignId)).orderBy(asc(campaignRoleCards.name), asc(campaignRoleCards.id)) : [];
+    const catalogue = canEdit ? await tx.select({ id: campaignRoleCards.id, name: campaignRoleCards.name, department: campaignRoleCards.department, visualIdentity: campaignRoleCards.visualIdentity }).from(campaignRoleCards).where(eq(campaignRoleCards.campaignId, ctx.campaignId)).orderBy(asc(campaignRoleCards.name), asc(campaignRoleCards.id)) : [];
     const used = new Set(associated.map(c => c.id));
     return { cards: withArchetype(cards), modifierCatalogue, responsibilityCatalogue, available: catalogue.filter(c => !used.has(c.id)), canEdit, canReadPrivate: ctx.role === "master", campaignId: ctx.campaignId };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
@@ -116,6 +116,24 @@ export async function addCardToGame(gameId: string, actor: string, sourceId: str
     const ctx = await context(tx, { kind: "game", id: gameId }, actor, true);
     if (!canEditCards(ctx.role, ctx.editable)) throw new CardError("Solo el Master puede agregar fichas durante la preparación.");
     await copyCampaignCards(tx, ctx.campaignId, gameId, actor, sourceId);
+  });
+}
+// "Traer fichas de la campaña": the base cards the game does not have yet, all or some, while it is in preparation.
+// Same checks as adding one (Master, preparation, the card belongs to this campaign); guard_role_card rejects it in
+// the database once the game started, and the unique (game, source card) index never lets a card be duplicated.
+// Who added each card, when and from which base stays in the copy (created_by, created_at, source_card_id), which
+// guard_role_card keeps immutable.
+export async function addCampaignCardsToGame(gameId: string, actor: string, sourceIds: unknown) {
+  if (!Array.isArray(sourceIds) || !sourceIds.length || sourceIds.length > 100) throw new CardError("Elegí al menos una ficha de la campaña.");
+  const ids = [...new Set(sourceIds.map(String))];
+  ids.forEach(validId);
+  return db.transaction(async tx => {
+    const ctx = await context(tx, { kind: "game", id: gameId }, actor, true);
+    if (!canEditCards(ctx.role, ctx.editable)) throw new CardError("Las fichas de la campaña se traen solo mientras la partida está en preparación.");
+    const count = async () => (await tx.select({ id: gameRoleCards.id }).from(gameRoleCards).where(eq(gameRoleCards.gameId, gameId))).length;
+    const before = await count();
+    for (const id of ids) await copyCampaignCards(tx, ctx.campaignId, gameId, actor, id);
+    return { added: (await count()) - before };
   });
 }
 export async function copySuccessorCards(tx: Transaction, previousId: string, gameId: string, campaignId: string, actor: string) {

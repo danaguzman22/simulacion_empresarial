@@ -119,12 +119,3 @@ export function CardForm({ scope, card, catalogue, modifierCatalogue, doneHref }
     </div>
   </form>;
 }
-export function AddCardForm({ gameId, available }: { gameId: string; available: { id: string; name: string }[] }) {
-  const [state, action, pending] = useActionState(cardAction, {});
-  return <form action={action} className="mt-4 space-y-3">
-    <input type="hidden" name="kind" value="game" /><input type="hidden" name="scopeId" value={gameId} /><input type="hidden" name="operation" value="add" />
-    <label className="block text-sm">Agregar ficha de campaña<select name="sourceId" required className="ml-3 rounded-xl border border-white/15 bg-slate-950 p-2"><option value="">Seleccionar ficha…</option>{available.map(c => <option value={c.id} key={c.id}>{c.name}</option>)}</select></label>
-    {state.error && <p role="alert" className="text-red-300">{state.error}</p>}{state.success && <p role="status">{state.success}</p>}
-    <button disabled={pending} className="rounded-xl border border-sky-400 px-4 py-2 disabled:opacity-50">Agregar copia a esta partida</button>
-  </form>;
-}
