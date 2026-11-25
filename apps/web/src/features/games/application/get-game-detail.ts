@@ -43,6 +43,10 @@ export const getGameDetail = cache(async (gameId: string) => {
       createdAt: game.createdAt,
       campaignId: game.campaignId,
       campaignName: game.campaignName,
+      companyId: game.companyId,
+      companyName: game.companyName,
+      // The company page is only for its owner (getMasterCompany); for anyone else the route shows it without a link.
+      canOpenCompany: game.companyOwnerId === userId,
     },
   } as const;
 });

@@ -19,6 +19,7 @@ export async function readGameViewer(executor: typeof db | Transaction, gameId: 
   const [game] = await executor.select({
     id: games.id, sequence: games.sequence, name: games.name, description: games.description, type: games.type, status: games.status,
     createdAt: games.createdAt, periodLabel: games.periodLabel, campaignId: campaigns.id, campaignName: campaigns.name,
+    companyId: companies.id, companyName: companies.name, companyOwnerId: companies.createdBy,
   }).from(games).innerJoin(campaigns, eq(campaigns.id, games.campaignId)).innerJoin(companies, eq(companies.id, campaigns.companyId))
     .where(and(eq(games.id, gameId), institutionAccessSql(companies.id, actorId))).limit(1);
   if (!game) return null;
