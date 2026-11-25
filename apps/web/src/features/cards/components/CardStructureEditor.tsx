@@ -5,8 +5,10 @@ import { type CardScope } from "../domain/card";
 import { abilityTypes, builtInModifiers, type CardStructure, type ModifierDefinition } from "../domain/card-structure";
 
 const input = "mt-1 block w-full rounded-xl border border-white/15 bg-slate-950 p-2 text-sm";
-type Props = { scope: CardScope; value: CardStructure; onChange: (value: CardStructure) => void; catalogue: ModifierDefinition[] };
-export function CardStructureEditor({ scope, value, onChange, catalogue }: Props) {
+export type StructureSection = "modificadores" | "habilidades" | "debilidades" | "restricciones";
+// #78: one section visible at a time; all of them stay mounted so nothing typed is lost when changing section.
+type Props = { scope: CardScope; value: CardStructure; onChange: (value: CardStructure) => void; catalogue: ModifierDefinition[]; section: string };
+export function CardStructureEditor({ scope, value, onChange, catalogue, section }: Props) {
   const [added, setAdded] = useState<ModifierDefinition[]>([]);
   const [customName,setCustomName] = useState("");
   const [abbreviation,setAbbreviation] = useState("");
@@ -26,7 +28,7 @@ export function CardStructureEditor({ scope, value, onChange, catalogue }: Props
   }
   return <>
     <input type="hidden" name="structure" value={JSON.stringify(value)} />
-    <details className="rounded-xl border border-white/15 p-3"><summary className="cursor-pointer font-bold">Modificadores ({value.configuredModifiers.length})</summary>
+    <section hidden={section !== "modificadores"} data-section="modificadores" className="rounded-xl border border-white/15 p-4"><h3 className="text-lg font-bold">Modificadores ({value.configuredModifiers.length})</h3>
       <div className="mt-3 space-y-3">{options.map(m => {
         const selected = value.configuredModifiers.find(v => v.key===m.key);
         return <div key={m.key} className="flex items-center gap-3"><label className="flex flex-1 items-center gap-2"><input type="checkbox" checked={!!selected} onChange={e => onChange({...value,configuredModifiers:e.target.checked ? [...value.configuredModifiers,{key:m.key,name:m.name,abbreviation:m.abbreviation,value:0}] : value.configuredModifiers.filter(v=>v.key!==m.key)})} />{m.abbreviation} — {m.name}</label>
@@ -37,8 +39,8 @@ export function CardStructureEditor({ scope, value, onChange, catalogue }: Props
         <button type="button" disabled={pending || !customName.trim() || !abbreviation.trim()} onClick={createModifier} className="mt-3 rounded-xl border border-sky-400 px-3 py-2 disabled:opacity-50">{pending?"Guardando…":"Crear en mi catálogo"}</button>
         <p className="mt-2 text-xs text-slate-400">Después seleccioná el modificador y configurá su valor para esta ficha.</p>{error&&<p role="alert" className="text-red-300">{error}</p>}
       </div>
-    </details>
-    <details className="rounded-xl border border-white/15 p-3"><summary className="cursor-pointer font-bold">Habilidades del personaje ({value.abilities.length})</summary>
+    </section>
+    <section hidden={section !== "habilidades"} data-section="habilidades" className="rounded-xl border border-white/15 p-4"><h3 className="text-lg font-bold">Habilidades del personaje ({value.abilities.length})</h3>
       {value.abilities.map((a,index)=><fieldset key={index} className="mt-4 space-y-2 rounded-xl bg-slate-950/50 p-3"><legend>Habilidad {index+1}</legend>
         {([['name','Nombre'],['description','Descripción'],['condition','Condición de activación']] as const).map(([key,label])=><label key={key} className="block text-sm">{label}<textarea value={a[key]} maxLength={key==='name'?160:5000} required={key!=='condition'} rows={key==='name'?1:3} className={input} onChange={e=>onChange({...value,abilities:value.abilities.map((v,i)=>i===index?{...v,[key]:e.target.value}:v)})}/></label>)}
         <label className="block text-sm">Tipo<select value={a.type} className={input} onChange={e=>onChange({...value,abilities:value.abilities.map((v,i)=>i===index?{...v,type:e.target.value as typeof a.type}:v)})}>{Object.entries(abilityTypes).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
@@ -47,21 +49,21 @@ export function CardStructureEditor({ scope, value, onChange, catalogue }: Props
         <button type="button" className="text-sm text-red-300" onClick={()=>onChange({...value,abilities:value.abilities.filter((_,i)=>i!==index)})}>Quitar habilidad</button>
       </fieldset>)}
       <button type="button" disabled={value.abilities.length>=50} className="mt-3 text-sky-300" onClick={()=>onChange({...value,abilities:[...value.abilities,{name:'',type:'active',description:'',condition:'',useLimit:null,useScope:null}]})}>+ Agregar habilidad</button>
-    </details>
-    <details className="rounded-xl border border-white/15 p-3"><summary className="cursor-pointer font-bold">Debilidades ({value.weaknesses.length})</summary>
+    </section>
+    <section hidden={section !== "debilidades"} data-section="debilidades" className="rounded-xl border border-white/15 p-4"><h3 className="text-lg font-bold">Debilidades ({value.weaknesses.length})</h3>
       {value.weaknesses.map((w,index)=><fieldset key={index} className="mt-4 space-y-2 rounded-xl bg-slate-950/50 p-3"><legend>Debilidad {index+1}</legend>
         {([['name','Nombre'],['description','Descripción'],['condition','Condición'],['consequence','Consecuencia o penalización']] as const).map(([key,label])=><label key={key} className="block text-sm">{label}<textarea value={w[key]} required={key==='name'||key==='consequence'} maxLength={key==='name'?160:5000} rows={key==='name'?1:3} className={input} onChange={e=>onChange({...value,weaknesses:value.weaknesses.map((v,i)=>i===index?{...v,[key]:e.target.value}:v)})}/></label>)}
         <button type="button" className="text-sm text-red-300" onClick={()=>onChange({...value,weaknesses:value.weaknesses.filter((_,i)=>i!==index)})}>Quitar debilidad</button>
       </fieldset>)}
       <button type="button" disabled={value.weaknesses.length>=50} className="mt-3 text-sky-300" onClick={()=>onChange({...value,weaknesses:[...value.weaknesses,{name:'',description:'',condition:'',consequence:''}]})}>+ Agregar debilidad</button>
-    </details>
-    <details className="rounded-xl border border-white/15 p-3"><summary className="cursor-pointer font-bold">Restricciones ({value.restrictions.length})</summary>
+    </section>
+    <section hidden={section !== "restricciones"} data-section="restricciones" className="rounded-xl border border-white/15 p-4"><h3 className="text-lg font-bold">Restricciones ({value.restrictions.length})</h3>
       {value.restrictions.map((r,index)=><fieldset key={index} className="mt-4 space-y-2 rounded-xl bg-slate-950/50 p-3"><legend>Restricción {index+1}</legend>
         {([['name','Nombre'],['description','Descripción'],['condition','Condición o excepción']] as const).map(([key,label])=><label key={key} className="block text-sm">{label}<textarea value={r[key]} required={key!=='condition'} maxLength={key==='name'?160:5000} rows={key==='name'?1:3} className={input} onChange={e=>onChange({...value,restrictions:value.restrictions.map((v,i)=>i===index?{...v,[key]:e.target.value}:v)})}/></label>)}
         <label className="block text-sm">Visibilidad<select value={r.visibility} className={input} onChange={e=>onChange({...value,restrictions:value.restrictions.map((v,i)=>i===index?{...v,visibility:e.target.value as 'public'|'private'}:v)})}><option value="public">Pública</option><option value="private">Privada · Solo Master</option></select></label>
         <button type="button" className="text-sm text-red-300" onClick={()=>onChange({...value,restrictions:value.restrictions.filter((_,i)=>i!==index)})}>Quitar restricción</button>
       </fieldset>)}
       <button type="button" disabled={value.restrictions.length>=50} className="mt-3 text-sky-300" onClick={()=>onChange({...value,restrictions:[...value.restrictions,{name:'',description:'',condition:'',visibility:'public'}]})}>+ Agregar restricción</button>
-    </details>
+    </section>
   </>;
 }

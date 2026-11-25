@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 import type { ReactNode } from "react";
 
 type CompanyDetailProps = {
@@ -18,12 +18,7 @@ export function CompanyDetail({
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
       <div className="mx-auto max-w-6xl">
-        <Link
-          href="/master"
-          className="rounded text-xs font-black uppercase tracking-widest text-slate-400 transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-400"
-        >
-          ← Panel Master
-        </Link>
+        <Breadcrumbs items={[{ label: "Panel", href: "/master" }, { label: company.name }]} />
 
         <article className="mt-8 rounded-3xl border border-white/10 bg-white/[0.05] p-6 md:p-8">
           <header>
