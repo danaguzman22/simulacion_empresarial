@@ -11,12 +11,23 @@ import { resolveArchetype } from "@/features/cards/domain/archetype";
 // still checked with institutionAccessSql.
 export async function listAssignedGames(actorId: string, institutionId?: string | null) {
   return db.select({ id: games.id, name: games.name, status: games.status, campaign: campaigns.name, company: companies.name,
+    periodCount: games.periodCount, periodLabel: games.periodLabel, periodDurationSeconds: games.periodDurationSeconds,
     department: sql<string | null>`case when ${games.status} in ('active','paused','evaluation','completed') then ${cards.department} else null end`,
   }).from(assignments).innerJoin(games, eq(games.id, assignments.gameId))
     .innerJoin(cards, and(eq(cards.id, assignments.cardId), eq(cards.gameId, games.id), eq(cards.campaignId, games.campaignId)))
     .innerJoin(campaigns, eq(campaigns.id, games.campaignId)).innerJoin(companies, eq(companies.id, campaigns.companyId))
     .where(and(eq(assignments.profileId, actorId), institutionAccessSql(companies.id, actorId), inActiveInstitution(companies.institutionId, institutionId)))
     .orderBy(desc(games.createdAt), asc(games.id));
+}
+
+// A game with the person's card that did not start yet (draft or ready), for whoever opens its URL anyway: same
+// checks as the list (their own assignment, institution access). Anyone else gets null, so it reveals nothing.
+export async function readPendingAssignedGame(gameId: string, actorId: string) {
+  const [game] = await db.select({ name: games.name, status: games.status, periodCount: games.periodCount, periodLabel: games.periodLabel, periodDurationSeconds: games.periodDurationSeconds })
+    .from(assignments).innerJoin(games, and(eq(games.id, assignments.gameId), eq(games.campaignId, assignments.campaignId)))
+    .innerJoin(campaigns, eq(campaigns.id, games.campaignId)).innerJoin(companies, eq(companies.id, campaigns.companyId))
+    .where(and(eq(assignments.profileId, actorId), eq(assignments.gameId, gameId), inArray(games.status, ["draft", "ready"]), institutionAccessSql(companies.id, actorId)));
+  return game ?? null;
 }
 
 export async function readAssignedCard(gameId: string, actorId: string) {
