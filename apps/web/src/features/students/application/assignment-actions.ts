@@ -7,7 +7,7 @@ import { changeAssignment } from "../repositories/assignment.repository";
 export async function saveAssignment(_: { message: string }, form: FormData) {
   const actor = await getAuthenticatedUserId();
   if (!actor) return { message: "Iniciá sesión nuevamente." };
-  const command = { gameId: String(form.get("gameId") ?? ""), cardId: String(form.get("cardId") ?? ""), assignmentId: String(form.get("assignmentId") ?? ""), email: String(form.get("email") ?? ""), operation: String(form.get("operation") ?? ""), expectedRevision: Number(form.get("revision")) } as AssignmentCommand;
+  const command = { gameId: String(form.get("gameId") ?? ""), cardId: String(form.get("cardId") ?? ""), assignmentId: String(form.get("assignmentId") ?? ""), email: String(form.get("email") ?? ""), profileId: String(form.get("profileId") ?? ""), operation: String(form.get("operation") ?? ""), expectedRevision: Number(form.get("revision")) } as AssignmentCommand;
   try {
     await changeAssignment(actor, command);
     revalidatePath(`/master/partidas/${command.gameId}`, "layout");

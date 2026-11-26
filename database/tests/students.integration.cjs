@@ -44,7 +44,8 @@ function load(file) {
 async function main() {
  await sql.unsafe('CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY,email text,raw_user_meta_data jsonb);');
  const migrate=async file=>sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/'+file,'utf8').replace(/^\uFEFF/,'').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
- for(const file of fs.readdirSync(root+'/database/migrations').filter(f=>f.endsWith('.sql')).sort())await migrate(file);
+ // 0036 (D-48) is applied below, after creating data that only existed before it.
+ for(const file of fs.readdirSync(root+'/database/migrations').filter(f=>f.endsWith('.sql')&&Number(f.slice(0,4))<36).sort())await migrate(file);
  // Not about D-33 (0033): games created here start with optional goals, as before 0033.
  await sql.unsafe("ALTER TABLE games ALTER COLUMN goals_required SET DEFAULT false");
  const master=randomUUID(),co=randomUUID(),observer=randomUUID(),company=randomUUID();
@@ -95,6 +96,11 @@ async function main() {
   await cards.addCardToGame(f.game,master,base.id);
   return (await cards.readCards({kind:'game',id:f.game},master)).cards.find(c=>c.name===name).id;
  }
+ // Before 0036 a Master could be a member of their own campaign's games (as in real local databases). The old guard
+ // allowed this INSERT; then 0036 and every later migration are applied on top.
+ const legacy=await fixture(),legacyCard=await makeCard(legacy,'Legacy');
+ await sql`insert into game_card_assignments(game_id,campaign_id,card_id,profile_id,updated_by) values(${legacy.game},${legacy.campaign},${legacyCard},${master},${master})`;
+ for(const file of fs.readdirSync(root+'/database/migrations').filter(f=>f.endsWith('.sql')&&Number(f.slice(0,4))>=36).sort())await migrate(file);
  const engineering=await makeCard(a,'Engineering'),finance=await makeCard(a,'Finance'),other=await makeCard(b,'Other');
  // #71: departments without members are a non-blocking warning next to the start button.
  const setupRepo=module('games/repositories/game-setup.repository');const teamWarnings=async()=>{const r=await setupRepo.readGameSetup(a.game,master);return {warnings:[...r.warnings],missing:[...r.missing],equipos:r.complete.equipos};};
@@ -207,5 +213,78 @@ async function main() {
  await assert.rejects(sql`insert into game_card_assignments(game_id,campaign_id,card_id,profile_id,updated_by) values(${b.game},${b.campaign},${engineering},${s3},${master})`);
  assert.equal((await sql`select * from game_card_assignments where game_id=${a.game}`).length,2);
  console.log('PASS RLS/privileges and composite FK prevent cross-campaign assignment');
+
+ // Equipos picker (0036): active members of the institution not yet in the game, with their e-mail, only for the Master.
+ const pickA=randomUUID(),pickB=randomUUID(),pickRevoked=randomUUID(),pickOutsider=randomUUID();
+ await sql`INSERT INTO auth.users VALUES(${pickA},'pick-a@test.test','{}'),(${pickB},'pick-b@test.test','{}'),(${pickRevoked},'pick-revoked@test.test','{}'),(${pickOutsider},'pick-outsider@test.test','{}')`;
+ for(const profile of [pickA,pickB,pickRevoked])await sql`insert into institution_members(institution_id,profile_id,granted_by) values(${institution},${profile},${master})`;
+ const [revokedRow]=await sql`select id,revision from institution_members where institution_id=${institution} and profile_id=${pickRevoked}`;
+ await module('institutions/repositories/institution.repository').changeInstitutionMember(master,institution,revokedRow.id,revokedRow.revision,'revoke');
+ const p=await fixture(),pickCard=await makeCard(p,'Picker');
+ const emails=async(actor=master)=>JSON.parse(JSON.stringify((await assignments.readParticipants(p.game,actor)).candidates)).map(c=>c.email).sort();
+ let offered=await emails();
+ assert(offered.includes('pick-a@test.test')&&offered.includes('pick-b@test.test'),'active members are offered with their e-mail');
+ assert(!offered.includes('pick-revoked@test.test'),'a revoked member is not offered');assert(!offered.includes('pick-outsider@test.test'),'someone outside the institution is not offered');
+ const named=JSON.parse(JSON.stringify((await assignments.readParticipants(p.game,master)).candidates)).find(c=>c.email==='pick-a@test.test');
+ assert.deepEqual(Object.keys(named).sort(),['email','id','name']);assert.equal(named.id,pickA);
+ // Chosen from the list: added by profile id with the same checks as by e-mail.
+ const addById=(profileId,actor=master)=>assignments.changeAssignment(actor,{gameId:p.game,cardId:pickCard,email:'',profileId,operation:'add',assignmentId:'',expectedRevision:0});
+ await addById(pickA);
+ offered=await emails();assert(!offered.includes('pick-a@test.test'),'whoever is already in the game is not offered again');assert(offered.includes('pick-b@test.test'));
+ await assert.rejects(addById(pickRevoked),/membresía aprobada/);await assert.rejects(addById(pickOutsider),/membresía aprobada/);await assert.rejects(addById(randomUUID()),/membresía aprobada/);
+ await assert.rejects(addById('not-a-uuid'),/Elegí al integrante/);
+ for(const actor of [co,observer])await assert.rejects(addById(pickB,actor));
+ // Typing the e-mail still works for someone who is not in the list.
+ await assignments.changeAssignment(master,{gameId:p.game,cardId:pickCard,email:'pick-b@test.test',operation:'add',assignmentId:'',expectedRevision:0});
+ assert.equal((await assignments.readParticipants(p.game,master)).members.length,2);
+ // Only the Master gets candidates; the database function returns nothing to anyone else and is not callable from the browser roles.
+ for(const actor of [co,observer]){const r=await assignments.readParticipants(p.game,actor);assert.equal(r.canManage,false);assert.equal(r.candidates.length,0);}
+ for(const actor of [co,observer,pickB,pickOutsider])assert.equal((await sql`select * from public.game_assignment_candidates(${p.game}::uuid,${actor}::uuid)`).length,0,'no candidates for '+actor);
+ for(const role of ['anon','authenticated'])assert.equal((await sql`select has_function_privilege(${role},'public.game_assignment_candidates(uuid,uuid)','EXECUTE') as allowed`)[0].allowed,false);
+ for(const role of ['anon','authenticated'])for(const fn of ['public.guard_campaign_staff_not_member()','public.guard_game_card_assignment()'])assert.equal((await sql`select has_function_privilege(${role},${fn},'EXECUTE') as allowed`)[0].allowed,false,fn+' not executable by '+role);
+ console.log('PASS Equipos picker: active members not in the game with e-mail, Master only, add by id or by e-mail with the same checks');
+
+ // D-48: the Master, Co-Master and Observer of the campaign are never members of its games: not offered, refused by
+ // the server with a clear message and by the database (CAMPAIGN_STAFF_CANNOT_BE_MEMBER) on INSERT.
+ const offeredIds=JSON.parse(JSON.stringify((await assignments.readParticipants(p.game,master)).candidates)).map(c=>c.id);
+ for(const id of [master,co,observer]){
+  assert(!offeredIds.includes(id),'campaign staff is not offered');
+  await assert.rejects(addById(id),/Master, Co-Master u Observador de la campaña/);
+  await assert.rejects(sql`insert into game_card_assignments(game_id,campaign_id,card_id,profile_id,updated_by) values(${p.game},${p.campaign},${pickCard},${id},${master})`,/CAMPAIGN_STAFF_CANNOT_BE_MEMBER/);
+ }
+ // A role in another campaign does not matter.
+ const q=await fixture(),qCard=await makeCard(q,'Other picker');
+ await sql`insert into campaign_members(campaign_id,profile_id,role) values(${q.campaign},${pickA},'observer')`;
+ assert(!JSON.parse(JSON.stringify((await assignments.readParticipants(q.game,master)).candidates)).some(c=>c.id===pickA),'observer of q is not offered in q');
+ await assert.rejects(assignments.changeAssignment(master,{gameId:q.game,cardId:qCard,email:'',profileId:pickA,operation:'add',assignmentId:'',expectedRevision:0}),/Master, Co-Master u Observador/);
+ assert.equal((await sql`select * from game_card_assignments where game_id=${p.game} and profile_id=${pickA}`).length,1,'still a member of p, where pickA has no role');
+ // The other direction: a member of any game of the campaign cannot get a role in it (server and database).
+ const roles=module('campaigns/repositories/campaign-roles.repository');
+ await assert.rejects(db.transaction(tx=>roles.requireNotGameMember(tx,p.campaign,pickA)),/Primero quitala de los equipos de las partidas de esta campaña/);
+ await db.transaction(tx=>roles.requireNotGameMember(tx,p.campaign,pickOutsider));
+ for(const role of ['master','co_master','observer'])await assert.rejects(sql`insert into campaign_members(campaign_id,profile_id,role) values(${p.campaign},${pickA},${role})`,/GAME_MEMBER_CANNOT_BE_CAMPAIGN_STAFF/);
+ await assert.rejects(sql`update campaign_members set profile_id=${pickA} where campaign_id=${p.campaign} and profile_id=${observer}`,/GAME_MEMBER_CANNOT_BE_CAMPAIGN_STAFF/,'moving a role to a member is refused too');
+ await sql`update campaign_members set role='observer' where campaign_id=${p.campaign} and profile_id=${co}`;await sql`update campaign_members set role='co_master' where campaign_id=${p.campaign} and profile_id=${co}`;
+ // Rows from before 0036 stay (the Master removes them in Equipos), can still be moved, and are not inherited.
+ const [legacyRow]=await sql`select id,revision from game_card_assignments where game_id=${legacy.game} and profile_id=${master}`;
+ assert(legacyRow,'the old row is kept');
+ const legacyCard2=await makeCard(legacy,'Legacy two');
+ await assignments.changeAssignment(master,{gameId:legacy.game,cardId:legacyCard2,email:'',assignmentId:legacyRow.id,expectedRevision:legacyRow.revision,operation:'move'});
+ await assignments.changeAssignment(master,{gameId:legacy.game,cardId:legacyCard,email:'',profileId:pickB,operation:'add',assignmentId:'',expectedRevision:0});
+ const next=randomUUID();await sql`insert into games(id,campaign_id,sequence,name) values(${next},${legacy.campaign},99,'Next')`;
+ for(const name of ['Legacy','Legacy two']){const base=(await cards.readCards({kind:'campaign',id:legacy.campaign},master)).cards.find(c=>c.name===name);await cards.addCardToGame(next,master,base.id);}
+ assert.equal(await db.transaction(tx=>assignments.copySuccessorAssignments(tx,legacy.game,next,legacy.campaign,master)),1,'only pickB follows, not the Master');
+ assert.deepEqual((await sql`select profile_id from game_card_assignments where game_id=${next}`).map(r=>r.profile_id),[pickB]);
+ console.log('PASS D-48: campaign staff is never offered nor added, a member never gets a campaign role (server and database), a role elsewhere does not matter, old rows stay, not inherited');
+
+ // Portal: a game that did not start yet says so (with its periods), and its URL is readable only by its own members.
+ const listed=JSON.parse(JSON.stringify(await students.listAssignedGames(pickA))).find(g=>g.id===p.game);
+ assert.equal(listed.status,'draft');assert.equal(listed.department,null);assert.equal(listed.periodCount,1);assert.equal(listed.periodLabel,'Semana');assert.equal(listed.periodDurationSeconds,600);
+ const pending=JSON.parse(JSON.stringify(await students.readPendingAssignedGame(p.game,pickA)));
+ assert.deepEqual(Object.keys(pending).sort(),['name','periodCount','periodDurationSeconds','periodLabel','status']);
+ for(const actor of [pickOutsider,pickRevoked,master,randomUUID()])assert.equal(await students.readPendingAssignedGame(p.game,actor),null,'nothing for someone without a card here');
+ await startGame(p.game);assert.equal((await sql`select status::text from games where id=${p.game}`)[0].status,'active');
+ assert.equal(await students.readPendingAssignedGame(p.game,pickA),null,'once started, the normal page');
+ console.log('PASS portal before Start: periods listed, pending screen only for the game\'s own members');
 }
 main().then(()=>sql.end()).catch(async error=>{console.error(error);await sql.end();process.exitCode=1;});

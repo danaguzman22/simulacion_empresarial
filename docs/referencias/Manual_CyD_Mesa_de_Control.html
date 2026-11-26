@@ -1,0 +1,2254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Corporaciones &amp; Dragones — Mesa de Control del Game Master</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   CORPORACIONES & DRAGONES — Mesa de Control del GM
+   Sistema d12 · Archivo único · 100% offline · Sin CDN
+
+   TÉCNICAS APLICADAS (catálogo epic-design):
+   · Sistema de profundidad de 6 capas (depth-0 a depth-5)
+   · Parallax por scroll + parallax por mouse en la escena de apertura
+   · Reveals direccionales con clip-path (nacimiento desde arriba)
+   · Entrada escalonada por IntersectionObserver
+   · Masked line reveal en títulos de sección
+   · Float-loop permanente en elementos héroe
+   · Tilt 3D + brillo especular en las fichas TCG
+   · Botones magnéticos
+   · Estallido de partículas en crítico / pifia
+   · Dado d12 con volteo 3D real (rotateX/Y/Z)
+   · prefers-reduced-motion + pointer:coarse degradan todo
+
+   DESVÍO DELIBERADO DEL SKILL: sin GSAP por CDN. La mesa se usa
+   proyectada en aula y debe abrir sin internet. Motor equivalente
+   en CSS + Web Animations API + IntersectionObserver.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ---------- Paleta: grimorio oscuro (por defecto) ---------- */
+:root{
+  --bg:#070a12;
+  --bg-deep:#04060c;
+  --panel:#0e131e;
+  --panel-2:#151d2b;
+  --panel-3:#1c2637;
+  --ink:#ece6d8;
+  --ink-2:#a9a496;
+  --ink-3:#6f6b60;
+  --line:#232d3f;
+  --line-2:#35415a;
+  --gold:#d4a939;
+  --gold-hi:#f0d68a;
+  --gold-deep:#8a6a15;
+  --ok:#4cbe86;
+  --bad:#e05f5f;
+  --warn:#e0a53f;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 8px 30px rgba(0,0,0,.45);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.62);
+  --glow-gold:0 0 0 1px rgba(212,169,57,.22),0 0 34px rgba(212,169,57,.13);
+  --radius:13px;
+  --buho:#5f92e0;
+  --zorro:#ef8f4e;
+  --castor:#45b189;
+  --toro:#e05f5f;
+  --ardilla:#e6b23c;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+/* ---------- Tema claro: pergamino (opcional + impresión) ---------- */
+:root[data-theme="light"]{
+  --bg:#efe9dc; --bg-deep:#e3dbc9;
+  --panel:#fdfbf6; --panel-2:#f5efe3; --panel-3:#ece3d1;
+  --ink:#1c1a17; --ink-2:#4a453d; --ink-3:#7d7568;
+  --line:#d9cfba; --line-2:#c3b69c;
+  --gold:#a8801f; --gold-hi:#c9a227; --gold-deep:#7d5c10;
+  --ok:#2f7d55; --bad:#b03a3a; --warn:#c07a17;
+  --shadow:0 1px 2px rgba(60,45,20,.08),0 6px 22px rgba(60,45,20,.09);
+  --shadow-lg:0 10px 40px rgba(60,45,20,.18);
+  --glow-gold:0 0 0 1px rgba(168,128,31,.2);
+  --buho:#3f6fbf; --zorro:#d9702f; --castor:#2f8d6c; --toro:#bd3f3f; --ardilla:#c99320;
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:var(--sans);font-size:15px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+h1,h2,h3,h4{font-family:var(--serif);font-weight:700;line-height:1.2;margin:0}
+a{color:inherit}
+button{font-family:inherit;font-size:inherit;cursor:pointer}
+input,select{font-family:inherit;font-size:inherit;color:inherit}
+img{max-width:100%}
+
+/* ═══ SISTEMA DE PROFUNDIDAD ════════════════════════════════════
+   depth-0 fondo · 1 atmósfera · 2 decoración media
+   depth-3 objetos principales · 4 UI/texto · 5 primer plano   */
+.scene{position:relative;overflow:hidden;isolation:isolate}
+.layer{position:absolute;inset:0;pointer-events:none;will-change:transform}
+.layer>*{pointer-events:auto}
+.depth-0{z-index:0;filter:blur(7px);transform:scale(1.08)}
+.depth-1{z-index:1;filter:blur(26px)}
+.depth-2{z-index:2}
+.depth-3{z-index:3}
+.depth-4{z-index:4;position:relative;inset:auto}
+.depth-5{z-index:5}
+
+/* ═══ ESCENA DE APERTURA ════════════════════════════════════════ */
+.hero-scene{
+  --scene-h:46vh;
+  min-height:var(--scene-h);
+  display:grid;align-items:center;
+  border-bottom:1px solid var(--line);
+  transition:min-height .6s cubic-bezier(.22,1,.36,1);
+  background:var(--bg-deep);
+}
+body.focus-mode .hero-scene{--scene-h:0px;min-height:0}
+body.focus-mode .hero-in{padding:14px 18px}
+body.focus-mode .hero-title{font-size:19px}
+body.focus-mode .hero-sub,body.focus-mode .hero-stats,body.focus-mode .hero-scene .layer{display:none}
+
+.hero-bg{
+  position:absolute;inset:-6%;
+  background:
+    radial-gradient(120% 90% at 50% 0%, #16203a 0%, transparent 60%),
+    radial-gradient(70% 60% at 12% 100%, #1a1526 0%, transparent 70%),
+    linear-gradient(180deg,#080c16,#04060c);
+}
+:root[data-theme="light"] .hero-bg{
+  background:radial-gradient(120% 90% at 50% 0%,#fffdf6 0%,transparent 60%),linear-gradient(180deg,#f6f1e4,#e8e0cd);
+}
+.blob{position:absolute;border-radius:50%;opacity:.95;mix-blend-mode:screen}
+:root[data-theme="light"] .blob{mix-blend-mode:multiply;opacity:.25}
+.blob.g1{width:56vw;height:56vw;left:-12vw;top:-24vw;background:radial-gradient(circle,#d4a93966,#8a6a1522 42%,transparent 68%);animation:floatA 15s ease-in-out infinite}
+.blob.g2{width:46vw;height:46vw;right:-10vw;top:-14vw;background:radial-gradient(circle,#3f6fbf70,#1b3a6e22 45%,transparent 70%);animation:floatB 19s ease-in-out infinite}
+.blob.g3{width:34vw;height:34vw;left:34%;bottom:-18vw;background:radial-gradient(circle,#bd3f3f52,transparent 70%);animation:floatC 23s ease-in-out infinite}
+@keyframes floatA{0%,100%{transform:translate(0,0) rotate(0)}50%{transform:translate(26px,-22px) rotate(7deg)}}
+@keyframes floatB{0%,100%{transform:translate(0,0) rotate(0)}50%{transform:translate(-30px,18px) rotate(-6deg)}}
+@keyframes floatC{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(16px,-26px) scale(1.08)}}
+
+.embers{position:absolute;inset:0;overflow:hidden}
+.ember{
+  position:absolute;width:3px;height:3px;border-radius:50%;
+  background:var(--gold-hi);opacity:.0;
+  box-shadow:0 0 7px 1px rgba(240,214,138,.55);
+  animation:rise linear infinite;
+}
+@keyframes rise{
+  0%{transform:translateY(0) translateX(0) scale(.5);opacity:0}
+  12%{opacity:.85}
+  100%{transform:translateY(-58vh) translateX(var(--dx,14px)) scale(1.1);opacity:0}
+}
+.hero-grain{
+  position:absolute;inset:0;opacity:.045;
+  background-image:radial-gradient(#fff 1px,transparent 1px);background-size:3px 3px;
+}
+.hero-vig{position:absolute;inset:0;background:radial-gradient(80% 70% at 40% 45%,transparent 38%,rgba(0,0,0,.55) 100%)}
+:root[data-theme="light"] .hero-vig{background:radial-gradient(80% 70% at 50% 45%,transparent 45%,rgba(120,100,60,.16) 100%)}
+
+.hero-in{
+  position:relative;z-index:4;max-width:1320px;margin:0 auto;
+  padding:44px 18px 34px;width:100%;
+  transition:padding .5s cubic-bezier(.22,1,.36,1);
+}
+.eyebrow{
+  font-size:11px;letter-spacing:.34em;text-transform:uppercase;
+  color:var(--gold);font-weight:700;margin-bottom:12px;
+}
+.hero-title{
+  font-family:var(--serif);font-size:clamp(30px,5.2vw,60px);line-height:1.02;
+  letter-spacing:-.5px;margin:0 0 10px;
+  transition:font-size .5s cubic-bezier(.22,1,.36,1);
+}
+.hero-title .amp{
+  background:linear-gradient(100deg,var(--gold-deep),var(--gold-hi) 45%,var(--gold));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.hero-sub{color:var(--ink-2);font-size:15px;max-width:640px;margin:0 0 20px}
+.hero-stats{display:flex;gap:26px;flex-wrap:wrap}
+.hstat{display:flex;flex-direction:column;gap:2px}
+.hstat b{font-family:var(--serif);font-size:24px;line-height:1;font-variant-numeric:tabular-nums}
+.hstat span{font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--ink-3);font-weight:700}
+.hstat.lt b{color:var(--warn)} .hstat.ok b{color:var(--ok)} .hstat.bad b{color:var(--bad)}
+
+/* Ornamento héroe: d12 gigante que flota — también es el hueco
+   donde entra la ilustración de alta resolución cuando exista. */
+.hero-orn{
+  position:absolute;right:4vw;top:50%;width:min(30vw,330px);aspect-ratio:1;
+  transform:translateY(-50%);opacity:.5;animation:heroFloat 11s ease-in-out infinite;
+}
+.hero-orn svg{width:100%;height:100%;filter:drop-shadow(0 0 40px rgba(212,169,57,.28))}
+@keyframes heroFloat{0%,100%{transform:translateY(-50%) rotate(-3deg)}50%{transform:translateY(calc(-50% - 16px)) rotate(3deg)}}
+@media(max-width:820px){.hero-orn{display:none}}
+
+/* ═══ REVEALS ═══════════════════════════════════════════════════ */
+[data-reveal]{opacity:0;will-change:transform,opacity}
+[data-reveal="up"]{transform:translateY(28px)}
+[data-reveal="left"]{transform:translateX(-34px)}
+[data-reveal="right"]{transform:translateX(34px)}
+[data-reveal="drop"]{clip-path:inset(0 0 100% 0);opacity:1;transform:none}
+[data-reveal="scale"]{transform:scale(.94)}
+.revealed{
+  opacity:1!important;transform:none!important;clip-path:inset(0 0 0 0)!important;
+  transition:opacity .72s cubic-bezier(.22,1,.36,1),transform .78s cubic-bezier(.22,1,.36,1),clip-path .8s cubic-bezier(.22,1,.36,1);
+  transition-delay:var(--d,0ms);
+}
+.revealed.done{will-change:auto}
+
+/* línea enmascarada bajo los títulos de tarjeta */
+.card-h h3{position:relative;overflow:hidden}
+.card-h h3::after{
+  content:"";position:absolute;left:0;bottom:-3px;height:1px;width:100%;
+  background:linear-gradient(90deg,var(--gold),transparent);
+  transform:scaleX(0);transform-origin:left;transition:transform .7s cubic-bezier(.22,1,.36,1) .1s;
+}
+.card.revealed .card-h h3::after{transform:scaleX(1)}
+
+/* ═══ BARRA SUPERIOR ════════════════════════════════════════════ */
+.topbar{position:sticky;top:0;z-index:60;background:rgba(10,14,22,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+:root[data-theme="light"] .topbar{background:rgba(253,251,246,.9)}
+.topbar-in{max-width:1320px;margin:0 auto;padding:9px 18px;display:flex;align-items:center;gap:13px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.brand .sigil{
+  width:34px;height:34px;flex:0 0 34px;border-radius:9px;
+  background:linear-gradient(145deg,var(--gold-hi),var(--gold-deep));
+  display:grid;place-items:center;color:#1a1204;font-weight:800;font-family:var(--serif);
+  font-size:14px;letter-spacing:-.5px;box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 0 20px rgba(212,169,57,.28);
+}
+.brand b{font-family:var(--serif);font-size:16.5px;display:block;letter-spacing:.2px}
+.brand span{font-size:10px;color:var(--ink-3);letter-spacing:.14em;text-transform:uppercase}
+.modes{display:flex;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
+.modes button{border:0;background:transparent;color:var(--ink-2);padding:7px 15px;border-radius:7px;font-weight:600;font-size:13.5px;transition:.18s}
+.modes button[aria-selected="true"]{background:linear-gradient(160deg,var(--gold),var(--gold-deep));color:#1a1204;box-shadow:0 0 18px rgba(212,169,57,.3)}
+.iconbtn{border:1px solid var(--line-2);background:var(--panel-2);color:var(--ink-2);width:36px;height:36px;border-radius:9px;display:grid;place-items:center;font-size:15px;transition:.18s}
+.iconbtn:hover{border-color:var(--gold);color:var(--gold);box-shadow:var(--glow-gold)}
+.iconbtn[aria-pressed="true"]{background:var(--gold);color:#1a1204;border-color:var(--gold)}
+.savechip{font-size:10.5px;color:var(--ink-3);font-family:var(--mono)}
+
+/* ═══ LAYOUT ════════════════════════════════════════════════════ */
+.wrap{max-width:1320px;margin:0 auto;padding:20px 18px 90px}
+.grid{display:grid;gap:16px}
+.cols-2{grid-template-columns:1fr 1fr}
+.table-grid{grid-template-columns:minmax(0,370px) minmax(0,1fr)}
+@media(max-width:980px){.cols-2,.table-grid{grid-template-columns:1fr}}
+section[class*="card"],section.grid{content-visibility:auto;contain-intrinsic-size:auto 420px}
+
+.card{
+  background:linear-gradient(180deg,var(--panel),var(--panel) 60%,var(--panel-2));
+  border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden;position:relative;
+}
+.card::before{
+  content:"";position:absolute;inset:0 0 auto;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(212,169,57,.42),transparent);
+}
+.card-h{display:flex;align-items:center;gap:9px;padding:12px 16px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.018)}
+:root[data-theme="light"] .card-h{background:var(--panel-2)}
+.card-h h3{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
+.card-h .hint{margin-left:auto;font-size:10.5px;color:var(--ink-3);font-family:var(--mono)}
+.card-b{padding:16px}
+.card-b.tight{padding:12px}
+
+/* ═══ MARCADORES ════════════════════════════════════════════════ */
+.markers{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:760px){.markers{grid-template-columns:repeat(2,1fr)}}
+.marker{
+  background:linear-gradient(180deg,var(--panel-2),var(--panel));
+  border:1px solid var(--line);border-radius:11px;padding:12px;text-align:center;
+  position:relative;overflow:hidden;transition:border-color .3s,box-shadow .3s;
+}
+.marker::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(90% 60% at 50% -10%,rgba(255,255,255,.05),transparent 70%)}
+.marker .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--ink-3);font-weight:700}
+.marker .val{font-family:var(--serif);font-size:35px;font-weight:700;line-height:1.05;margin:4px 0 2px;font-variant-numeric:tabular-nums;transition:color .3s}
+.marker .val.pulse{animation:valpulse .55s cubic-bezier(.22,1,.36,1)}
+@keyframes valpulse{0%{transform:scale(1)}38%{transform:scale(1.19)}100%{transform:scale(1)}}
+.marker .sub{font-size:10.5px;color:var(--ink-3)}
+.marker .steps{display:flex;justify-content:center;gap:5px;margin-top:8px;flex-wrap:wrap}
+.marker .steps button{border:1px solid var(--line-2);background:var(--panel-3);color:var(--ink-2);border-radius:7px;padding:3px 8px;font-size:11.5px;font-family:var(--mono);font-weight:600;transition:.15s}
+.marker .steps button:hover{background:var(--gold);color:#1a1204;border-color:var(--gold)}
+.marker.good{border-color:rgba(76,190,134,.35)} .marker.good .val{color:var(--ok)}
+.marker.bad{border-color:rgba(224,95,95,.4)} .marker.bad .val{color:var(--bad)}
+.marker.warn{border-color:rgba(224,165,63,.35)} .marker.warn .val{color:var(--warn)}
+.goalbar{height:6px;border-radius:4px;background:var(--panel-3);overflow:hidden;margin-top:9px;border:1px solid var(--line)}
+.goalbar i{display:block;height:100%;background:linear-gradient(90deg,var(--bad),var(--warn),var(--ok));transition:width .6s cubic-bezier(.22,1,.36,1)}
+.wipseg{display:flex;gap:4px;justify-content:center;margin-top:6px}
+.wipseg button{flex:1;border:1px solid var(--line-2);background:var(--panel-3);color:var(--ink-3);border-radius:6px;padding:4px 2px;font-size:10px;font-weight:700;letter-spacing:.04em;transition:.15s}
+.wipseg button[aria-pressed="true"]{background:var(--gold);color:#1a1204;border-color:var(--gold)}
+
+/* ═══ DADO 3D ═══════════════════════════════════════════════════ */
+.dicewrap{perspective:900px;display:grid;place-items:center;padding:6px 0 2px}
+.diceface{
+  width:118px;height:118px;position:relative;display:grid;place-items:center;
+  transform-style:preserve-3d;
+}
+.diceface svg{position:absolute;inset:0;width:100%;height:100%;filter:drop-shadow(0 10px 22px rgba(0,0,0,.55))}
+.diceface .num{
+  position:relative;font-family:var(--serif);font-size:44px;font-weight:800;color:var(--gold-hi);
+  text-shadow:0 2px 10px rgba(0,0,0,.7);font-variant-numeric:tabular-nums;transform:translateZ(1px);
+}
+.diceface.crit .num{animation:critpop .7s cubic-bezier(.22,1,.36,1)}
+@keyframes critpop{0%{transform:scale(1)}40%{transform:scale(1.35)}100%{transform:scale(1)}}
+.diceface.crit svg{filter:drop-shadow(0 0 26px rgba(240,214,138,.75))}
+.diceface.fumble svg{filter:drop-shadow(0 0 22px rgba(224,95,95,.6))}
+.burst{position:absolute;left:50%;top:50%;width:5px;height:5px;border-radius:50%;pointer-events:none;z-index:9}
+
+/* ═══ TIRADOR ═══════════════════════════════════════════════════ */
+.roller{display:grid;gap:12px}
+.field{display:grid;gap:5px}
+.field label{font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--ink-3);font-weight:700}
+select,input[type=text]{width:100%;padding:9px 10px;border:1px solid var(--line-2);border-radius:9px;background:var(--panel-3);transition:.18s}
+select:hover{border-color:var(--line-2)}
+select:focus{outline:none;border-color:var(--gold);box-shadow:var(--glow-gold)}
+.chiprow{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line-2);background:var(--panel-3);color:var(--ink-2);border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:600;transition:.18s}
+.chip:hover{border-color:var(--gold);color:var(--gold)}
+.chip[aria-pressed="true"]{background:var(--gold);color:#1a1204;border-color:var(--gold);box-shadow:0 0 16px rgba(212,169,57,.3)}
+.chip.adv[aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:#04120b;box-shadow:0 0 16px rgba(76,190,134,.3)}
+.chip.dis[aria-pressed="true"]{background:var(--bad);border-color:var(--bad);color:#fff;box-shadow:0 0 16px rgba(224,95,95,.3)}
+.rollbtn{
+  position:relative;width:100%;border:1px solid var(--gold-deep);border-radius:11px;padding:15px;
+  font-size:16px;font-weight:800;letter-spacing:.09em;color:#1a1204;text-transform:uppercase;font-family:var(--serif);
+  background:linear-gradient(160deg,var(--gold-hi),var(--gold) 55%,var(--gold-deep));
+  box-shadow:0 8px 26px rgba(212,169,57,.22),inset 0 1px 0 rgba(255,255,255,.45);
+  overflow:hidden;transition:transform .18s cubic-bezier(.22,1,.36,1),box-shadow .25s;
+}
+.rollbtn::after{
+  content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);
+  transform:skewX(-18deg);transition:left .6s cubic-bezier(.22,1,.36,1);
+}
+.rollbtn:hover::after{left:120%}
+.rollbtn:hover{box-shadow:0 12px 34px rgba(212,169,57,.34),inset 0 1px 0 rgba(255,255,255,.5)}
+.rollbtn:active{transform:translateY(2px) scale(.995)}
+.rollout{text-align:center;margin-top:8px}
+.rollmath{font-family:var(--mono);font-size:12.5px;color:var(--ink-2);margin-top:8px;min-height:34px}
+.verdict{display:inline-block;margin-top:9px;padding:7px 20px;border-radius:999px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;font-size:12.5px;animation:vpop .5s cubic-bezier(.22,1,.36,1)}
+@keyframes vpop{0%{opacity:0;transform:translateY(9px) scale(.92)}100%{opacity:1;transform:none}}
+.verdict.ok{background:var(--ok);color:#04120b}
+.verdict.no{background:var(--bad);color:#fff}
+.verdict.crit{background:linear-gradient(100deg,var(--gold-deep),var(--gold-hi));color:#1a1204;box-shadow:0 0 26px rgba(240,214,138,.5)}
+.verdict.fumble{background:#4a1010;color:#ffd9d9;box-shadow:0 0 22px rgba(224,95,95,.35)}
+.dropdie{font-size:11px;color:var(--ink-3);font-family:var(--mono);margin-top:5px}
+
+/* ═══ BITÁCORA ══════════════════════════════════════════════════ */
+.log{max-height:300px;overflow:auto;display:grid;gap:6px;padding-right:5px;scrollbar-width:thin}
+.log::-webkit-scrollbar{width:6px}
+.log::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:3px}
+.logitem{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;border-left:2px solid var(--line-2);padding:5px 0 5px 10px;color:var(--ink-2);animation:logIn .45s cubic-bezier(.22,1,.36,1)}
+@keyframes logIn{0%{opacity:0;transform:translateX(-10px)}100%{opacity:1;transform:none}}
+.logitem.ok{border-color:var(--ok)} .logitem.no{border-color:var(--bad)}
+.logitem.evt{border-color:var(--warn)} .logitem.sys{border-color:var(--line-2)}
+.logitem b{color:var(--ink)}
+.logitem time{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--ink-3);white-space:nowrap}
+
+/* ═══ FICHAS TCG ════════════════════════════════════════════════ */
+.chars{display:grid;grid-template-columns:repeat(auto-fill,minmax(288px,1fr));gap:20px;perspective:1400px}
+.pc{
+  position:relative;border-radius:16px;overflow:hidden;
+  background:linear-gradient(180deg,var(--panel-2),var(--panel));
+  border:1px solid var(--line);
+  box-shadow:var(--shadow);display:flex;flex-direction:column;
+  transform-style:preserve-3d;transition:box-shadow .35s,border-color .35s;
+}
+.pc::before{
+  content:"";position:absolute;inset:0;border-radius:16px;pointer-events:none;z-index:6;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--acc) 34%,transparent);
+}
+.pc::after{ /* brillo especular que sigue al cursor */
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:5;opacity:0;transition:opacity .3s;
+  background:radial-gradient(320px circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.13),transparent 62%);
+}
+.pc:hover::after{opacity:1}
+.pc:hover{box-shadow:var(--shadow-lg),0 0 34px color-mix(in srgb,var(--acc) 22%,transparent);border-color:color-mix(in srgb,var(--acc) 45%,transparent)}
+.pc.sel{border-color:var(--acc);box-shadow:var(--shadow-lg),0 0 0 2px color-mix(in srgb,var(--acc) 55%,transparent),0 0 40px color-mix(in srgb,var(--acc) 28%,transparent)}
+
+.pc-art{position:relative;aspect-ratio:16/10;background:#05070c;overflow:hidden}
+.pc-art>svg,.pc-art>img{display:block;width:100%;height:100%;object-fit:cover}
+.pc-art>img{transition:transform .7s cubic-bezier(.22,1,.36,1)}
+.pc:hover .pc-art>img{transform:scale(1.06)}
+.pc-art .frame{position:absolute;inset:7px;border:1px solid color-mix(in srgb,var(--acc) 40%,transparent);border-radius:7px;pointer-events:none;z-index:3}
+.pc-name{position:absolute;left:0;right:0;bottom:0;padding:22px 12px 9px;background:linear-gradient(transparent,rgba(0,0,0,.9));color:#fff;z-index:4}
+.pc-name b{font-family:var(--serif);font-size:17px;display:block;letter-spacing:.3px}
+.pc-name span{font-size:10px;text-transform:uppercase;letter-spacing:.17em;opacity:.8}
+.pc-tag{
+  position:absolute;top:11px;left:11px;z-index:4;
+  background:color-mix(in srgb,var(--acc) 88%,#000);color:#fff;
+  font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;
+  padding:3px 10px;border-radius:999px;box-shadow:0 2px 10px rgba(0,0,0,.5);
+}
+.artnote{
+  position:absolute;inset:auto 8px 8px auto;z-index:4;font-size:8.5px;font-family:var(--mono);
+  background:rgba(0,0,0,.6);color:#c9c2b2;padding:2px 6px;border-radius:4px;letter-spacing:.04em;
+}
+.pc-b{padding:13px;display:grid;gap:11px;flex:1;position:relative;z-index:2}
+.mods{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.mod{text-align:center;background:var(--panel-3);border:1px solid var(--line);border-radius:8px;padding:6px 2px;transition:.25s}
+.mod .m{font-family:var(--serif);font-weight:800;font-size:17px;line-height:1;font-variant-numeric:tabular-nums}
+.mod .n{font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);margin-top:3px;font-weight:700}
+.mod.top{background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 92%,#000),color-mix(in srgb,var(--acc) 62%,#000));border-color:var(--acc);box-shadow:0 0 16px color-mix(in srgb,var(--acc) 30%,transparent)}
+.mod.top .m,.mod.top .n{color:#fff}
+.abil{display:grid;gap:5px}
+.ab{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--ink-2);background:var(--panel-3);border:1px solid var(--line);border-radius:8px;padding:7px 9px;transition:.2s}
+.ab:hover{border-color:color-mix(in srgb,var(--acc) 45%,transparent)}
+.ab input{margin:2px 0 0;accent-color:var(--acc);flex:0 0 auto;width:15px;height:15px}
+.ab.used{opacity:.4}
+.ab.used b{text-decoration:line-through}
+.ab b{color:var(--ink);display:block;font-size:12.5px}
+.ab em{display:block;font-style:normal;font-size:9.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--acc);font-weight:800;margin:2px 0 3px}
+.weak{font-size:11.5px;color:#ffb3b3;background:rgba(224,95,95,.09);border:1px dashed rgba(224,95,95,.34);border-radius:8px;padding:7px 9px}
+:root[data-theme="light"] .weak{color:var(--bad)}
+.weak b{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.11em;margin-bottom:2px}
+
+/* Objetivos: público visible, secreto oculto hasta revelar */
+.obj{border-top:1px solid var(--line);padding-top:9px;display:grid;gap:6px}
+.obj-h{font-size:9.5px;text-transform:uppercase;letter-spacing:.17em;color:var(--gold);font-weight:800}
+.obj-row{font-size:12px;color:var(--ink-2)}
+.obj-row b{color:var(--ink);font-size:11px;text-transform:uppercase;letter-spacing:.07em}
+.secretbox{position:relative;border:1px solid var(--line-2);border-radius:8px;overflow:hidden;background:var(--panel-3)}
+.secretbox .inner{padding:8px 9px;font-size:12px;color:var(--ink-2);transition:filter .45s,opacity .45s}
+.secretbox:not(.open) .inner{filter:blur(6px);opacity:.55;user-select:none}
+.secretbox .cover{
+  position:absolute;inset:0;display:grid;place-items:center;gap:2px;
+  background:linear-gradient(150deg,rgba(20,26,40,.94),rgba(10,14,22,.97));
+  color:var(--gold);font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  cursor:pointer;transition:opacity .45s,transform .5s cubic-bezier(.22,1,.36,1);
+  border:0;width:100%;font-family:inherit;
+}
+:root[data-theme="light"] .secretbox .cover{background:linear-gradient(150deg,#efe6d2,#e2d6ba)}
+.secretbox.open .cover{opacity:0;transform:translateY(-100%);pointer-events:none}
+.restrict{font-size:11px;color:var(--ink-3);font-style:italic}
+.sector{font-size:10.5px;color:var(--ink-3);display:flex;justify-content:space-between;gap:6px;border-top:1px dashed var(--line);padding-top:7px}
+.sector b{color:var(--ink-2);font-weight:700}
+
+/* ═══ PRESTIGIO ═════════════════════════════════════════════════ */
+.prest{display:grid;gap:9px}
+.prow{display:grid;grid-template-columns:118px 1fr 92px;gap:10px;align-items:center}
+@media(max-width:520px){.prow{grid-template-columns:1fr;gap:4px}}
+.pbar{height:16px;border-radius:8px;background:var(--panel-3);border:1px solid var(--line);overflow:hidden;position:relative}
+.pbar i{display:block;height:100%;background:linear-gradient(90deg,color-mix(in srgb,var(--acc) 55%,#000),var(--acc));transition:width .55s cubic-bezier(.22,1,.36,1);box-shadow:0 0 14px color-mix(in srgb,var(--acc) 45%,transparent)}
+.pbar .ticks{position:absolute;inset:0;display:flex}
+.pbar .ticks span{flex:1;border-right:1px solid var(--line)}
+.prank{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;text-align:right;color:var(--acc)}
+.pctrl{display:flex;gap:4px}
+.pctrl button{border:1px solid var(--line-2);background:var(--panel-3);border-radius:6px;width:24px;height:24px;line-height:1;color:var(--ink-2);font-weight:700;transition:.15s}
+.pctrl button:hover{background:var(--acc);color:#fff;border-color:var(--acc)}
+
+/* ═══ TABLAS ════════════════════════════════════════════════════ */
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:520px}
+th{background:var(--panel-3);text-align:left;padding:9px 11px;font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:var(--gold);border-bottom:1px solid var(--line-2);font-weight:800}
+td{padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink-2)}
+tbody tr{transition:background .18s}
+tbody tr:hover{background:rgba(212,169,57,.05)}
+td strong{color:var(--ink)}
+td code,.k{font-family:var(--mono);font-size:11.5px;background:var(--panel-3);border:1px solid var(--line-2);border-radius:5px;padding:1px 6px;font-weight:700;color:var(--gold)}
+
+/* ═══ GUION / ACTOS ═════════════════════════════════════════════ */
+.acts{display:grid;gap:12px}
+.act{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel);transition:border-color .3s}
+.act[open]{border-color:var(--line-2)}
+.act>summary{padding:13px 16px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:11px;background:var(--panel-2);font-weight:700;font-family:var(--serif);font-size:15px;transition:background .2s}
+.act>summary:hover{background:var(--panel-3)}
+.act>summary::-webkit-details-marker{display:none}
+.act>summary::before{content:"◆";color:var(--gold);font-size:11px;transition:transform .3s}
+.act[open]>summary::before{transform:rotate(45deg) scale(1.15)}
+.act>summary .mins{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--ink-3);font-weight:600}
+.act-b{padding:16px;display:grid;gap:13px;border-top:1px solid var(--line);animation:actOpen .45s cubic-bezier(.22,1,.36,1)}
+@keyframes actOpen{0%{opacity:0;clip-path:inset(0 0 100% 0)}100%{opacity:1;clip-path:inset(0 0 0 0)}}
+.narr{font-family:var(--serif);font-size:14.5px;line-height:1.62;color:var(--ink-2);font-style:italic;border-left:2px solid var(--gold);background:linear-gradient(90deg,rgba(212,169,57,.07),transparent 55%);padding:13px 16px;border-radius:0 9px 9px 0}
+.narr b{font-style:normal;color:var(--ink)}
+.beat{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--panel-2)}
+.beat h4{font-size:13px;margin-bottom:5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--ink)}
+.beat p{margin:0 0 7px;font-size:13px;color:var(--ink-2)}
+.beat p:last-child{margin-bottom:0}
+.cdtag{font-family:var(--mono);font-size:10px;font-weight:800;letter-spacing:.06em;background:linear-gradient(160deg,var(--gold),var(--gold-deep));color:#1a1204;border-radius:5px;padding:3px 8px;white-space:nowrap}
+.outcomes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+@media(max-width:620px){.outcomes{grid-template-columns:1fr}}
+.outcome{font-size:12.5px;border-radius:9px;padding:9px 11px;border:1px solid var(--line);color:var(--ink-2)}
+.outcome.win{background:rgba(76,190,134,.08);border-color:rgba(76,190,134,.3)}
+.outcome.lose{background:rgba(224,95,95,.08);border-color:rgba(224,95,95,.3)}
+.outcome>b:first-child{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.14em;margin-bottom:3px}
+.outcome.win>b:first-child{color:var(--ok)} .outcome.lose>b:first-child{color:var(--bad)}
+.secret{border:1px solid var(--line-2);border-radius:9px;padding:9px 11px;background:var(--panel-3);font-size:12.5px}
+.secret summary{cursor:pointer;font-weight:700;color:var(--gold);list-style:none;font-size:11px;text-transform:uppercase;letter-spacing:.12em}
+.secret summary::-webkit-details-marker{display:none}
+.secret summary::before{content:"🂠 "}
+.secret[open] summary::before{content:"🂡 "}
+.secret p{margin:7px 0 0;color:var(--ink-2)}
+
+/* ═══ HITOS / KAIZEN / PERFILES ═════════════════════════════════ */
+.miles{display:grid;gap:7px}
+.mile{display:flex;gap:9px;align-items:flex-start;border:1px solid var(--line);border-radius:9px;padding:9px 11px;background:var(--panel-2);font-size:12.5px;transition:.22s;color:var(--ink-2)}
+.mile:hover{border-color:var(--line-2)}
+.mile input{width:17px;height:17px;margin:1px 0 0;accent-color:var(--gold);flex:0 0 auto}
+.mile.done{opacity:.5;border-color:var(--gold-deep);background:rgba(212,169,57,.06)}
+.mile.done b{text-decoration:line-through}
+.mile b{display:block;color:var(--ink)}
+.mile>span>span{display:block;color:var(--ink-3);font-size:11.5px;margin-top:2px}
+
+/* ═══ RELOJ / EVENTO ════════════════════════════════════════════ */
+.timer{text-align:center}
+.tdisp{font-family:var(--serif);font-size:54px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-1px;color:var(--ink)}
+.tdisp.low{color:var(--bad);animation:tpulse 1s ease-in-out infinite}
+@keyframes tpulse{0%,100%{opacity:1}50%{opacity:.55}}
+.tbtns{display:flex;gap:6px;justify-content:center;margin-top:11px;flex-wrap:wrap}
+.tbtns button{border:1px solid var(--line-2);background:var(--panel-3);color:var(--ink-2);border-radius:8px;padding:6px 12px;font-size:12.5px;font-weight:600;transition:.15s}
+.tbtns button:hover{background:var(--gold);color:#1a1204;border-color:var(--gold)}
+.evtbox{text-align:center;display:grid;gap:9px}
+.evtnum{font-family:var(--serif);font-size:40px;font-weight:800;color:var(--gold);line-height:1;text-shadow:0 0 26px rgba(212,169,57,.35)}
+.evtnum.flip{animation:evtflip .6s cubic-bezier(.22,1,.36,1)}
+@keyframes evtflip{0%{transform:rotateX(-90deg);opacity:0}100%{transform:none;opacity:1}}
+.evttitle{font-family:var(--serif);font-size:17px;font-weight:700;color:var(--ink)}
+.evttext{font-size:13px;color:var(--ink-2)}
+.evtmech{font-family:var(--mono);font-size:11.5px;background:var(--panel-3);border:1px dashed var(--line-2);border-radius:8px;padding:8px 10px;color:var(--ink-2);text-align:left}
+
+/* ═══ MANUAL ════════════════════════════════════════════════════ */
+.manual{max-width:900px;margin:0 auto}
+.manual h1{font-size:clamp(28px,4.6vw,40px)}
+.manual h2{font-size:26px;margin:44px 0 12px;padding-bottom:9px;border-bottom:1px solid var(--gold-deep);display:flex;align-items:baseline;gap:11px;scroll-margin-top:84px;color:var(--ink)}
+.manual h2 .no{font-family:var(--mono);font-size:12px;color:var(--gold);font-weight:800}
+.manual h3{font-size:18px;margin:26px 0 8px;color:var(--ink)}
+.manual h4{font-size:13px;margin:16px 0 6px;text-transform:uppercase;letter-spacing:.14em;color:var(--ink-3)}
+.manual p{margin:0 0 12px;color:var(--ink-2)}
+.manual ul,.manual ol{margin:0 0 14px;padding-left:22px;color:var(--ink-2)}
+.manual li{margin-bottom:6px}
+.manual strong{color:var(--ink)}
+.callout{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:0 11px 11px 0;padding:15px 18px;margin:18px 0;box-shadow:var(--shadow)}
+.callout h4{margin-top:0;color:var(--gold);letter-spacing:.12em}
+.callout.new{border-left-color:var(--castor)}
+.callout.new h4{color:var(--castor)}
+.callout p:last-child{margin-bottom:0}
+.toc{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 22px;box-shadow:var(--shadow);columns:2;column-gap:26px}
+@media(max-width:640px){.toc{columns:1}}
+.toc a{display:block;padding:5px 0;text-decoration:none;color:var(--ink-2);font-size:13.5px;break-inside:avoid;transition:color .2s,transform .2s}
+.toc a:hover{color:var(--gold);transform:translateX(3px)}
+.toc a b{font-family:var(--mono);color:var(--gold);font-size:11.5px;margin-right:7px}
+.tag{display:inline-block;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;border-radius:4px;padding:2px 7px;vertical-align:middle;margin-left:7px}
+.tag.nuevo{background:var(--castor);color:#04120b}
+.tag.rev{background:var(--warn);color:#2a1a00}
+
+/* palabra por palabra iluminada al scrollear */
+.lightup span{color:var(--ink-3);transition:color .45s ease}
+.lightup span.lit{color:var(--ink)}
+
+/* ═══ UTILIDADES ════════════════════════════════════════════════ */
+.hint{font-size:11.5px;color:var(--ink-3)}
+.rowbtns{display:flex;gap:7px;flex-wrap:wrap}
+.btn{border:1px solid var(--line-2);background:var(--panel-3);color:var(--ink-2);border-radius:9px;padding:8px 14px;font-size:13px;font-weight:600;transition:.2s}
+.btn:hover{background:var(--gold);color:#1a1204;border-color:var(--gold);box-shadow:0 0 18px rgba(212,169,57,.25)}
+.btn.primary{background:linear-gradient(160deg,var(--gold),var(--gold-deep));border-color:var(--gold-deep);color:#1a1204}
+.btn.ghost{background:transparent}
+.magnetic{transition:transform .28s cubic-bezier(.22,1,.36,1)}
+.sticky-note{position:fixed;right:18px;bottom:18px;z-index:80;background:linear-gradient(160deg,var(--panel-2),var(--panel));border:1px solid var(--gold-deep);color:var(--ink);border-radius:11px;padding:11px 16px;font-size:12.5px;font-weight:600;box-shadow:var(--shadow-lg);opacity:0;transform:translateY(12px);pointer-events:none;transition:.3s cubic-bezier(.22,1,.36,1)}
+.sticky-note.show{opacity:1;transform:translateY(0)}
+
+/* ═══ ACCESIBILIDAD ═════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.01ms!important;scroll-behavior:auto!important;
+  }
+  [data-reveal]{opacity:1!important;transform:none!important;clip-path:none!important}
+  .layer{transform:none!important}
+  .ember,.blob{display:none}
+}
+/* Táctil: menos efectos */
+@media (pointer:coarse){
+  .ember{display:none}
+  .pc::after{display:none}
+  .depth-0{filter:blur(4px)}
+  .depth-1{filter:blur(22px)}
+}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:4px}
+
+/* ═══ IMPRESIÓN ═════════════════════════════════════════════════ */
+@media print{
+  :root{
+    --bg:#fff;--panel:#fff;--panel-2:#fafafa;--panel-3:#f2f2f2;
+    --ink:#000;--ink-2:#222;--ink-3:#555;--line:#ccc;--line-2:#999;--gold:#8a6a15;
+  }
+  .topbar,.sticky-note,.no-print,.hero-scene,.rowbtns,.iconbtn,.layer{display:none!important}
+  body{background:#fff;color:#000;font-size:11pt}
+  .wrap{padding:0;max-width:none}
+  .card,.callout,.pc,.act{box-shadow:none;break-inside:avoid;border-color:#ccc}
+  .manual h2{break-after:avoid}
+  details{display:block}
+  details:not([open])>*:not(summary){display:revert}
+  .secretbox:not(.open) .inner{filter:none;opacity:1}
+  .secretbox .cover{display:none}
+  [data-reveal]{opacity:1!important;transform:none!important;clip-path:none!important}
+}
+</style>
+</head>
+<body>
+<header class="topbar no-print">
+  <div class="topbar-in">
+    <div class="brand">
+      <div class="sigil">C&amp;D</div>
+      <div>
+        <b>Corporaciones &amp; Dragones</b>
+        <span>Mesa de control del Game Master · Sistema d12</span>
+      </div>
+    </div>
+    <div class="modes" role="tablist" aria-label="Modo de uso">
+      <button id="tabMesa" role="tab" aria-selected="true" onclick="setMode('mesa')">🎲 Modo Partida</button>
+      <button id="tabManual" role="tab" aria-selected="false" onclick="setMode('manual')">📖 Modo Manual</button>
+    </div>
+    <span class="savechip" id="saveChip">guardado local</span>
+    <button class="iconbtn" id="artBtn" aria-pressed="false" onclick="toggleHiRes()" title="Usar el arte ilustrado de la carpeta arte/ en lugar del vectorial">🖼</button>
+    <button class="iconbtn" id="focusBtn" aria-pressed="false" onclick="toggleFocus()" title="Modo foco: colapsa la cabecera y apaga los efectos ambientales">⛶</button>
+    <button class="iconbtn" onclick="window.print()" title="Imprimir">🖨</button>
+    <button class="iconbtn" id="themeBtn" onclick="toggleTheme()" title="Grimorio / pergamino">◐</button>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════════════
+     ESCENA DE APERTURA — 6 capas de profundidad
+     depth-0 fondo · 1 atmósfera · 2 brasas · 4 texto · 5 viñeta
+     Parallax por scroll y por mouse. Colapsa en Modo foco.
+     ══════════════════════════════════════════════════════════ -->
+<section class="hero-scene scene" id="heroScene" data-scene="apertura">
+  <div class="layer depth-0" data-depth="0" aria-hidden="true"><div class="hero-bg"></div></div>
+  <div class="layer depth-1" data-depth="1" aria-hidden="true">
+    <span class="blob g1"></span><span class="blob g2"></span><span class="blob g3"></span>
+  </div>
+  <div class="layer depth-2" data-depth="2" aria-hidden="true"><div class="embers" id="embers"></div></div>
+  <div class="layer depth-3" data-depth="3" aria-hidden="true">
+    <div class="hero-orn">
+      <svg viewBox="0 0 200 200">
+        <defs><linearGradient id="ornG" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#f0d68a"/><stop offset=".55" stop-color="#d4a939"/><stop offset="1" stop-color="#6b5010"/>
+        </linearGradient></defs>
+        <g fill="none" stroke="url(#ornG)" stroke-linejoin="round">
+          <polygon points="100,10 168,48 168,132 100,190 32,132 32,48" stroke-width="2.2"/>
+          <polygon points="100,10 168,48 100,86 32,48" stroke-width="1.2" opacity=".75"/>
+          <polygon points="100,86 168,48 168,132" stroke-width="1.2" opacity=".5"/>
+          <polygon points="100,86 32,48 32,132" stroke-width="1.2" opacity=".5"/>
+          <polygon points="100,86 168,132 100,190 32,132" stroke-width="1.2" opacity=".75"/>
+          <polygon points="100,44 134,64 134,110 100,132 66,110 66,64" stroke-width="1" opacity=".45"/>
+          <circle cx="100" cy="88" r="15" stroke-width="1" opacity=".35"/>
+        </g>
+        <text x="100" y="98" text-anchor="middle" font-family="Palatino,Georgia,serif" font-size="27"
+              font-weight="700" fill="url(#ornG)" opacity=".85">12</text>
+      </svg>
+    </div>
+  </div>
+  <div class="layer depth-5" data-depth="5" aria-hidden="true">
+    <div class="hero-grain"></div><div class="hero-vig"></div>
+  </div>
+
+  <div class="hero-in depth-4" data-depth="4">
+    <p class="eyebrow" data-reveal="up">Mesa de control del Game Master · Sistema d12</p>
+    <h1 class="hero-title" data-reveal="up" style="--d:90ms">Corporaciones <span class="amp">&amp;</span> Dragones</h1>
+    <p class="hero-sub" data-reveal="up" style="--d:180ms" id="heroSub">
+      Aprendizaje experiencial de mejora continua. Cinco departamentos, una empresa en crisis y cuatro rondas para arreglarla.
+    </p>
+    <div class="hero-stats" data-reveal="up" style="--d:260ms">
+      <div class="hstat"><b id="hMod">Módulo 1</b><span>en juego</span></div>
+      <div class="hstat lt"><b id="hLT">42</b><span>lead time</span></div>
+      <div class="hstat ok"><b id="hCash">$8.000</b><span>caja</span></div>
+      <div class="hstat"><b id="hRound">1 / 4</b><span>ronda</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     MODO PARTIDA
+     ══════════════════════════════════════════════════════════ -->
+<main class="wrap" id="viewMesa">
+
+  <!-- Selector de módulo -->
+  <section class="card" data-reveal="up" style="margin-bottom:16px">
+    <div class="card-b" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <div class="field" style="min-width:290px;flex:1">
+        <label for="modSel">Módulo en juego</label>
+        <select id="modSel" onchange="loadModule(this.value)">
+          <option value="m1">Módulo 1 — La Montaña de Metal (Push → Pull)</option>
+          <option value="m2">Módulo 2 — Efecto Dominó: la rotación del caos</option>
+          <option value="libre">Partida libre / escenario propio</option>
+        </select>
+      </div>
+      <div class="field" style="min-width:210px">
+        <label for="univSel">Universo (mapeo de departamentos)</label>
+        <select id="univSel" onchange="renderChars()">
+          <option value="man">Manufactura — Metalúrgica del Sur / Nexum Industrial</option>
+          <option value="ser">Servicios — Nexum Servicios</option>
+        </select>
+      </div>
+      <div class="rowbtns" style="margin-left:auto">
+        <button class="btn" onclick="nextRound()">▶ Cerrar ronda</button>
+        <button class="btn ghost" onclick="resetAll()">↺ Reiniciar partida</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Marcadores -->
+  <section class="card" data-reveal="up" style="margin-bottom:16px">
+    <div class="card-h">
+      <h3>Estado de la empresa</h3>
+      <span class="hint" id="goalHint"></span>
+    </div>
+    <div class="card-b">
+      <div class="markers">
+        <div class="marker" id="mkRound">
+          <div class="lbl">Ronda</div>
+          <div class="val" id="vRound">1</div>
+          <div class="sub" id="sRound">de 4</div>
+          <div class="steps">
+            <button onclick="bump('round',-1)">−</button>
+            <button onclick="bump('round',1)">+</button>
+          </div>
+        </div>
+        <div class="marker" id="mkLT">
+          <div class="lbl">Lead Time</div>
+          <div class="val" id="vLT">42</div>
+          <div class="sub" id="sLT">días · meta ≤ 15</div>
+          <div class="steps">
+            <button onclick="bump('lt',-5)">−5</button>
+            <button onclick="bump('lt',-1)">−1</button>
+            <button onclick="bump('lt',1)">+1</button>
+            <button onclick="bump('lt',5)">+5</button>
+          </div>
+          <div class="goalbar"><i id="barLT" style="width:0%"></i></div>
+        </div>
+        <div class="marker" id="mkCash">
+          <div class="lbl">Caja disponible</div>
+          <div class="val" id="vCash">8.000</div>
+          <div class="sub" id="sCash">USD · quiebra en 0</div>
+          <div class="steps">
+            <button onclick="bump('cash',-1000)">−1k</button>
+            <button onclick="bump('cash',-500)">−500</button>
+            <button onclick="bump('cash',500)">+500</button>
+            <button onclick="bump('cash',1000)">+1k</button>
+          </div>
+        </div>
+        <div class="marker" id="mkWip">
+          <div class="lbl">Inventario / WIP</div>
+          <div class="val" id="vWip" style="font-size:22px;padding-top:9px">CRÍTICO</div>
+          <div class="sub" id="sWip">costo −$1.500 / ronda</div>
+          <div class="wipseg">
+            <button onclick="setWip(2)" id="wip2">Crítico</button>
+            <button onclick="setWip(1)" id="wip1">Moderado</button>
+            <button onclick="setWip(0)" id="wip0">Bajo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Dados + bitácora + timer -->
+  <section class="grid table-grid" data-reveal="up" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-h"><h3>Tirada de d12</h3><span class="hint">1d12 + mod vs CD</span></div>
+      <div class="card-b roller">
+        <div class="dicewrap"><div class="diceface" id="dice">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <defs>
+              <linearGradient id="dg" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#243046"/><stop offset="1" stop-color="#080b12"/>
+              </linearGradient>
+              <linearGradient id="dgr" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#f0d68a"/><stop offset=".5" stop-color="#d4a939"/><stop offset="1" stop-color="#8a6a15"/>
+              </linearGradient>
+            </defs>
+            <polygon points="50,2 89,24 89,69 50,98 11,69 11,24" fill="url(#dg)" stroke="url(#dgr)" stroke-width="3"/>
+            <polygon points="50,2 89,24 50,47 11,24" fill="rgba(255,255,255,.08)"/>
+            <polygon points="50,47 89,24 89,69" fill="rgba(0,0,0,.22)"/>
+            <polygon points="50,20 71,32 71,58 50,70 29,58 29,32" fill="none" stroke="rgba(212,169,57,.3)" stroke-width="1"/>
+          </svg>
+          <span class="num" id="diceNum">—</span>
+        </div></div>
+
+        <div class="field">
+          <label for="rPC">Departamento que tira</label>
+          <select id="rPC" onchange="syncMods()"></select>
+        </div>
+        <div class="field">
+          <label for="rAttr">Atributo / habilidad</label>
+          <select id="rAttr" onchange="syncMods()"></select>
+        </div>
+        <div class="field">
+          <label>Modificadores de situación</label>
+          <div class="chiprow">
+            <button class="chip adv" id="cAdv" aria-pressed="false" onclick="togAdv(1)">Ventaja</button>
+            <button class="chip dis" id="cDis" aria-pressed="false" onclick="togAdv(-1)">Desventaja</button>
+            <button class="chip" id="cAsi" aria-pressed="false" onclick="tog('asis')">Asistencia +2</button>
+            <button class="chip" id="cA3" aria-pressed="false" onclick="tog('a3')">Plan A3 +2</button>
+            <button class="chip" id="cDec" aria-pressed="false" onclick="tog('dec')">Decreto +2</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="rCD">Clase de dificultad (CD)</label>
+          <select id="rCD">
+            <option value="5">CD 5 — Rutinaria</option>
+            <option value="7">CD 7 — Estándar</option>
+            <option value="9" selected>CD 9 — Exigente</option>
+            <option value="11">CD 11 — Crítica</option>
+            <option value="13">CD 13 — Sistémica (requiere apoyo)</option>
+            <option value="15">CD 15 — Heroica (apoyo + ventaja)</option>
+          </select>
+        </div>
+        <button class="rollbtn" onclick="roll()">Lanzar d12</button>
+        <div class="rollout">
+          <div class="rollmath" id="rollMath">Elegí departamento, atributo y CD.</div>
+          <div id="rollVerdict"></div>
+          <div class="dropdie" id="dropDie"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid" style="gap:16px;align-content:start">
+      <div class="card">
+        <div class="card-h">
+          <h3>Bitácora de la partida</h3>
+          <span class="hint"><button class="btn ghost" style="padding:3px 9px;font-size:11px" onclick="copyLog()">copiar</button></span>
+        </div>
+        <div class="card-b tight"><div class="log" id="logBox"></div></div>
+      </div>
+
+      <div class="grid cols-2" style="gap:16px">
+        <div class="card">
+          <div class="card-h"><h3>Evento aleatorio</h3></div>
+          <div class="card-b">
+            <div class="evtbox">
+              <div class="evtnum" id="evtNum">d12</div>
+              <div class="evttitle" id="evtTitle">Sin evento</div>
+              <div class="evttext" id="evtText">Tirá al inicio de cada ronda para introducir la disrupción del turno.</div>
+              <div class="evtmech" id="evtMech" style="display:none"></div>
+              <button class="btn primary" onclick="rollEvent()">Tirar evento</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h3>Reloj de bloque</h3></div>
+          <div class="card-b timer">
+            <div class="tdisp" id="tDisp">20:00</div>
+            <div class="hint" id="tLabel">Acto 1 — Briefing</div>
+            <div class="tbtns">
+              <button onclick="tSet(20,'Acto 1 — Briefing')">20</button>
+              <button onclick="tSet(30,'Ronda de juego')">30</button>
+              <button onclick="tSet(25,'Debriefing')">25</button>
+              <button onclick="tToggle()" id="tPlay">▶</button>
+              <button onclick="tReset()">↺</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Fichas -->
+  <section class="card" data-reveal="up" style="margin-bottom:16px">
+    <div class="card-h">
+      <h3>Fichas de departamento</h3>
+      <span class="hint">Clic en la ficha para cargarla en el tirador · marcá los usos gastados</span>
+    </div>
+    <div class="card-b"><div class="chars" id="charBox"></div></div>
+  </section>
+
+  <!-- Prestigio + perfiles -->
+  <section class="grid cols-2" data-reveal="up" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-h"><h3>Prestigio interdepartamental</h3><span class="hint">0 – 10</span></div>
+      <div class="card-b">
+        <div class="prest" id="prestBox"></div>
+        <p class="hint" style="margin:12px 0 0">
+          <b>+1</b> al asistir con éxito a otro departamento o tomar una decisión que beneficia a un área ajena ·
+          <b>−1</b> al priorizar el KPI propio a costa de otro.
+          <br><b>Aliado (3+):</b> sus asistencias valen +3. <b>Referente (6+):</b> 1 favor por partida (una tirada aliada gratis).
+          <b>Autoridad (9+):</b> convierte una falla en éxito parcial, 1 vez por partida.
+        </p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>Perfiles de jugador</h3><span class="hint">1 uso por sesión c/u</span></div>
+      <div class="card-b">
+        <div class="miles" id="profBox"></div>
+        <p class="hint" style="margin:12px 0 0">Asigná un perfil a cada participante en el Encuentro 1. El perfil no cambia sus modificadores: le da una palanca narrativa propia y le dice al GM qué tipo de desafío lo motiva.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Hitos + Kaizen -->
+  <section class="grid cols-2" data-reveal="up" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-h"><h3>Hitos del módulo</h3><span class="hint">progresión sin PX</span></div>
+      <div class="card-b"><div class="miles" id="mileBox"></div>
+        <p class="hint" style="margin:12px 0 0">Cada hito alcanzado devuelve al equipo <b>un uso de habilidad gastado</b>, a elección de la mesa.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>Actividades entre aventuras — Evento Kaizen</h3><span class="hint">entre módulos</span></div>
+      <div class="card-b"><div class="miles" id="kaizenBox"></div>
+        <p class="hint" style="margin:12px 0 0">Se juega entre el Módulo 1 y el Módulo 2. El equipo reparte tiempo y caja sobrante: lo que compre acá arranca activo en la sesión siguiente.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Guion del módulo -->
+  <section class="card" data-reveal="up">
+    <div class="card-h"><h3 id="modTitle">Guion del módulo</h3><span class="hint" id="modMeta"></span></div>
+    <div class="card-b"><div class="acts" id="actBox"></div></div>
+  </section>
+</main>
+
+<!-- ══════════════════════════════════════════════════════════
+     MODO MANUAL
+     ══════════════════════════════════════════════════════════ -->
+<main class="wrap manual" id="viewManual" hidden>
+
+  <h1 style="font-size:34px;margin-bottom:6px">Corporaciones &amp; Dragones</h1>
+  <p style="font-size:16px;color:var(--ink-3);margin-bottom:22px">
+    Manual del sistema base · Edición d12 unificada · Módulos <em>La Montaña de Metal</em> y <em>Efecto Dominó</em>
+  </p>
+
+  <nav class="toc">
+    <a href="#s1"><b>01</b>Qué es un juego de rol aplicado</a>
+    <a href="#s2"><b>02</b>El sistema d12: tirada, CD y crítico</a>
+    <a href="#s3"><b>03</b>Los cinco atributos de gestión</a>
+    <a href="#s4"><b>04</b>Las doce habilidades</a>
+    <a href="#s5"><b>05</b>Los cinco departamentos</a>
+    <a href="#s6"><b>06</b>Habilidades especiales</a>
+    <a href="#s7"><b>07</b>Prestigio, hitos y Kaizen</a>
+    <a href="#s8"><b>08</b>Perfiles de jugador</a>
+    <a href="#s9"><b>09</b>Tablero, miniaturas y materiales</a>
+    <a href="#s10"><b>10</b>Módulo 1 — La Montaña de Metal</a>
+    <a href="#s11"><b>11</b>Módulo 2 — Efecto Dominó</a>
+    <a href="#s12"><b>12</b>El debriefing</a>
+    <a href="#s13"><b>13</b>Conversión d20 ↔ d12</a>
+    <a href="#s14"><b>14</b>Notas de diseño y fuentes</a>
+  </nav>
+
+  <h2 id="s1" data-reveal="drop"><span class="no">01</span>Qué es un juego de rol aplicado</h2>
+  <p>Un juego de rol es una experiencia narrativa y colaborativa donde los participantes asumen el papel de personajes dentro de un escenario estructurado por reglas. A diferencia de un juego de mesa con condiciones fijas de victoria, se desarrolla como una conversación guiada en la que las decisiones moldean dinámicamente la historia.</p>
+  <p>Uno de los participantes actúa como <strong>Game Master (GM)</strong> —o <em>Dungeon Manager</em>, en la nomenclatura de los manuales sectoriales—: describe el entorno, interpreta a los personajes no jugadores (NPC) y arbitra las consecuencias según el reglamento. El resto controla departamentos, no individuos.</p>
+  <div class="callout">
+    <h4>Principio fundamental del GM</h4>
+    <p class="lightup">Tu trabajo no es ganarle al equipo. Es crear situaciones lo bastante desafiantes como para que aprendan algo. Si el equipo falla una tirada, la partida no termina: la historia se complica y el aprendizaje se profundiza. Nunca digas “no”. Decí “sí, pero…” o “sí, y además…”.</p>
+  </div>
+  <p>El aprendizaje real no ocurre durante el juego sino en el <strong>debriefing</strong> (sección 12). El juego produce la experiencia; el debriefing la convierte en transferencia al trabajo real.</p>
+
+  <h2 id="s2" data-reveal="drop"><span class="no">02</span>El sistema d12: tirada, CD y crítico <span class="tag rev">recalibrado</span></h2>
+  <p>Toda acción incierta se resuelve igual: <strong>1d12 + modificador del atributo</strong>, comparado contra una <strong>Clase de Dificultad (CD)</strong> que fija el GM. Si el total iguala o supera la CD, hay éxito.</p>
+  <div class="callout">
+    <h4>Por qué d12 y no d20</h4>
+    <p>El d12 produce una curva más estrecha: el modificador del departamento pesa más que la suerte. Con +3, un especialista pasa una CD 9 el 58% de las veces; un generalista sin modificador, el 33%. Esa brecha —25 puntos porcentuales— es la que hace que <em>importe</em> quién tira, que es exactamente lo que se quiere enseñar: la especialización y la asistencia cruzada cambian resultados. En d20 la misma brecha se diluye a 15 puntos y el azar domina la mesa.</p>
+  </div>
+  <h3>Escala de dificultad</h3>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>CD</th><th>Nivel</th><th>Cuándo se usa</th><th>Especialista (+3)</th><th>Generalista (+0)</th></tr></thead>
+    <tbody>
+      <tr><td><span class="k">5</span></td><td>Rutinaria</td><td>Tarea operativa directa, sin oposición</td><td>92%</td><td>67%</td></tr>
+      <tr><td><span class="k">7</span></td><td>Estándar</td><td>Trabajo normal con algo de complejidad</td><td>75%</td><td>50%</td></tr>
+      <tr><td><span class="k">9</span></td><td>Exigente</td><td>Coordinación entre áreas, resolución técnica, NPC neutral</td><td>58%</td><td>33%</td></tr>
+      <tr><td><span class="k">11</span></td><td>Crítica</td><td>Conflicto real, tiempo limitado, NPC resistente</td><td>42%</td><td>17%</td></tr>
+      <tr><td><span class="k">13</span></td><td>Sistémica</td><td>Crisis con oposición activa. <strong>Requiere asistencia o ventaja</strong></td><td>25%</td><td>0%</td></tr>
+      <tr><td><span class="k">15</span></td><td>Heroica</td><td>Clímax. <strong>Requiere asistencia + ventaja + habilidad especial</strong></td><td>8%</td><td>0%</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="hint">Regla del GM: si una CD 13 o 15 aparece sin que el equipo tenga forma de sumar apoyos, la CD está mal puesta. Esas dos filas existen para <em>obligar</em> a la colaboración, no para castigar.</p>
+
+  <h3>Crítico y complicación <span class="tag nuevo">nuevo</span></h3>
+  <ul>
+    <li><strong>12 natural:</strong> éxito crítico. Además del éxito, el equipo obtiene un beneficio extra: recupera un uso de habilidad, gana +1 de Prestigio o descuenta un día adicional de Lead Time (elige el GM).</li>
+    <li><strong>1 natural:</strong> complicación. La acción falla <em>y</em> el GM introduce una consecuencia narrativa nueva. No es daño gratuito: es material para el debriefing.</li>
+  </ul>
+
+  <h3>Ventaja, desventaja y asistencia</h3>
+  <ul>
+    <li><strong>Ventaja:</strong> tirás 2d12 y conservás el más alto. Se gana por preparación previa, caminata Gemba, dato conseguido de un NPC aliado o habilidad especial de un compañero.</li>
+    <li><strong>Desventaja:</strong> tirás 2d12 y conservás el más bajo. Se aplica cuando se activa la debilidad del departamento o cuando una mala decisión previa dejó secuela.</li>
+    <li><strong>Asistencia interdepartamental (+2):</strong> otro departamento suma +2 a la tirada, siempre que la justificación narrativa sea lógica. Logística no asiste a RRHH en una conversación emocional; sí en un análisis de flujo. <strong>Con Prestigio 3 o más, la asistencia vale +3.</strong></li>
+    <li>Los bonus de habilidad (Plan A3, Decreto de Prioridad) <strong>se acumulan</strong> con la asistencia, pero un mismo departamento no puede asistir dos veces en la misma ronda.</li>
+  </ul>
+
+  <h2 id="s3" data-reveal="drop"><span class="no">03</span>Los cinco atributos de gestión</h2>
+  <p>C&amp;D reemplaza los atributos clásicos de fantasía por cinco competencias organizacionales. La equivalencia con D&amp;D está en la sección 13, para quien venga del rol tradicional.</p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Atributo</th><th>Qué mide</th><th>Equivale a</th><th>Titular</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Análisis</strong></td><td>Leer datos, procesos y sistemas; encontrar la causa raíz</td><td>Inteligencia</td><td>🦫 Castor</td></tr>
+      <tr><td><strong>Visión Sistémica</strong></td><td>Ver el panorama completo y anticipar el efecto de segundo orden</td><td>Sabiduría</td><td>🦉 Búho</td></tr>
+      <tr><td><strong>Negociación</strong></td><td>Convencer, alinear, destrabar conflictos, imponer prioridades</td><td>Carisma</td><td>🦊 Zorro</td></tr>
+      <tr><td><strong>Operaciones</strong></td><td>Ejecutar, implementar, mover volumen, destrabar el taller</td><td>Fuerza</td><td>🐂 Toro</td></tr>
+      <tr><td><strong>Adaptabilidad</strong></td><td>Reaccionar rápido ante lo imprevisto sin generar caos</td><td>Destreza</td><td>🦊 Zorro</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="s4" data-reveal="drop"><span class="no">04</span>Las doce habilidades <span class="tag nuevo">integrado</span></h2>
+  <p>Cada atributo agrupa habilidades concretas. El GM nombra la habilidad —no el atributo— cuando pide una tirada: “esto es una Inspección Gemba, CD 9”. Es lo que hace que el vocabulario Lean se aprenda por uso y no por definición.</p>
+  <div class="tablewrap" id="skillTable"></div>
+
+  <h3>Cómo se resuelve una acción, paso a paso</h3>
+  <ol>
+    <li><strong>Declaración:</strong> el jugador dice qué quiere hacer. <em>“El Toro quiere recorrer el taller para ver por qué se acumulan cajas.”</em></li>
+    <li><strong>Asignación:</strong> el GM determina la habilidad (Inspección Gemba), el atributo (Visión Sistémica) y la CD (9).</li>
+    <li><strong>Apoyos:</strong> la mesa declara asistencias y habilidades antes de tirar. Después de ver el dado ya no se puede sumar nada.</li>
+    <li><strong>Tirada:</strong> 1d12 + modificador + apoyos vs CD.</li>
+    <li><strong>Narración:</strong> el GM describe el resultado en el mundo, no en números.</li>
+  </ol>
+
+  <h2 id="s5" data-reveal="drop"><span class="no">05</span>Los cinco departamentos <span class="tag rev">rebalanceado</span></h2>
+  <p>Los cinco animales son <strong>arquetipos universales</strong>: la misma ficha se usa en manufactura y en servicios, cambiando solo el nombre del área que representa. Un participante que jugó el Toro en Nexum Industrial reconoce al Toro en Nexum Servicios.</p>
+  <div class="tablewrap" id="charTable"></div>
+  <div class="callout new">
+    <h4>Qué se cambió respecto de la versión anterior y por qué</h4>
+    <p><strong>1. Todos los departamentos suman +5 de modificadores totales.</strong> En la versión previa el Zorro sumaba +6 y era estrictamente superior. Ahora la diferencia es de forma, no de potencia.</p>
+    <p><strong>2. Adaptabilidad dejó de ser un atributo muerto.</strong> Nadie la tenía por encima de +1, así que ningún GM la pedía nunca. Ahora el Zorro la lleva a +2 (flexibilidad de plazos) y el Toro a +1 (respuesta de taller), y las tiradas de Respuesta a Crisis tienen dueño.</p>
+    <p><strong>3. La Ardilla sigue sin un +3.</strong> Es deliberado: es el único departamento generalista (+2/+2) y lo compensa con la única habilidad pasiva que altera el turno de los demás (Cierre de Grifo). Su poder es de veto, no de tirada.</p>
+    <p><strong>4. Cada departamento tiene ahora una debilidad mecánica</strong> que impone Desventaja en una situación identificable. Las debilidades venían de las fichas sectoriales pero no existían en el manual base, y son la principal fuente de tensión entre áreas.</p>
+  </div>
+
+  <h3>Objetivos públicos, secretos y restricciones <span class="tag nuevo">recuperado</span></h3>
+  <p>Cada departamento juega con <strong>tres cosas escritas en su ficha que el resto no ve completas</strong>: un objetivo público que puede declarar libremente, un objetivo secreto que decide cuándo revelar, y una restricción de conducta que lo obliga a comportarse de cierta manera aunque le convenga lo contrario.</p>
+  <p>Esta es la pieza que convierte la mesa en una negociación real. Sin objetivos secretos, cinco jugadores razonables convergen en la solución óptima en diez minutos y no hay nada que aprender. Con ellos, el Castor defiende un ERP de $8.000 porque su ficha se lo pide, el Toro vota en contra por reflejo, y la mesa tiene que descubrir —discutiendo— qué le conviene a la empresa y no a cada área.</p>
+  <div class="tablewrap" id="objTable"></div>
+  <div class="callout">
+    <h4>Cómo lo maneja el GM</h4>
+    <p>Repartí las fichas con el objetivo secreto tapado. En la app el bloque secreto está desenfocado hasta que el jugador lo revela con un clic, y el revelado queda registrado en la bitácora con la hora — que es dato de debriefing: <em>¿en qué ronda cada uno puso sus cartas sobre la mesa, y qué habría cambiado si lo hacía antes?</em></p>
+    <p><strong>Puntaje individual, opcional:</strong> al cierre cada jugador se anota 1 punto si se cumplió el objetivo público de su área y 2 si se cumplió el secreto. El equipo gana o pierde en conjunto igual; los puntos individuales solo existen para mostrar en el debriefing cuánto costó cada agenda propia.</p>
+  </div>
+
+  <h2 id="s6" data-reveal="drop"><span class="no">06</span>Habilidades especiales</h2>
+  <p>Cada departamento tiene tres. Los usos se marcan en la ficha durante la partida y se reponen al alcanzar un hito.</p>
+  <div class="tablewrap" id="abilTable"></div>
+
+  <h2 id="s7" data-reveal="drop"><span class="no">07</span>Prestigio, hitos y Evento Kaizen <span class="tag nuevo">nuevo</span></h2>
+  <p>Estas tres mecánicas resuelven el problema estructural de los one-shots: sin progresión, la mesa juega cada escena como un caso aislado y el aprendizaje no se acumula.</p>
+
+  <h3>Prestigio interdepartamental</h3>
+  <p>Cada departamento lleva un contador de 0 a 10 que mide su reputación <strong>ante los otros departamentos</strong>, no ante la dirección. Sube al asistir con éxito a otro o al tomar una decisión que beneficia a un área ajena; baja al proteger el KPI propio a costa del de otro.</p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Prestigio</th><th>Rango</th><th>Beneficio mecánico</th></tr></thead>
+    <tbody>
+      <tr><td><span class="k">0–2</span></td><td>Silo</td><td>Ninguno. Sus asistencias valen +2 estándar.</td></tr>
+      <tr><td><span class="k">3–5</span></td><td>Aliado</td><td>Sus asistencias valen <strong>+3</strong>.</td></tr>
+      <tr><td><span class="k">6–8</span></td><td>Referente</td><td>Además, <strong>1 favor por partida</strong>: pide a otro departamento una tirada en su nombre sin gastar la acción de ese departamento.</td></tr>
+      <tr><td><span class="k">9–10</span></td><td>Autoridad transversal</td><td>Además, <strong>1 vez por partida convierte una falla propia en éxito parcial</strong> (el objetivo se logra pero con un costo que fija el GM).</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>El Prestigio es el antídoto mecánico contra los silos: convierte “ayudar al otro” en una inversión con retorno visible, que es exactamente el argumento que uno quiere que los participantes se lleven al trabajo real.</p>
+
+  <h3>Hitos en lugar de puntos de experiencia</h3>
+  <p>No hay PX. El equipo progresa por <strong>hitos</strong>: objetivos narrativos significativos —cerrar una fase, descubrir el dato clave, sostener una mejora una ronda entera—. Alcanzar un hito devuelve al equipo <strong>un uso de habilidad especial ya gastado</strong>, a elección de la mesa. Los hitos de cada módulo están listados en el panel de Modo Partida.</p>
+
+  <h3>Actividades entre aventuras = Evento Kaizen</h3>
+  <p>Entre el Módulo 1 y el Módulo 2 hay un período que no es de urgencia operativa. El equipo invierte tiempo y caja sobrante, igual que un personaje que se entrena entre aventuras:</p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Actividad</th><th>Costo</th><th>Efecto en la sesión siguiente</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Capacitación</strong> (upskilling)</td><td>−$500 y 1 ronda de agenda</td><td>+1 permanente a un atributo de un departamento, a elección del equipo</td></tr>
+      <tr><td><strong>Estandarización</strong> (standard work)</td><td>−$300</td><td>Una mejora lograda se vuelve permanente: ningún evento aleatorio puede revertirla</td></tr>
+      <tr><td><strong>Infraestructura</strong> (inversión Lean)</td><td>−$1.000</td><td>−2 días de Lead Time desde el arranque del módulo siguiente</td></tr>
+      <tr><td><strong>Red interna</strong> (prestigio)</td><td>−$200</td><td>+2 de Prestigio repartidos como decida el equipo</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="hint">Si el equipo terminó el Módulo 1 con la caja al límite, esta fase se juega igual: la restricción presupuestaria <em>es</em> la lección.</p>
+
+  <h2 id="s8" data-reveal="drop"><span class="no">08</span>Perfiles de jugador <span class="tag nuevo">nuevo</span></h2>
+  <p>Al inicio de la campaña cada participante elige un perfil. No modifica atributos: da una palanca propia y le dice al GM qué tipo de desafío lo mantiene enganchado.</p>
+  <div class="tablewrap" id="profTable"></div>
+  <p>Un equipo sin Exploradores nunca hace Gemba y descubre los problemas tarde. Un equipo sin Resolutores ejecuta rápido y sin diagnóstico. Si al repartir perfiles falta uno, el GM puede interpretarlo con un NPC.</p>
+
+  <h2 id="s9" data-reveal="drop"><span class="no">09</span>Tablero, miniaturas y materiales</h2>
+  <p><strong>El Tablero de Planta / Sede.</strong> Representa el flujo de valor (Value Stream Map): estaciones de trabajo, niveles de WIP entre estación y estación, y el marcador global de Lead Time y caja. No hace falta un tablero impreso: un pizarrón con las cinco estaciones dibujadas y post-its como inventario funciona igual o mejor, porque el equipo lo modifica con la mano.</p>
+  <p><strong>Miniaturas de departamento.</strong> Cada jugador mueve su figura por las secciones del tablero para representar presencia física: caminata Gemba, auditoría, reunión de negociación. La regla que le da sentido: <em>un departamento solo puede asistir a otro si su miniatura está en la misma zona del tablero</em>. Eso convierte “ir a ver” en una decisión con costo de turno.</p>
+  <h4>Lista de materiales por sesión</h4>
+  <ul>
+    <li>Un d12 por jugador (o esta app proyectada).</li>
+    <li>Cinco fichas de departamento impresas —una por jugador— y las cinco cartas secretas del módulo.</li>
+    <li>Pizarrón o flipchart para el tablero de planta.</li>
+    <li>Tarjetas rojas para etiquetar desperdicios (Seiri) y tarjetas Kanban de dos colores.</li>
+    <li>Marcador visible de Lead Time, caja y WIP: si se proyecta esta app, alcanza con ella.</li>
+  </ul>
+
+  <h2 id="s10" data-reveal="drop"><span class="no">10</span>Módulo 1 — La Montaña de Metal <span class="tag rev">reescrito como jugable</span></h2>
+  <div class="callout">
+    <h4>Ficha técnica</h4>
+    <p><strong>Empresa:</strong> Metalúrgica del Sur S.A. · <strong>Duración:</strong> 2,5 h (4 rondas + debriefing) · <strong>Contenido:</strong> transición Push → Pull, VSM, 5S, Kanban, costo del inventario.</p>
+    <p><strong>Conflicto:</strong> el depósito está saturado con $12.000 USD de inventario estancado. El almacenamiento cuesta $1.500 por semana y ahoga la liquidez. La dirección exige flujo continuo antes de que la auditoría bancaria ejecute la hipoteca comercial.</p>
+    <p><strong>Marcadores iniciales:</strong> Lead Time 42 días · Caja $8.000 · WIP Crítico.<br>
+    <strong>Meta:</strong> Lead Time ≤ 15 días y WIP en nivel Bajo, con la caja en positivo, en 4 rondas.</p>
+  </div>
+  <p class="hint">La versión anterior de este módulo estaba escrita como una partida ya resuelta: los dados salían escritos y el equipo solo podía leer lo que “había pasado”. Acá está convertido en estructura jugable: cada escena tiene decisión, CD, y ramas de éxito y de fracaso. El guion completo, escena por escena, está en el <strong>Modo Partida</strong>.</p>
+  <h3>Economía del módulo (para el GM)</h3>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Palanca</th><th>Costo</th><th>Efecto</th><th>Requisito</th></tr></thead>
+    <tbody>
+      <tr><td>Caminata Gemba + Seiri (5S)</td><td>$0</td><td>−5 días</td><td>Visión Sistémica CD 7</td></tr>
+      <tr><td>Sistema Pull con tarjetas Kanban</td><td>$0</td><td>−6 días, WIP Crítico → Moderado</td><td>Negociación CD 11 contra la resistencia de taller</td></tr>
+      <tr><td>Adaptador CNC (cambio rápido de herramental)</td><td>$2.500</td><td>−14 días</td><td>Análisis CD 9 para justificarlo antes de comprar</td></tr>
+      <tr><td>Lotes pequeños / entregas fraccionadas</td><td>$0</td><td>−5 días, WIP Moderado → Bajo</td><td>Análisis CD 9 con Plan A3</td></tr>
+      <tr><td>Kaizen Sprint del Toro</td><td>$0</td><td>−2 días</td><td>Habilidad, sin tirada</td></tr>
+      <tr><td class="k">TRAMPA</td><td>$7.000</td><td>−3 días</td><td>Software de depósito. Consume el 88% de la caja para resolver un síntoma.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Sumadas, las palancas legítimas dan −32 días sobre los 27 necesarios: hay margen para dos fracasos. Si el equipo compra el software, el margen desaparece y la partida se vuelve una carrera de supervivencia financiera — que es un final perfectamente válido y el mejor material de debriefing que ofrece el módulo.</p>
+  <h3>Costo de almacenamiento por ronda</h3>
+  <ul>
+    <li><strong>WIP Crítico:</strong> −$1.500 al cierre de cada ronda.</li>
+    <li><strong>WIP Moderado:</strong> −$500 y La Ardilla recupera +$1.000 por única vez al bajar de nivel.</li>
+    <li><strong>WIP Bajo:</strong> $0.</li>
+  </ul>
+
+  <h2 id="s11" data-reveal="drop"><span class="no">11</span>Módulo 2 — Efecto Dominó: la rotación del caos</h2>
+  <div class="callout">
+    <h4>Ficha técnica</h4>
+    <p><strong>Duración:</strong> 2,5 h (4 rondas rotativas + debriefing) · <strong>Contenido:</strong> Teoría de Restricciones (TOC), efecto látigo, sostenimiento de la mejora.</p>
+    <p><strong>Premisa:</strong> la planta se estabilizó, pero al dinamizar el flujo el cuello de botella no desapareció: <strong>migra de área en cada ronda</strong>. Cada turno un departamento distinto es el Foco del Caos.</p>
+    <p><strong>Marcadores iniciales:</strong> Lead Time 18 días · Caja $5.500 · WIP Bajo. <strong>Meta:</strong> absorber la demanda creciente sin que ningún departamento colapse y cerrar con Lead Time ≤ 15.</p>
+  </div>
+  <p>Las CD del módulo fueron reconvertidas a la escala d12 (ver sección 13). El guion de las cuatro rondas está en el Modo Partida.</p>
+  <div class="callout new">
+    <h4>Regla propia del módulo: el Foco del Caos <span class="tag nuevo">nuevo</span></h4>
+    <p>El departamento marcado como Foco del Caos en una ronda <strong>no puede recibir asistencia en su primera tirada</strong> de esa ronda: tiene que enfrentar sola la disrupción de su área. Recién a partir de la segunda tirada la mesa puede apoyarlo. Es lo que obliga a que el resto <em>vea</em> el problema del otro antes de poder ayudarlo.</p>
+  </div>
+
+  <h2 id="s12" data-reveal="drop"><span class="no">12</span>El debriefing</h2>
+  <p>20 a 25 minutos al cierre de cada encuentro. Es la parte del sistema donde ocurre la transferencia; todo lo anterior es preparación para esto.</p>
+  <ol>
+    <li><strong>¿Qué pasó? (5 min).</strong> Reconstrucción objetiva de lo ocurrido, sin evaluar. La bitácora de la app sirve como acta.</li>
+    <li><strong>¿Qué funcionó y qué no? (5 min).</strong> Se revelan todas las cartas secretas. Acá aparece la “trampa tecnológica” y por qué era tentadora.</li>
+    <li><strong>¿Por qué? (5 min).</strong> Entra la teoría: el inventario oculta problemas (<em>mura</em> / <em>muri</em>), la restricción se desplaza, el efecto látigo amplifica la variación aguas arriba.</li>
+    <li><strong>¿Y en tu trabajo real? (10 min).</strong> La pregunta que justifica todo lo demás: ¿cuáles son tus “lotes acumulados” cotidianos? ¿Qué comprás para no tener que cambiar cómo trabajás?</li>
+  </ol>
+  <div class="callout">
+    <h4>Preguntas de cierre del Módulo 2</h4>
+    <p>¿Cómo cambió la dinámica cuando el cuello de botella rotó entre áreas? · ¿En qué momento la respuesta impulsiva de un área agravó el problema del área siguiente? · ¿Cómo se parece esa rotación a las crisis operativas semanales de nuestra empresa real?</p>
+  </div>
+
+  <h2 id="s13" data-reveal="drop"><span class="no">13</span>Conversión d20 ↔ d12 <span class="tag nuevo">nuevo</span></h2>
+  <p>Los manuales sectoriales de 5S (Nexum Industrial y Nexum Servicios) están escritos en d20 con atributos de D&amp;D. Para correrlos con este sistema:</p>
+  <h4>Atributos</h4>
+  <p>Inteligencia → <strong>Análisis</strong> · Sabiduría → <strong>Visión Sistémica</strong> · Carisma → <strong>Negociación</strong> · Fuerza → <strong>Operaciones</strong> · Destreza → <strong>Adaptabilidad</strong>. Los modificadores de las fichas sectoriales, calculados como (Valor−10)÷2, se usan tal cual.</p>
+  <h4>Dificultades</h4>
+  <p>Regla práctica: <strong>CD<sub>d12</sub> = redondear(CD<sub>d20</sub> × 0,55) + 2</strong>.</p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>CD en d20</th><th>5</th><th>8</th><th>11</th><th>13</th><th>14</th><th>15</th><th>18</th><th>20</th></tr></thead>
+    <tbody><tr><td><strong>CD en d12</strong></td><td>5</td><td>6</td><td>8</td><td>9</td><td>10</td><td>10</td><td>12</td><td>13</td></tr></tbody>
+  </table>
+  </div>
+  <p class="hint">Las tiradas de los encuentros de 5S quedan así: “Convencer a Ramón, Carisma CD 14” pasa a “Negociación CD 10”; “Identificar elementos innecesarios, Inteligencia CD 13” pasa a “Análisis de Procesos CD 9”.</p>
+
+  <h2 id="s14" data-reveal="drop"><span class="no">14</span>Notas de diseño y fuentes</h2>
+  <p>Esta edición unifica cinco documentos de la investigación que hasta ahora describían sistemas incompatibles entre sí:</p>
+  <ul>
+    <li><strong>Manual del Sistema Base y Módulos One-Shot</strong> (d12, animales, Lean-VSM) — base narrativa y de módulos.</li>
+    <li><strong>Manual del Dungeon Manager, Universo A — Manufactura</strong> y <strong>Universo B — Servicios</strong> (d20, 5S, seis encuentros) — de donde vienen la escala de CD extendida, el rol del DM, las debilidades de personaje, la estructura de NPC con condición de cambio de actitud y el debriefing de cuatro preguntas.</li>
+    <li><strong>Habilidades Generales</strong> — las doce habilidades de la sección 4, remapeadas de los atributos de D&amp;D a los cinco atributos de gestión.</li>
+    <li><strong>Habilidades Únicas por Sector</strong> — las quince habilidades especiales de la sección 6.</li>
+    <li><strong>Las cinco cartas TCG ilustradas</strong> (captura del 24/08/2026) — de ahí salen los nombres reales de las debilidades (Aversión al Riesgo, Sobrevender, Perfeccionismo, Intolerancia a la Burocracia, Resistencia al Cambio) y el sistema completo de objetivos público / secreto / restricción, que no figuraba en ningún documento de texto.</li>
+    <li><strong>Sinergia Lúdica: Gestión Ágil y Metodologías de Mejora Continua</strong> — origen de Prestigio, hitos, actividades entre aventuras como Evento Kaizen y perfiles de jugador. Era el documento con más potencial de jugabilidad y el único que no estaba implementado en ninguna parte del sistema.</li>
+  </ul>
+  <div class="callout">
+    <h4>Tres divergencias numéricas a resolver antes de imprimir</h4>
+    <p><strong>1.</strong> Las cartas dicen que el ERP cuesta <strong>$8.000</strong>; el módulo escrito dice <strong>$7.000</strong>. Acá quedó $7.000 en el guion del Módulo 1 y $8.000 en el objetivo secreto del Castor, tal como están en cada fuente.</p>
+    <p><strong>2.</strong> Las cartas nombran a la empresa <strong>Portezuelo S.A.</strong>; el módulo la llama <strong>Metalúrgica del Sur S.A.</strong> Hay que elegir una.</p>
+    <p><strong>3.</strong> La restricción del Castor pide una tirada de <strong>Análisis CD 10</strong>, que no existe en la escala d12 (va de 9 a 11). Quedó ajustada a CD 9.</p>
+  </div>
+  <p>Todo lo marcado <span class="tag nuevo">nuevo</span> es contenido de diseño agregado en esta edición: no está en la bibliografía original y debería validarse en playtesting antes de darlo por canónico. Lo marcado <span class="tag rev">recalibrado</span> existía pero cambió de valores por razones que se explican en el lugar donde aparece.</p>
+  <p class="hint" style="margin-top:26px;border-top:1px solid var(--line);padding-top:14px">
+    Corporaciones &amp; Dragones · Proyecto de investigación en gamificación aplicada a la enseñanza de Lean · UTN Facultad Regional San Rafael.
+  </p>
+</main>
+
+<div class="sticky-note" id="toast"></div>
+<script>
+/* ============================================================
+   DATOS DEL SISTEMA
+   ============================================================ */
+const ATTRS = [
+  {k:'ana', n:'Análisis',         abbr:'ANÁ', dnd:'Inteligencia'},
+  {k:'vis', n:'Visión Sistémica', abbr:'VIS', dnd:'Sabiduría'},
+  {k:'neg', n:'Negociación',      abbr:'NEG', dnd:'Carisma'},
+  {k:'ope', n:'Operaciones',      abbr:'OPE', dnd:'Fuerza'},
+  {k:'ada', n:'Adaptabilidad',    abbr:'ADA', dnd:'Destreza'}
+];
+
+const SKILLS = [
+  {n:'Análisis de Procesos', a:'ana', d:'Comprender sistemas complejos, leer diagramas de flujo, procedimientos o normativas ISO. Identifica dónde se pierde tiempo o falla la secuencia de trabajo.'},
+  {n:'Análisis de Datos / Métricas', a:'ana', d:'Auditar planillas, leer tableros de KPI, detectar variaciones estadísticas y fugas financieras escondidas en los números.'},
+  {n:'Tecnología e Infraestructura', a:'ana', d:'Evaluar software (ERP, CRM), automatizaciones y capacidad de maquinaria. Sirve para determinar si una solución tecnológica es viable o es una trampa.'},
+  {n:'Visión Global', a:'vis', d:'Ver la foto completa. Prever cómo una decisión de un área afecta a la cadena de valor o al presupuesto en el mediano plazo.'},
+  {n:'Averiguar Intenciones / Clima', a:'vis', d:'Leer la postura real de un NPC o de otro jugador: agendas ocultas, resistencia al cambio no declarada, si el cliente va a cancelar o solo está presionando.'},
+  {n:'Inspección Gemba', a:'vis', d:'Bajar al lugar donde el trabajo ocurre y detectar desperdicio invisible: material estancado, herramientas fuera de lugar, formularios duplicados.'},
+  {n:'Negociación e Influencia', a:'neg', d:'Convencer a otra área, a la dirección o al cliente de aceptar una propuesta, flexibilizar un plazo o liberar presupuesto.'},
+  {n:'Manejo de Conflictos', a:'neg', d:'Calmar ánimos, desarmar una discusión estancada entre áreas rivales y construir consenso sin recurrir a la autoridad.'},
+  {n:'Presión / Autoridad', a:'neg', d:'Exigir cumplimiento de fechas, imponer prioridades o bloquear proyectos que no cumplen el estándar. Usarla desgasta el Prestigio.'},
+  {n:'Ejecución Directa', a:'ope', d:'Trabajo pesado a volumen: resolver picos de tickets, procesar lotes, mover material, implementar un cambio en tiempo récord.'},
+  {n:'Resolución de Fallas / Taller', a:'ope', d:'Arreglo manual inmediato: destrabar una máquina o ajustar un procedimiento en el acto para que la línea o el servicio no se detengan.'},
+  {n:'Respuesta a Crisis', a:'ada', d:'Reorganizar el flujo de trabajo ante lo imprevisto —caída de sistema, falla mecánica, pedido urgente— sin generar caos operativo.'}
+];
+
+const ART = {
+buho:`<svg viewBox="0 0 250 150" preserveAspectRatio="xMidYMid slice"><defs>
+<linearGradient id="bg-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#122f56"/><stop offset="1" stop-color="#060d1a"/></linearGradient>
+<linearGradient id="su-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b3f63"/><stop offset="1" stop-color="#131d2f"/></linearGradient>
+<radialGradient id="gl-b" cx=".5" cy=".4"><stop offset="0" stop-color="#5ba7ee" stop-opacity=".35"/><stop offset="1" stop-color="#5ba7ee" stop-opacity="0"/></radialGradient></defs>
+<rect width="250" height="150" fill="url(#bg-b)"/><rect width="250" height="150" fill="url(#gl-b)"/>
+<g stroke="#5fb4f5" stroke-width="1" fill="none" opacity=".55">
+<rect x="18" y="20" width="34" height="20" rx="2"/><rect x="18" y="52" width="34" height="20" rx="2"/><path d="M52 30h16v32h-16"/><circle cx="80" cy="46" r="9"/>
+<path d="M196 26v46M186 62v10M206 48v24M216 38v34" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+<path d="M176 34l14-10 12 8 14-14" stroke-dasharray="3 3"/></g>
+<path d="M0 150 L34 104 L216 104 L250 150Z" fill="#0b1728"/><path d="M34 104h182" stroke="#3f6fbf" stroke-width="1.4" opacity=".7"/>
+<path d="M125 62 Q96 78 90 150 L160 150 Q154 78 125 62Z" fill="url(#su-b)"/>
+<path d="M125 66 L112 150 M125 66 L138 150" stroke="#0d1626" stroke-width="1.2" opacity=".8"/>
+<path d="M125 68 l-11 10 11 12 11-12z" fill="#c3452f"/>
+<ellipse cx="125" cy="45" rx="30" ry="27" fill="#3d5170"/>
+<path d="M99 27 q6-16 14-4 M151 27 q-6-16-14-4" stroke="#3d5170" stroke-width="9" fill="none" stroke-linecap="round"/>
+<ellipse cx="125" cy="50" rx="22" ry="17" fill="#4a6285"/>
+<circle cx="113" cy="42" r="10.5" fill="#f4d580" stroke="#a8801f" stroke-width="2.2"/>
+<circle cx="137" cy="42" r="10.5" fill="#f4d580" stroke="#a8801f" stroke-width="2.2"/>
+<circle cx="113" cy="42" r="4.2" fill="#141414"/><circle cx="137" cy="42" r="4.2" fill="#141414"/>
+<circle cx="115" cy="40" r="1.5" fill="#fff" opacity=".9"/><circle cx="139" cy="40" r="1.5" fill="#fff" opacity=".9"/>
+<path d="M123.5 42h3" stroke="#a8801f" stroke-width="2.4"/>
+<path d="M125 50 l-5 8 h10z" fill="#e8a33c"/>
+<path d="M150 92 L172 70" stroke="#5fb4f5" stroke-width="3.4" stroke-linecap="round"/><circle cx="173" cy="69" r="3.4" fill="#a9dcff"/>
+</svg>`,
+zorro:`<svg viewBox="0 0 250 150" preserveAspectRatio="xMidYMid slice"><defs>
+<linearGradient id="bg-z" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f0913f"/><stop offset=".55" stop-color="#a13d16"/><stop offset="1" stop-color="#2a1006"/></linearGradient>
+<linearGradient id="su-z" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22304a"/><stop offset="1" stop-color="#0d1420"/></linearGradient></defs>
+<rect width="250" height="150" fill="url(#bg-z)"/>
+<circle cx="196" cy="40" r="21" fill="#ffd28a" opacity=".85"/>
+<g fill="#40170a" opacity=".92"><rect x="8" y="72" width="26" height="78"/><rect x="38" y="54" width="20" height="96"/><rect x="62" y="86" width="16" height="64"/><rect x="172" y="66" width="24" height="84"/><rect x="200" y="80" width="30" height="70"/><rect x="234" y="58" width="16" height="92"/></g>
+<g fill="#ffca7a" opacity=".55"><rect x="13" y="80" width="5" height="5"/><rect x="23" y="94" width="5" height="5"/><rect x="43" y="64" width="5" height="5"/><rect x="47" y="84" width="5" height="5"/><rect x="178" y="76" width="5" height="5"/><rect x="206" y="92" width="5" height="5"/><rect x="239" y="70" width="5" height="5"/></g>
+<rect x="0" y="118" width="250" height="4" fill="#2a1006" opacity=".6"/>
+<path d="M125 66 Q92 84 86 150 L164 150 Q158 84 125 66Z" fill="url(#su-z)"/>
+<path d="M125 70 L110 150 M125 70 L140 150" stroke="#080d16" stroke-width="1.3"/>
+<path d="M125 72 l-10 9 10 13 10-13z" fill="#c2412a"/>
+<path d="M104 44 L96 12 L120 32Z" fill="#d9702f"/><path d="M105 40 L100 20 L116 33Z" fill="#3a1608"/>
+<path d="M146 44 L154 12 L130 32Z" fill="#d9702f"/><path d="M145 40 L150 20 L134 33Z" fill="#3a1608"/>
+<path d="M125 34 Q100 36 101 52 Q103 70 125 76 Q147 70 149 52 Q150 36 125 34Z" fill="#e07f3a"/>
+<path d="M125 52 Q112 54 112 64 Q112 74 125 78 Q138 74 138 64 Q138 54 125 52Z" fill="#f6e3cc"/>
+<path d="M125 66 l-5 4 5 4 5-4z" fill="#1a1a1a"/>
+<path d="M108 50 q6-3 11 1" stroke="#1a1a1a" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+<path d="M142 50 q-6-3-11 1" stroke="#1a1a1a" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+<path d="M118 72 q7 5 14 0" stroke="#1a1a1a" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+<rect x="152" y="94" width="15" height="26" rx="3" fill="#0f1b2c" stroke="#5fb4f5" stroke-width="1.4"/><rect x="154.5" y="97" width="10" height="18" fill="#5fb4f5" opacity=".55"/>
+</svg>`,
+castor:`<svg viewBox="0 0 250 150" preserveAspectRatio="xMidYMid slice"><defs>
+<linearGradient id="bg-c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d6b52"/><stop offset="1" stop-color="#03231c"/></linearGradient>
+<linearGradient id="ve-c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f8d6c"/><stop offset="1" stop-color="#14503d"/></linearGradient></defs>
+<rect width="250" height="150" fill="url(#bg-c)"/>
+<g stroke="#4fdca8" stroke-width=".7" opacity=".28">
+<path d="M0 20h250M0 45h250M0 70h250M0 95h250M0 120h250M25 0v150M50 0v150M75 0v150M175 0v150M200 0v150M225 0v150"/></g>
+<g transform="rotate(-9 190 62)"><rect x="150" y="26" width="84" height="60" fill="#062f26" stroke="#6ee7b7" stroke-width="1.6" opacity=".9"/>
+<path d="M158 40h30v18h-30zM196 40h30M196 50h22M196 60h30M158 68h68" stroke="#6ee7b7" stroke-width="1.1" fill="none" opacity=".85"/>
+<text x="160" y="34" font-family="monospace" font-size="7" fill="#6ee7b7">A3</text></g>
+<rect x="12" y="24" width="34" height="104" rx="3" fill="#04221b" stroke="#2f8d6c" stroke-width="1.4"/>
+<g fill="#6ee7b7"><rect x="18" y="34" width="22" height="3"/><rect x="18" y="46" width="16" height="3"/><rect x="18" y="58" width="22" height="3"/><rect x="18" y="70" width="12" height="3"/><rect x="18" y="82" width="22" height="3"/></g>
+<circle cx="42" cy="34" r="2" fill="#7dffd0"/><circle cx="42" cy="58" r="2" fill="#ffd166"/>
+<path d="M112 70 Q80 88 74 150 L152 150 Q146 88 112 70Z" fill="#1d3a30"/>
+<path d="M112 74 Q92 88 88 150 L136 150 Q132 88 112 74Z" fill="url(#ve-c)"/>
+<g fill="#f4f4f4" opacity=".85"><rect x="90" y="106" width="46" height="5"/><rect x="90" y="120" width="46" height="5"/></g>
+<ellipse cx="112" cy="52" rx="27" ry="24" fill="#7a4a1e"/>
+<ellipse cx="88" cy="42" rx="7" ry="8" fill="#5e3715"/><ellipse cx="136" cy="42" rx="7" ry="8" fill="#5e3715"/>
+<path d="M84 34 q28-22 56 0 l3 6 q-31-16-62 0z" fill="#f0c419"/><path d="M84 40 h56 v5 h-56z" fill="#d9a706"/>
+<ellipse cx="112" cy="64" rx="15" ry="11" fill="#a06a34"/>
+<rect x="105" y="64" width="6.4" height="13" rx="1.6" fill="#fff"/><rect x="112.6" y="64" width="6.4" height="13" rx="1.6" fill="#fff"/>
+<ellipse cx="112" cy="60" rx="4" ry="3" fill="#2a1a08"/>
+<circle cx="103" cy="50" r="3.4" fill="#171717"/><circle cx="121" cy="50" r="3.4" fill="#171717"/>
+<circle cx="104" cy="49" r="1.1" fill="#fff"/><circle cx="122" cy="49" r="1.1" fill="#fff"/>
+<path d="M92 36 q-6-6-2-12 M132 36 q6-6 2-12" stroke="#c9e9dc" stroke-width="1.6" fill="none" opacity=".5"/>
+</svg>`,
+toro:`<svg viewBox="0 0 250 150" preserveAspectRatio="xMidYMid slice"><defs>
+<linearGradient id="bg-t" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a0d0d"/><stop offset=".6" stop-color="#1c0505"/><stop offset="1" stop-color="#0a0202"/></linearGradient>
+<radialGradient id="sp-t" cx=".78" cy=".42"><stop offset="0" stop-color="#ffb648" stop-opacity=".55"/><stop offset="1" stop-color="#ffb648" stop-opacity="0"/></radialGradient>
+<linearGradient id="co-t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5c1616"/><stop offset="1" stop-color="#2a0808"/></linearGradient></defs>
+<rect width="250" height="150" fill="url(#bg-t)"/><rect width="250" height="150" fill="url(#sp-t)"/>
+<g fill="#2c0a0a"><rect x="176" y="52" width="66" height="98" rx="3"/><rect x="188" y="30" width="14" height="24"/></g>
+<g stroke="#ffc663" stroke-width="1.3" opacity=".9"><path d="M196 66 l24-22M200 78 l30-16M192 58 l18-20"/></g>
+<g fill="#ffd48a"><circle cx="222" cy="44" r="2.6"/><circle cx="236" cy="60" r="1.8"/><circle cx="208" cy="34" r="1.6"/><circle cx="230" cy="82" r="2.2"/><circle cx="214" cy="96" r="1.5"/><circle cx="244" cy="38" r="1.4"/></g>
+<path d="M112 68 Q68 90 62 150 L164 150 Q158 90 112 68Z" fill="url(#co-t)"/>
+<path d="M112 72 L100 150 M112 72 L126 150" stroke="#170404" stroke-width="1.5"/>
+<path d="M84 96 q14-8 28-2" stroke="#170404" stroke-width="2" fill="none"/>
+<ellipse cx="112" cy="48" rx="31" ry="28" fill="#7d2323"/>
+<path d="M84 40 Q58 24 62 8 Q80 14 92 34Z" fill="#e8e3d6"/><path d="M84 40 Q66 28 66 16" stroke="#c2bba9" stroke-width="1.6" fill="none"/>
+<path d="M140 40 Q166 24 162 8 Q144 14 132 34Z" fill="#e8e3d6"/><path d="M140 40 Q158 28 158 16" stroke="#c2bba9" stroke-width="1.6" fill="none"/>
+<ellipse cx="112" cy="64" rx="19" ry="14" fill="#a94040"/>
+<ellipse cx="105" cy="62" rx="3.4" ry="4.4" fill="#2a0808"/><ellipse cx="119" cy="62" rx="3.4" ry="4.4" fill="#2a0808"/>
+<circle cx="112" cy="71" r="7.5" fill="none" stroke="#e8b23c" stroke-width="3"/>
+<ellipse cx="99" cy="42" rx="4.4" ry="3.6" fill="#fff"/><ellipse cx="125" cy="42" rx="4.4" ry="3.6" fill="#fff"/>
+<circle cx="100" cy="42" r="2" fill="#141414"/><circle cx="126" cy="42" r="2" fill="#141414"/>
+<path d="M92 32 q8-6 16-2 M132 32 q-8-6-16-2" stroke="#4a1010" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+<path d="M146 108 L184 78" stroke="#8e9aa6" stroke-width="9" stroke-linecap="round"/>
+<path d="M182 80 l10-8 6 8 -10 8z" fill="#b6c1cc"/>
+</svg>`,
+ardilla:`<svg viewBox="0 0 250 150" preserveAspectRatio="xMidYMid slice"><defs>
+<linearGradient id="bg-a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a3410"/><stop offset="1" stop-color="#170f03"/></linearGradient>
+<linearGradient id="ta-a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b5722a"/><stop offset="1" stop-color="#6d3f12"/></linearGradient></defs>
+<rect width="250" height="150" fill="url(#bg-a)"/>
+<g opacity=".85"><rect x="14" y="18" width="62" height="42" rx="3" fill="#2c1e06" stroke="#e0b352" stroke-width="1.2"/>
+<g stroke="#ffe6a3" stroke-width="1"><path d="M20 28h50M20 36h50M20 44h50M20 52h50M36 22v40M54 22v40"/></g>
+<rect x="20" y="28" width="16" height="8" fill="#e0b352" opacity=".5"/></g>
+<g><circle cx="196" cy="30" r="9" fill="#e8bb45" stroke="#fff0bf" stroke-width="1.4"/><circle cx="216" cy="48" r="11" fill="#e8bb45" stroke="#fff0bf" stroke-width="1.4"/><circle cx="192" cy="60" r="7" fill="#e8bb45" stroke="#fff0bf" stroke-width="1.2"/>
+<text x="192.5" y="34" font-size="9" font-family="serif" fill="#7a5c10">$</text><text x="212" y="53" font-size="11" font-family="serif" fill="#7a5c10">$</text></g>
+<g><rect x="186" y="86" width="19" height="27" rx="2.5" fill="#3f7fd4"/><rect x="209" y="86" width="19" height="27" rx="2.5" fill="#c94a4a"/>
+<g stroke="#fff" stroke-width="1" opacity=".65"><path d="M190 93h11M190 98h11M213 93h11M213 98h11"/></g></g>
+<path d="M139 84 Q186 62 172 132 Q152 128 140 106Z" fill="url(#ta-a)"/>
+<path d="M146 92 Q176 78 168 122" stroke="#d99a45" stroke-width="2.4" fill="none" opacity=".7"/>
+<path d="M120 70 Q92 88 88 150 L152 150 Q148 88 120 70Z" fill="#3b2a12"/>
+<path d="M120 74 Q104 88 102 150 L138 150 Q136 88 120 74Z" fill="#5a4520"/>
+<path d="M120 76 l-9 8 9 11 9-11z" fill="#7f2b2b"/>
+<path d="M104 32 q-4-14 4-14 q8 2 8 14z" fill="#a6641d"/><path d="M136 32 q4-14-4-14 q-8 2-8 14z" fill="#a6641d"/>
+<ellipse cx="120" cy="48" rx="24" ry="22" fill="#b8762a"/>
+<ellipse cx="120" cy="58" rx="13" ry="10" fill="#f2ddb4"/>
+<ellipse cx="120" cy="53" rx="3.4" ry="2.6" fill="#3a2408"/>
+<rect x="117.4" y="56" width="5.2" height="9" rx="1.4" fill="#fff"/>
+<circle cx="110" cy="43" r="8.4" fill="#fdf6e4" opacity=".28" stroke="#241a08" stroke-width="2"/>
+<circle cx="130" cy="43" r="8.4" fill="#fdf6e4" opacity=".28" stroke="#241a08" stroke-width="2"/>
+<path d="M118.4 43h3.2" stroke="#241a08" stroke-width="2"/>
+<circle cx="110" cy="43" r="3" fill="#1a1206"/><circle cx="130" cy="43" r="3" fill="#1a1206"/>
+<path d="M104 60 l-14 4 M104 64 l-14 0 M136 60 l14 4 M136 64 l14 0" stroke="#f2ddb4" stroke-width="1" opacity=".6"/>
+</svg>`
+};
+
+const CHARS = [
+  {id:'buho', emoji:'🦉', name:'El Búho', role:'Dirección General', color:'var(--buho)',
+   mods:{vis:3, ana:1, neg:1, ope:0, ada:0},
+   focus:'Visión global, autoridad ejecutiva, contención del gasto y alineación estratégica.',
+   sector:{man:'Dirección / Gerencia General', ser:'Dirección / CEO'},
+   weak:{n:'Aversión al Riesgo', d:'Desventaja en decisiones si el presupuesto disponible baja de $3.000 USD.'},
+   art:'arte/buho.png',
+   obj:{pub:'Lead Time ≤ 15 días con un presupuesto ≤ $10.000 USD.',
+        sec:'Lograr el objetivo gastando ≤ $7.000 USD.',
+        res:'Revela su meta secreta recién en la Ronda 3.'},
+   ab:[
+    {n:'Decreto de Prioridad Nacional', t:'Activa · 1 por partida', d:'Declara una tarea como Prioridad Directiva: +2 a todas las tiradas del equipo orientadas a esa tarea durante la ronda.'},
+    {n:'Visión Sistémica', t:'Activa · 1 por partida', d:'Autoriza por decreto una inversión bloqueada por Finanzas, anulando la penalización por falta de coordinación.'},
+    {n:'Veto Presupuestario', t:'Interrupción · 1 por ronda', d:'Congela una compra propuesta y obliga a una tirada previa de Análisis de Datos en la mesa.'}
+   ]},
+  {id:'zorro', emoji:'🦊', name:'El Zorro', role:'Comercial y Ventas', color:'var(--zorro)',
+   mods:{neg:3, ada:2, vis:0, ana:0, ope:0},
+   focus:'Relación con el cliente, persuasión, valor percibido y flexibilidad de plazos.',
+   sector:{man:'Comercial / Ventas', ser:'Comercial / Marketing / Fidelización'},
+   weak:{n:'Sobrevender', d:'Penalización general de −2 si incumple un plazo que prometió.'},
+   art:'arte/zorro.png',
+   obj:{pub:'Garantizar la satisfacción del cliente principal.',
+        sec:'El cliente tolera hasta 20 días de plazo si la calidad es consistente.',
+        res:'Oculta la tolerancia de 20 días hasta que haya riesgo de quiebra en R4.'},
+   ab:[
+    {n:'Endulzar el Trato', t:'Pasiva', d:'Ventaja (2d12, se conserva el mayor) en toda tirada de Negociación frente a clientes o proveedores externos (NPC).'},
+    {n:'Propuesta de Valor', t:'Activa · 1 por partida', d:'Si el Lead Time baja del umbral de la misión, inyecta +$1.000 a la caja sin tirada.'},
+    {n:'Margen de Tolerancia', t:'Revelación · 1 por partida', d:'Revela un dato oculto de la negociación: días de plazo extra tolerados, techo real de precio, urgencia verdadera del cliente.'}
+   ]},
+  {id:'castor', emoji:'🦫', name:'El Castor', role:'Ingeniería y Mejora Continua', color:'var(--castor)',
+   mods:{ana:3, ope:1, vis:1, neg:0, ada:0},
+   focus:'Estandarización, infraestructura técnica, análisis riguroso de datos y sistemas digitales.',
+   sector:{man:'Ingeniería industrial / Proyectos / KPIs', ser:'Tecnología / Sistemas / Analítica'},
+   weak:{n:'Perfeccionismo', d:'−2 en Negociación si la mesa rechaza el ERP en R1 o R2.'},
+   art:'arte/castor.png',
+   obj:{pub:'Modernizar la tecnología de la planta.',
+        sec:'Comprar el software ERP ($8.000 USD) en la Ronda 1 o 2.',
+        res:'Bloquea propuestas informales que no pasen una tirada de Análisis CD 9.'},
+   ab:[
+    {n:'Plan de Acción A3', t:'Soporte · 1 por partida', d:'Estructura la solución en formato A3: +2 a la tirada de implementación técnica de cualquier aliado en ese turno.'},
+    {n:'Filtro de Estandarización', t:'Pasiva', d:'Si el equipo supera Análisis de Procesos CD 9 o más, la mejora aplicada queda inmune a retrocesos por eventos aleatorios.'},
+    {n:'Sprint Tecnológico', t:'Activa · 1 por partida', d:'Activa una herramienta digital que da +2 de Operaciones a todo el equipo durante una ronda completa.'}
+   ]},
+  {id:'toro', emoji:'🐂', name:'El Toro', role:'Producción y Operaciones', color:'var(--toro)',
+   mods:{ope:3, ana:1, ada:1, neg:0, vis:0},
+   focus:'El motor del taller: ejecución directa, eliminación de cuellos de botella físicos, línea en movimiento.',
+   sector:{man:'Producción / Mantenimiento / Seguridad', ser:'Operaciones / Atención / Postventa'},
+   weak:{n:'Intolerancia a la burocracia', d:'−2 en sus tiradas si la mesa debate sobre software más de 3 minutos.'},
+   art:'arte/toro.png',
+   obj:{pub:'Resolver la capacidad física del taller.',
+        sec:'Comprar el Adaptador CNC ($2.500 USD) en la Ronda 1 o 2.',
+        res:'Vota en contra de todo gasto en software superior a $5.000 USD.'},
+   ab:[
+    {n:'Golpe de Taller', t:'Activa · 1 por ronda', d:'Ante una falla o atasco, tirada de Operaciones CD 9: con éxito repara en el acto sin perder el turno de producción.'},
+    {n:'Kaizen Sprint', t:'Activa · 1 por partida', d:'Elimina automáticamente un cuello de botella físico: −2 días de Lead Time, sin tirada.'},
+    {n:'Resistencia de Planta', t:'Pasiva', d:'Anula la primera penalización de tiempo o costo generada por una falla aleatoria de maquinaria en la partida.'}
+   ]},
+  {id:'ardilla', emoji:'🐿️', name:'La Ardilla', role:'Administración y Finanzas', color:'var(--ardilla)',
+   mods:{ana:2, neg:2, vis:1, ope:0, ada:0},
+   focus:'Liquidez, flujo de caja, control del inventario en proceso y detección de costos ocultos.',
+   sector:{man:'Administración / Compras / Logística', ser:'Administración / Facturación / Cobranzas'},
+   weak:{n:'Resistencia al cambio', d:'−2 en sus tiradas durante la ronda siguiente a un evento financiero imprevisto.'},
+   art:'arte/ardilla.png',
+   obj:{pub:'Mantener el flujo de caja positivo.',
+        sec:'Reducir el inventario ($1.000 USD por semana) mediante un sistema Pull.',
+        res:'Bloquea todo gasto superior a $5.000 USD, salvo que Dirección use Visión Sistémica.'},
+   ab:[
+    {n:'Análisis de Causa Raíz', t:'Diagnóstico · 1 por partida', d:'Revela la pérdida financiera acumulada por WIP. Si el equipo implementa Pull, recupera caja en cada ronda posterior.'},
+    {n:'Cierre de Grifo', t:'Pasiva · bloqueo', d:'Bloquea automáticamente todo gasto individual superior al 50% de la caja disponible, salvo que Dirección use Visión Sistémica.'},
+    {n:'Reserva de Emergencia', t:'Activa · 1 por partida', d:'Recupera dinero de partidas contables secundarias e inyecta caja ante riesgo de quiebra.'}
+   ]}
+];
+
+const PROFILES = [
+  {n:'Optimizador', d:'Disfruta ajustar hasta el último detalle para maximizar rendimiento y ver la métrica moverse.',
+   p:'Ajuste fino — 1 vez por sesión repite una tirada propia ya resuelta y se queda con el segundo resultado.',
+   lean:'Es el agente Lean por excelencia: reducción de desperdicio y optimización de flujo medida en números.'},
+  {n:'Resolutor de problemas', d:'Se motiva descifrando motivaciones, desarmando maquinaciones y trazando planes.',
+   p:'Plan trazado — si declara el plan completo antes de tirar y el GM lo valida, la CD baja un escalón.',
+   lean:'Encaja en análisis de causa raíz: 5 Porqués, Ishikawa, diagnóstico antes de la acción.'},
+  {n:'Explorador', d:'Quiere ver qué hay tras la siguiente esquina, hallar pistas y juntar información útil.',
+   p:'Hallazgo — 1 vez por sesión obtiene del GM un dato oculto del escenario sin tirar.',
+   lean:'Es el perfil natural para la caminata Gemba y el mapeo del proceso real.'}
+];
+
+const EVENTS = [
+  {n:'Caída del sistema', t:'El ERP (o la planilla maestra) queda fuera de servicio durante horas.', m:'Toda tirada de Análisis con Desventaja hasta el cierre de la ronda.'},
+  {n:'Ausentismo clave', t:'Falta el operario/analista que sostiene el proceso sin que nadie más sepa hacerlo.', m:'−1 a Operaciones para todo el equipo esta ronda. Debriefing: ¿está documentado?'},
+  {n:'Inundación de piezas', t:'Un lote de 500 unidades bloquea el pasillo principal y frena el movimiento.', m:'Toro: Operaciones CD 9. Fallo → +2 días de Lead Time y se pierde media jornada.'},
+  {n:'Reclamo de calidad', t:'El cliente devuelve un lote por defectos que nadie detectó a tiempo.', m:'−$500 y +1 día de Lead Time, salvo que alguien pase Análisis de Datos CD 9.'},
+  {n:'Auditoría sorpresa', t:'El banco adelanta la visita: quiere ver el balance de inventario hoy.', m:'Ardilla: Análisis CD 9. Fallo → la caja queda congelada: sin compras hasta el fin de la ronda.'},
+  {n:'Ronda sin sobresaltos', t:'Nada se rompe. El equipo tiene aire para trabajar en lo importante.', m:'El equipo gana una asistencia extra utilizable esta ronda.'},
+  {n:'Proveedor demorado', t:'La materia prima llega dos días tarde y sin aviso previo.', m:'+2 días de Lead Time, salvo Negociación CD 9 para conseguir una entrega parcial urgente.'},
+  {n:'Rumor de recorte', t:'Corre el rumor de que la dirección está evaluando reducir personal.', m:'Toda Negociación interna con Desventaja hasta que alguien supere Visión Sistémica CD 7 y aclare el panorama.'},
+  {n:'Pedido urgente', t:'El cliente principal pide adelantar parte del pedido para pasado mañana.', m:'Adaptabilidad CD 11. Éxito → +$800. Fallo → +3 días de Lead Time.'},
+  {n:'Avería de máquina', t:'El equipo crítico se detiene en pleno turno.', m:'El Toro usa Golpe de Taller o se pierde el turno de producción completo (+3 días).'},
+  {n:'Visita inesperada del cliente', t:'El cliente aparece sin aviso y quiere recorrer la planta.', m:'Visión Sistémica CD 9. Éxito → +1 de Prestigio a todo el equipo. Fallo → −1 al Zorro.'},
+  {n:'La mejora rinde', t:'Algo que el equipo implementó antes rinde más de lo esperado.', m:'−2 días de Lead Time. Si fue una mejora estandarizada, además +1 de Prestigio al Castor.'}
+];
+
+/* ---------- Módulos ---------- */
+const MODULES = {
+m1:{
+  title:'Módulo 1 — La Montaña de Metal',
+  meta:'Metalúrgica del Sur S.A. · 2,5 h · 4 rondas · Push → Pull',
+  init:{lt:42, cash:8000, wip:2, round:1, rounds:4},
+  goal:{lt:15, text:'Lead Time ≤ 15 días · WIP Bajo · caja en positivo'},
+  miles:[
+    ['Caminata Gemba realizada','El equipo bajó al taller antes de decidir nada'],
+    ['Trampa tecnológica esquivada','La mesa rechazó el software de $7.000 con un argumento de datos'],
+    ['Sistema Pull instaurado','El WIP bajó de Crítico: ya no se fabrica sin tarjeta'],
+    ['Lead Time bajo 25 días','La mitad del camino recorrida'],
+    ['WIP en nivel Bajo','El costo de almacenamiento llegó a cero'],
+    ['Misión cumplida','Lead Time ≤ 15 con la caja en positivo']
+  ],
+  acts:[
+   {t:'Acto 1 — Briefing y situación inicial', mins:'0 – 20 min', body:[
+     {type:'narr', h:'Narración de apertura', p:'Es lunes a las 8:00 en Metalúrgica del Sur. En la nave principal no se puede caminar: montacargas varados y palés apilados hasta el techo con piezas a medio mecanizar. El aire huele a aceite quemado y a tensión. En cuatro semanas llega el auditor del banco. Si el inventario sigue parado, el balance da pérdida por costo de almacenamiento y congelan las líneas de crédito. Hay que dejar de producir para acumular y empezar a producir lo que el cliente pide. <b>¿Por dónde empezamos?</b>'},
+     {type:'beat', h:'Qué hace el GM en este acto', p:'Presentar los marcadores en el tablero (42 días, $8.000, WIP Crítico) y la meta. Repartir las cinco cartas secretas boca abajo: cada jugador lee solo la suya y no puede mostrarla. <b>No hay tiradas en el Acto 1.</b> Dejá que discutan 10 minutos y observá quién lidera y quién calla; eso es material de debriefing.'},
+     {type:'secrets', items:[
+       ['🐂 El Toro','Cree que detener una máquina cuesta dinero: quiere el 100% de utilización siempre (mentalidad Push). Solo cambia si alguien le demuestra el costo del inventario con números.'],
+       ['🐿️ La Ardilla','Teme que si dejan de fabricar, los activos del balance caigan justo antes de la auditoría bancaria. Prefiere stock a caja, aunque su rol diga lo contrario.'],
+       ['🦫 El Castor','Quiere gastar $7.000 en sensores para robotizar el depósito. Está convencido de que es la solución de fondo. Es la trampa tecnológica del módulo.'],
+       ['🦊 El Zorro','Teme quedarse sin stock de seguridad y ya viene prometiendo entregas inmediatas sin consultar a la planta.'],
+       ['🦉 El Búho','Tiene una instrucción del directorio que no puede revelar: eliminar el costo de inventario y cerrar con al menos $3.000 de liquidez.']
+     ]}
+   ]},
+   {t:'Acto 2 — Ronda 1: la inundación de piezas', mins:'20 – 50 min', body:[
+     {type:'scene', h:'Escena 1 · El pasillo bloqueado', cd:'Operaciones · CD 9', pc:'🐂 El Toro',
+      p:'Un lote de 500 carcasas bloquea el pasillo central. Nada entra ni sale del sector de mecanizado hasta que se despeje.',
+      win:'Se despeja sin incidentes. La mesa ve por primera vez cuánto espacio ocupa el inventario.',
+      lose:'Un montacargas colisiona con un palé: se pierden 2 días de capacidad. <b>+2 días de Lead Time.</b>'},
+     {type:'scene', h:'Escena 2 · Caminata Gemba y Seiri', cd:'Inspección Gemba (Visión Sistémica) · CD 7', pc:'Cualquiera — idealmente el Búho',
+      p:'Nadie de la mesa pisó el taller en semanas. Si bajan a ver, pueden clasificar (Seiri) y descartar piezas obsoletas. Costo: $0, solo tiempo.',
+      win:'Se descartan piezas obsoletas y se libera espacio. <b>−5 días de Lead Time.</b> Hito alcanzado.',
+      lose:'Clasifican de apuro y sin criterio: <b>−2 días</b> nada más, y quedan tres lotes dudosos sin resolver.'},
+     {type:'scene', h:'Escena 3 · La trampa tecnológica', cd:'Análisis de Datos · CD 9', pc:'🐿️ La Ardilla (Análisis de Causa Raíz)',
+      p:'El Castor propone comprar el software de gestión de depósito por $7.000 —el 88% de la caja— para “resolver el problema de raíz”. La Ardilla puede auditar el costo real del WIP y mostrar que el problema no es de trazabilidad sino de flujo.',
+      win:'La mesa rechaza el software y adopta tarjetas Kanban a costo $0, disponibles desde la ronda 2. <b>+1 de Prestigio a la Ardilla.</b>',
+      lose:'La mesa vota. Si compran: <b>−$7.000 y solo −3 días.</b> El módulo se transforma en una carrera de supervivencia financiera. <i>No lo impidas: es el mejor material de debriefing que ofrece este módulo.</i>'},
+     {type:'beat', h:'Cierre de ronda 1', p:'Descontar el costo de almacenamiento según el nivel de WIP (Crítico: −$1.500). Reponer los usos “por ronda”. Tirar el evento aleatorio de la ronda 2 al arrancar, no ahora.'}
+   ]},
+   {t:'Acto 3 — Ronda 2: el apagón del “por si acaso”', mins:'50 – 80 min', body:[
+     {type:'narr', h:'Situación', p:'Las máquinas están paradas porque no hay órdenes de compra que las justifiquen. Ramón, supervisor del turno, avisa que va a encender la línea igual: <b>“si la máquina está parada, estamos perdiendo plata”</b>. Es la frase que sostiene todo el inventario de la planta.'},
+     {type:'scene', h:'Escena 1 · Resistencia cultural', cd:'Negociación · CD 11', pc:'🦊 El Zorro o 🦉 El Búho (asistencia recomendada)',
+      p:'Convencer a Ramón de no producir sin tarjeta Kanban. Ramón cede antes si alguien le muestra el número del costo de almacenamiento, o si el Toro —su par— lo respalda.',
+      win:'Se fija la regla: <b>no se fabrica sin tarjeta.</b> Sistema Pull activo. <b>−6 días de Lead Time y el WIP baja a Moderado</b> (la Ardilla recupera +$1.000 por liberación de material).',
+      lose:'Ramón enciende la línea igual. <b>+3 días de Lead Time</b> y el WIP sigue Crítico. Se puede reintentar en la ronda 3 con Desventaja.'},
+     {type:'scene', h:'Escena 2 · La inversión que sí importa', cd:'Análisis de Procesos · CD 9', pc:'🦫 El Castor',
+      p:'El adaptador de cambio rápido de herramental cuesta $2.500 y ataca el verdadero cuello de botella: el tiempo de setup obliga a fabricar lotes grandes. Requiere justificarlo con datos <b>antes</b> de comprarlo.',
+      win:'Compra justificada: <b>−$2.500 y −14 días de Lead Time.</b>',
+      lose:'Lo compran mal dimensionado: <b>−$2.500 y solo −7 días.</b> Si no lo compran, la meta queda al límite.'},
+     {type:'beat', h:'Palanca opcional', p:'El Toro puede gastar su <b>Kaizen Sprint</b> reorganizando el herramental: <b>−2 días</b>, sin tirada. Si lo guarda, le sirve para la ronda 4.'},
+     {type:'beat', h:'Cierre de ronda 2', p:'Costo de almacenamiento según WIP (Moderado: −$500). Si el equipo va según lo previsto, el tablero debería marcar cerca de 23 días y $4.500.'}
+   ]},
+   {t:'Acto 4 — Rondas 3 y 4: la prueba de fuego', mins:'80 – 110 min', body:[
+     {type:'scene', h:'Ronda 3 · Disrupción de mercado', cd:'Análisis de Procesos · CD 9', pc:'🦫 El Castor (con Plan A3)',
+      p:'El cliente cambia de política: quiere entregas diarias pequeñas en lugar de un embarque semanal. Con lotes grandes es imposible; con flujo continuo es exactamente lo que el sistema nuevo puede hacer.',
+      win:'Se integran los lotes pequeños: <b>−5 días</b> y el <b>WIP baja a Bajo</b> (costo de almacenamiento a cero).',
+      lose:'El cambio se implementa a medias: <b>+2 días</b> y la ronda 4 arranca con Desventaja en la primera tirada.'},
+     {type:'scene', h:'Ronda 4 · Negociación final', cd:'Negociación · CD 11', pc:'🦊 El Zorro',
+      p:'Antes de tirar, el Zorro puede revelar <b>Margen de Tolerancia</b>: el cliente tolera hasta 20 días si la calidad es consistente. Con eso sobre la mesa, la negociación cambia de terreno.',
+      win:'Contrato renovado con anticipo. Si además el Lead Time está bajo el umbral, <b>Propuesta de Valor</b> inyecta <b>+$1.000</b> sin tirada.',
+      lose:'El cliente firma pero exige penalidad por demora: <b>−$800</b> y la mejora queda condicionada.'},
+     {type:'beat', h:'Evento obligatorio', p:'En la ronda 4 el GM tira <b>siempre</b> un evento aleatorio antes de la escena final. La pregunta que se está poniendo a prueba es si la mejora sobrevive a una perturbación, no si se logró una vez.'},
+     {type:'beat', h:'Evaluación de cierre', p:'Meta cumplida: Lead Time ≤ 15, WIP Bajo, caja positiva. Cierre esperado del recorrido “limpio”: <b>18 días y $5.500</b> — que es exactamente el punto de partida del Módulo 2. Si el equipo quedó lejos, el Módulo 2 arranca con esos números reales: la continuidad es parte de la lección.'}
+   ]},
+   {t:'Acto 5 — Debriefing facilitado', mins:'110 – 130 min', body:[
+     {type:'beat', h:'1 · ¿Qué pasó? (5 min)', p:'Reconstrucción objetiva, sin juzgar. Usá la bitácora de la app como acta de la sesión.'},
+     {type:'beat', h:'2 · ¿Qué funcionó y qué no? (5 min)', p:'Se revelan las cinco cartas secretas. Acá aparece por qué cada uno defendía lo que defendía y por qué el software parecía razonable.'},
+     {type:'beat', h:'3 · ¿Por qué? (5 min)', p:'Teoría: el inventario no es un activo, es un síntoma. Oculta problemas de setup, de calidad y de programación (<i>mura</i> y <i>muri</i>). El costo de almacenamiento fue solo la parte visible.'},
+     {type:'beat', h:'4 · ¿Y en tu trabajo real? (10 min)', p:'¿Cuáles son tus lotes acumulados cotidianos? ¿Qué comprás —software, gente, horas extra— para no tener que cambiar cómo trabajás?'}
+   ]}
+  ]
+},
+m2:{
+  title:'Módulo 2 — Efecto Dominó: la rotación del caos',
+  meta:'Secuela · 2,5 h · 4 rondas rotativas · TOC y efecto látigo',
+  init:{lt:18, cash:5500, wip:0, round:1, rounds:4},
+  goal:{lt:15, text:'Lead Time ≤ 15 días sin que ningún departamento colapse'},
+  miles:[
+    ['Ronda del Zorro sin secuela','Se negoció el pedido doble sin imponer Desventaja a la planta'],
+    ['Estandarización al pie de máquina','La hoja de instrucción visual resolvió el problema a costo $0'],
+    ['Acuerdo Milk-Run cerrado','El flujo se sostuvo sin agotar la caja'],
+    ['Ningún departamento colapsa','Los cuatro focos del caos absorbidos'],
+    ['Cierre en 15 días o menos','La mejora sobrevivió a la rotación de la restricción']
+  ],
+  acts:[
+   {t:'Premisa del módulo', mins:'', body:[
+     {type:'narr', h:'La restricción no desaparece: se muda', p:'Metalúrgica del Sur estabilizó la planta. Pero al dinamizar el flujo apareció lo que la Teoría de Restricciones anticipa: <b>el cuello de botella no se elimina, migra.</b> Cada ronda un departamento distinto será el <b>Foco del Caos</b> y enfrentará la disrupción principal.'},
+     {type:'beat', h:'Regla propia del módulo', p:'<b>El Foco del Caos no puede recibir asistencia en su primera tirada de la ronda.</b> Recién desde la segunda tirada la mesa puede apoyarlo. Es lo que obliga al resto a mirar el problema del otro antes de poder resolverlo.'}
+   ]},
+   {t:'Ronda 1 — Foco: 🦊 El Zorro (Comercial)', mins:'“El síndrome de la promesa incumplible”', body:[
+     {type:'scene', h:'El pedido que duplica', cd:'Negociación · CD 11', pc:'🦊 El Zorro (sin asistencia en la primera tirada)',
+      p:'El cliente internacional, impresionado por el flujo nuevo, exige duplicar el pedido para la semana siguiente con un 15% de descuento. El Zorro quiere aceptar en el acto para asegurar su bono. No consultó capacidad.',
+      win:'Negocia entregas escalonadas: <b>+$1.500 de anticipo</b> y la planta absorbe la demanda sin quebrarse.',
+      lose:'Promete plazos imposibles: <b>toda la planta tira con Desventaja en la ronda 2.</b>'}
+   ]},
+   {t:'Ronda 2 — Foco: 🦫 El Castor (Ingeniería)', mins:'“El cuello de botella del plano no estandarizado”', body:[
+     {type:'scene', h:'Los planos quedaron viejos', cd:'Análisis de Procesos · CD 9', pc:'🦫 El Castor (Plan A3)',
+      p:'Al cambiar las especificaciones en la ronda 1, los planos quedaron desactualizados. Las máquinas están paradas porque los operarios no entienden las nuevas tolerancias. El Castor entra en pánico y propone rehacer todo el sistema de software.',
+      win:'Con el apoyo del Toro estandarizan una hoja de instrucción visual al pie de máquina, costo $0: <b>−2 días de Lead Time.</b>',
+      lose:'Compran una solución digital cara o siguen a ciegas: <b>−$1.200 o +2 días</b>, elige el GM según lo que la mesa haya defendido.'}
+   ]},
+   {t:'Ronda 3 — Foco: 🐿️ La Ardilla (Finanzas)', mins:'“El estrangulamiento de proveedores”', body:[
+     {type:'scene', h:'El proveedor castiga el lote chico', cd:'CD 13 — sistémica: requiere apoyo', pc:'🐿️ La Ardilla',
+      p:'El proveedor, al ver los pedidos en lotes pequeños, sube 25% el costo de flete por entrega. La Ardilla reacciona bloqueando todos los pagos y amenaza con frenar el ingreso de materia prima. Es el efecto látigo funcionando hacia atrás en la cadena.',
+      win:'Con la <b>Visión Sistémica</b> del Búho o el <b>Endulzar el Trato</b> del Zorro se cierra un acuerdo Milk-Run con proveedores locales: el flujo se sostiene sin agotar la caja.',
+      lose:'Se corta el suministro: <b>+4 días de Lead Time</b> y el WIP vuelve a subir un nivel.'}
+   ]},
+   {t:'Ronda 4 — Foco: 🐂 El Toro y 🦉 El Búho', mins:'“La prueba de estrés final”', body:[
+     {type:'scene', h:'Sobrecarga de la máquina crítica', cd:'Operaciones · CD 9', pc:'🐂 El Toro (Golpe de Taller)',
+      p:'La alta variedad de piezas sobrecarga la máquina crítica. El Toro repara mientras el Búho decide si autoriza horas extra o reordena las prioridades de la cartera antes del cierre del trimestre.',
+      win:'Reparación en el acto. Con el <b>Decreto de Prioridad Nacional</b> del Búho (+2 a la mesa) el equipo sincroniza el sprint final: <b>Lead Time 12 días.</b>',
+      lose:'Se pierde el turno de producción: <b>+3 días</b> y el cierre queda por encima de la meta.'}
+   ]},
+   {t:'Debriefing del Módulo 2', mins:'15 min', body:[
+     {type:'beat', h:'1 · La restricción que se muda', p:'¿Cómo cambió la dinámica cuando el cuello de botella rotó entre áreas? Nombrá la Teoría de Restricciones recién acá, cuando ya la vivieron.'},
+     {type:'beat', h:'2 · El efecto látigo', p:'¿En qué momento la respuesta impulsiva de un área agravó el problema del área siguiente? El bloqueo de pagos de la ronda 3 es el ejemplo más claro.'},
+     {type:'beat', h:'3 · Transferencia', p:'¿Cómo se parece esa rotación a las crisis operativas semanales de nuestra empresa real? ¿Quién es hoy el foco del caos en la organización de cada uno?'}
+   ]}
+  ]
+},
+libre:{
+  title:'Partida libre',
+  meta:'Escenario propio · marcadores editables',
+  init:{lt:30, cash:5000, wip:1, round:1, rounds:4},
+  goal:{lt:15, text:'Definida por el GM'},
+  miles:[['Hito 1',''],['Hito 2',''],['Hito 3',''],['Hito 4','']],
+  acts:[{t:'Escenario libre', mins:'', body:[
+    {type:'beat', h:'Cómo usar este modo', p:'Ajustá los marcadores a mano según tu escenario. El tirador, la bitácora, el prestigio, los eventos y el reloj funcionan igual. Usá la tabla de la sección 2 del manual para fijar CD coherentes: 7 estándar, 9 exigente, 11 crítica, 13 solo con apoyo.'}
+  ]}]
+}
+};
+
+const KAIZEN = [
+  ['Capacitación (upskilling)','−$500 y una ronda de agenda → +1 permanente a un atributo de un departamento'],
+  ['Estandarización (standard work)','−$300 → una mejora lograda se vuelve permanente e irreversible'],
+  ['Infraestructura (inversión Lean)','−$1.000 → −2 días de Lead Time desde el arranque del módulo siguiente'],
+  ['Red interna (prestigio)','−$200 → +2 de Prestigio repartidos como decida el equipo']
+];
+
+/* ============================================================
+   ESTADO
+   ============================================================ */
+const DEF = () => ({
+  mod:'m1', univ:'man', lt:42, cash:8000, wip:2, round:1,
+  used:{}, secrets:{}, focus:false, hiRes:false, prest:{buho:0,zorro:0,castor:0,toro:0,ardilla:0},
+  miles:{}, kaizen:{}, profs:{}, log:[], theme:null
+});
+let S = DEF();
+
+function save(){
+  try{ localStorage.setItem('cyd_state', JSON.stringify(S)); flash('guardado'); }catch(e){}
+}
+function load(){
+  try{
+    const r = localStorage.getItem('cyd_state');
+    if(r){ S = Object.assign(DEF(), JSON.parse(r)); }
+  }catch(e){ S = DEF(); }
+}
+function flash(t){
+  const c = document.getElementById('saveChip');
+  if(!c) return; c.textContent = t + ' · ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+/* ---------- Tema ---------- */
+function toggleTheme(){
+  const light = document.documentElement.getAttribute('data-theme') === 'light';
+  if(light){ document.documentElement.removeAttribute('data-theme'); S.theme = null; }
+  else { document.documentElement.setAttribute('data-theme','light'); S.theme = 'light'; }
+  save();
+}
+/* Modo foco: colapsa la escena y apaga los efectos ambientales.
+   Existe porque esto se proyecta en un aula: durante la partida
+   el movimiento decorativo compite con la información. */
+function toggleFocus(){
+  S.focus = !S.focus;
+  document.body.classList.toggle('focus-mode', S.focus);
+  document.getElementById('focusBtn').setAttribute('aria-pressed', S.focus);
+  toast(S.focus ? 'Modo foco: cabecera colapsada, efectos apagados' : 'Modo cinematográfico');
+  save();
+}
+
+/* ---------- Modo ---------- */
+function setMode(m){
+  const mesa = m === 'mesa';
+  document.getElementById('heroScene').hidden = !mesa;
+  document.getElementById('viewMesa').hidden = !mesa;
+  document.getElementById('viewManual').hidden = mesa;
+  document.getElementById('tabMesa').setAttribute('aria-selected', mesa);
+  document.getElementById('tabManual').setAttribute('aria-selected', !mesa);
+  window.scrollTo({top:0, behavior:'smooth'});
+  requestAnimationFrame(() => { initReveals(); initLightUp(); });
+}
+
+/* ============================================================
+   MARCADORES
+   ============================================================ */
+const WIPNAME = ['BAJO','MODERADO','CRÍTICO'];
+const WIPCOST = [0, 500, 1500];
+
+function renderMarkers(){
+  const M = MODULES[S.mod];
+  document.getElementById('vRound').textContent = S.round;
+  document.getElementById('sRound').textContent = 'de ' + M.init.rounds;
+  document.getElementById('vLT').textContent = S.lt;
+  document.getElementById('sLT').textContent = 'días · meta ≤ ' + M.goal.lt;
+  document.getElementById('vCash').textContent = S.cash.toLocaleString('es-AR');
+  document.getElementById('vWip').textContent = WIPNAME[S.wip];
+  document.getElementById('sWip').textContent = WIPCOST[S.wip] ? '−$' + WIPCOST[S.wip].toLocaleString('es-AR') + ' / ronda' : 'sin costo de almacenamiento';
+  document.getElementById('goalHint').textContent = M.goal.text;
+
+  const start = M.init.lt, goal = M.goal.lt;
+  const pct = Math.max(0, Math.min(100, ((start - S.lt) / Math.max(1, start - goal)) * 100));
+  document.getElementById('barLT').style.width = pct + '%';
+
+  const mkLT = document.getElementById('mkLT');
+  mkLT.className = 'marker ' + (S.lt <= goal ? 'good' : S.lt > start ? 'bad' : 'warn');
+  const mkCash = document.getElementById('mkCash');
+  mkCash.className = 'marker ' + (S.cash <= 0 ? 'bad' : S.cash < 2000 ? 'warn' : 'good');
+  const mkWip = document.getElementById('mkWip');
+  mkWip.className = 'marker ' + (S.wip === 0 ? 'good' : S.wip === 1 ? 'warn' : 'bad');
+
+  [0,1,2].forEach(i => document.getElementById('wip'+i).setAttribute('aria-pressed', S.wip === i));
+
+  // Espejo en la escena de apertura
+  const hm = document.getElementById('hMod');
+  if(hm){
+    hm.textContent = M.title.split('—')[0].trim();
+    document.getElementById('hLT').textContent = S.lt;
+    document.getElementById('hCash').textContent = '$' + S.cash.toLocaleString('es-AR');
+    document.getElementById('hRound').textContent = S.round + ' / ' + M.init.rounds;
+    const hc = document.getElementById('hCash').parentNode;
+    hc.className = 'hstat ' + (S.cash <= 0 ? 'bad' : S.cash < 2000 ? 'lt' : 'ok');
+  }
+}
+function pulseVal(id){
+  const el = document.getElementById(id);
+  if(!el || REDUCED) return;
+  el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse');
+}
+
+function bump(k, d){
+  if(k === 'round'){ S.round = Math.max(1, S.round + d); }
+  if(k === 'lt'){ const o = S.lt; S.lt = Math.max(0, S.lt + d); logIt('sys', '<b>Lead Time</b> ' + o + ' → ' + S.lt + ' días'); pulseVal('vLT'); }
+  if(k === 'cash'){ const o = S.cash; S.cash += d; logIt('sys', '<b>Caja</b> $' + o.toLocaleString('es-AR') + ' → $' + S.cash.toLocaleString('es-AR')); pulseVal('vCash'); }
+  renderMarkers(); save();
+}
+function setWip(v){
+  if(S.wip === v) return;
+  logIt('sys', '<b>WIP</b> ' + WIPNAME[S.wip] + ' → ' + WIPNAME[v]);
+  S.wip = v; renderMarkers(); save();
+}
+function nextRound(){
+  const cost = WIPCOST[S.wip];
+  if(cost){ S.cash -= cost; }
+  S.round++;
+  // reponer usos "por ronda"
+  Object.keys(S.used).forEach(k => { if(k.endsWith('|r')) delete S.used[k]; });
+  logIt('sys', '— <b>Cierre de ronda ' + (S.round-1) + '</b>' + (cost ? ' · almacenamiento −$' + cost.toLocaleString('es-AR') : '') + ' · usos por ronda repuestos —');
+  renderMarkers(); renderChars(); save();
+  toast('Ronda ' + S.round + '. Tirá el evento aleatorio.');
+}
+function resetAll(){
+  if(!confirm('¿Reiniciar la partida? Se borran marcadores, usos, prestigio, hitos y bitácora.')) return;
+  const th = S.theme, mod = S.mod, univ = S.univ;
+  S = DEF(); S.theme = th; S.mod = mod; S.univ = univ;
+  loadModule(mod); save();
+}
+function loadModule(m){
+  S.mod = m;
+  const M = MODULES[m];
+  S.lt = M.init.lt; S.cash = M.init.cash; S.wip = M.init.wip; S.round = M.init.round;
+  S.used = {}; S.miles = {}; S.secrets = {};
+  document.getElementById('modSel').value = m;
+  document.getElementById('modTitle').textContent = M.title;
+  document.getElementById('modMeta').textContent = M.meta;
+  renderMarkers(); renderChars(); renderMiles(); renderActs();
+  logIt('sys', '<b>' + M.title + '</b> cargado · LT ' + M.init.lt + ' · $' + M.init.cash.toLocaleString('es-AR') + ' · WIP ' + WIPNAME[M.init.wip]);
+  save();
+}
+
+/* ============================================================
+   TIRADOR
+   ============================================================ */
+let sel = {pc:'toro', attr:'ope', adv:0, asis:false, a3:false, dec:false};
+
+function buildRollSelects(){
+  const pcSel = document.getElementById('rPC');
+  pcSel.innerHTML = CHARS.map(c => `<option value="${c.id}">${c.emoji} ${c.name} — ${c.role}</option>`).join('');
+  const aSel = document.getElementById('rAttr');
+  aSel.innerHTML = ATTRS.map(a =>
+    `<optgroup label="${a.n} (${a.abbr})">` +
+    SKILLS.filter(s => s.a === a.k).map(s => `<option value="${a.k}|${s.n}">${s.n}</option>`).join('') +
+    `<option value="${a.k}|Tirada de ${a.n}">— ${a.n} genérica —</option></optgroup>`
+  ).join('');
+  pcSel.value = sel.pc; aSel.value = 'ope|Ejecución Directa';
+  syncMods();
+}
+function currentMod(){
+  const c = CHARS.find(x => x.id === document.getElementById('rPC').value);
+  const attr = document.getElementById('rAttr').value.split('|')[0];
+  let m = c.mods[attr] || 0;
+  if(sel.asis) m += (S.prest[c.id] >= 3 ? 3 : 2);
+  if(sel.a3) m += 2;
+  if(sel.dec) m += 2;
+  return {c, attr, m};
+}
+function syncMods(){
+  const {c, attr, m} = currentMod();
+  const a = ATTRS.find(x => x.k === attr);
+  const base = c.mods[attr] || 0;
+  document.getElementById('rollMath').innerHTML =
+    `${c.emoji} ${c.name} · ${a.n} <b>${base >= 0 ? '+' : ''}${base}</b>` +
+    (m !== base ? ` · apoyos +${m - base} → total <b>${m >= 0 ? '+' : ''}${m}</b>` : '');
+  document.querySelectorAll('.pc').forEach(el => el.classList.toggle('sel', el.dataset.id === c.id));
+}
+function tog(k){
+  sel[k] = !sel[k];
+  document.getElementById({asis:'cAsi', a3:'cA3', dec:'cDec'}[k]).setAttribute('aria-pressed', sel[k]);
+  syncMods();
+}
+function togAdv(v){
+  sel.adv = sel.adv === v ? 0 : v;
+  document.getElementById('cAdv').setAttribute('aria-pressed', sel.adv === 1);
+  document.getElementById('cDis').setAttribute('aria-pressed', sel.adv === -1);
+}
+function d12(){ return 1 + Math.floor(Math.random() * 12); }
+
+function roll(){
+  const {c, attr, m} = currentMod();
+  const skill = document.getElementById('rAttr').value.split('|')[1];
+  const cd = parseInt(document.getElementById('rCD').value, 10);
+  const dice = document.getElementById('dice');
+  dice.classList.remove('crit','fumble');
+  tumbleDie();
+
+  let a = d12(), b = null, use = a, dropped = '';
+  if(sel.adv !== 0){
+    b = d12();
+    use = sel.adv === 1 ? Math.max(a,b) : Math.min(a,b);
+    dropped = `2d12: ${a} y ${b} · se ${sel.adv===1?'conserva el mayor':'conserva el menor'}`;
+  }
+  const total = use + m;
+  const crit = use === 12, fumble = use === 1;
+  const okk = total >= cd;
+
+  let i = 0;
+  const spin = setInterval(() => {
+    document.getElementById('diceNum').textContent = d12();
+    if(++i > 7){ clearInterval(spin); document.getElementById('diceNum').textContent = use; }
+  }, 55);
+
+  setTimeout(() => {
+    document.getElementById('rollMath').innerHTML =
+      `${c.emoji} ${c.name} · <b>${skill}</b><br>${use} <span style="opacity:.6">(d12)</span> ${m>=0?'+':''}${m} = <b style="font-size:16px">${total}</b> vs CD ${cd}`;
+    let cls = okk ? 'ok' : 'no', txt = okk ? 'Éxito' : 'Fallo';
+    if(crit){ cls = 'crit'; txt = '¡Crítico! 12 natural'; }
+    if(fumble){ cls = 'fumble'; txt = 'Complicación · 1 natural'; }
+    document.getElementById('rollVerdict').innerHTML = `<span class="verdict ${cls}">${txt}</span>`;
+    document.getElementById('dropDie').textContent = dropped;
+
+    const bonus = crit ? ' — el equipo gana un beneficio extra: repone un uso, +1 de Prestigio o −1 día de Lead Time.'
+                : fumble ? ' — el GM introduce una consecuencia narrativa nueva.' : '';
+    logIt(okk ? 'ok' : 'no',
+      `R${S.round} · ${c.emoji} <b>${c.name}</b> — ${skill} · ${use}${m>=0?'+':''}${m} = <b>${total}</b> vs CD ${cd} · <b>${okk?'ÉXITO':'FALLO'}</b>${bonus}`);
+    if(crit){ dice.classList.add('crit'); burst('crit'); }
+    if(fumble){ dice.classList.add('fumble'); burst('fumble'); }
+    if(crit || fumble) toast(txt + (crit ? ' — otorgá el beneficio extra.' : ' — complicá la historia, no castigues.'));
+  }, 520);
+}
+
+/* ============================================================
+   BITÁCORA
+   ============================================================ */
+function logIt(type, html){
+  const t = new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+  S.log.unshift({type, html, t});
+  if(S.log.length > 140) S.log.pop();
+  renderLog(); save();
+}
+function renderLog(){
+  document.getElementById('logBox').innerHTML = S.log.length
+    ? S.log.map(l => `<div class="logitem ${l.type}"><span>${l.html}</span><time>${l.t}</time></div>`).join('')
+    : '<p class="hint" style="margin:6px 0">Todavía no pasó nada. Las tiradas, los eventos y los cambios de marcador quedan registrados acá y sirven de acta para el debriefing.</p>';
+}
+function copyLog(){
+  const txt = S.log.slice().reverse().map(l => l.t + '  ' + l.html.replace(/<[^>]+>/g,'')).join('\n');
+  const ta = document.createElement('textarea');
+  ta.value = 'BITÁCORA — ' + MODULES[S.mod].title + '\n\n' + txt;
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); toast('Bitácora copiada al portapapeles'); }catch(e){ toast('No se pudo copiar'); }
+  document.body.removeChild(ta);
+}
+
+/* ============================================================
+   EVENTOS
+   ============================================================ */
+function rollEvent(){
+  const n = d12(), e = EVENTS[n-1];
+  document.getElementById('evtNum').textContent = n;
+  document.getElementById('evtTitle').textContent = e.n;
+  document.getElementById('evtText').textContent = e.t;
+  const m = document.getElementById('evtMech');
+  m.style.display = 'block'; m.textContent = e.m;
+  logIt('evt', `R${S.round} · <b>Evento ${n}: ${e.n}</b> — ${e.t}`);
+}
+
+/* ============================================================
+   FICHAS
+   ============================================================ */
+function renderChars(){
+  const u = document.getElementById('univSel') ? document.getElementById('univSel').value : S.univ;
+  S.univ = u;
+  document.getElementById('charBox').innerHTML = CHARS.map(c => {
+    const top = Object.keys(c.mods).reduce((a,b) => c.mods[a] >= c.mods[b] ? a : b);
+    const mods = ATTRS.map(a => {
+      const v = c.mods[a.k] || 0;
+      return `<div class="mod ${a.k===top?'top':''}"><div class="m">${v>=0?'+':''}${v}</div><div class="n">${a.abbr}</div></div>`;
+    }).join('');
+    const abil = c.ab.map((ab, i) => {
+      const perRound = /por ronda/.test(ab.t);
+      const key = c.id + '|' + i + (perRound ? '|r' : '');
+      const on = !!S.used[key];
+      return `<label class="ab ${on?'used':''}">
+        <input type="checkbox" ${on?'checked':''} onchange="useAb('${key}',this.checked)">
+        <span><b>${ab.n}</b><em>${ab.t}</em>${ab.d}</span></label>`;
+    }).join('');
+    const open = !!S.secrets[c.id];
+    // Slot de arte: intenta el PNG de alta; si no existe, cae al SVG vectorial.
+    // Arte: por defecto el SVG vectorial (peso cero, sin pedidos de red).
+    // Con "arte de alta" activado busca arte/<id>.png y, si no está, vuelve al SVG.
+    const art = S.hiRes
+      ? `<img src="${c.art}" alt="Ilustración de ${c.name}, ${c.role}" loading="lazy"
+           onerror="artMissing(this,'${c.id}')">${ART[c.id]}`
+      : ART[c.id];
+    return `<article class="pc" data-id="${c.id}" data-tilt style="--acc:${c.color}" onclick="pickPC('${c.id}',event)">
+      <div class="pc-art">${art}
+        <span class="frame"></span>
+        <span class="pc-tag">${c.role.split(' ')[0]}</span>
+        <div class="pc-name"><b>${c.emoji} ${c.name}</b><span>${c.role}</span></div>
+      </div>
+      <div class="pc-b">
+        <div class="mods">${mods}</div>
+        <div class="abil">${abil}</div>
+        <div class="weak"><b>Debilidad · ${c.weak.n}</b>${c.weak.d}</div>
+        <div class="obj">
+          <div class="obj-h">Objetivos</div>
+          <div class="obj-row"><b>Público</b> — ${c.obj.pub}</div>
+          <div class="secretbox ${open?'open':''}" data-secret="${c.id}">
+            <div class="inner"><b style="color:var(--gold);font-size:11px;text-transform:uppercase;letter-spacing:.07em">Secreto</b> — ${c.obj.sec}</div>
+            <button class="cover" type="button" onclick="revealSecret('${c.id}',event)">🂠 Objetivo secreto — tocar para revelar</button>
+          </div>
+          <div class="restrict">Restricción: ${c.obj.res}</div>
+        </div>
+        <div class="sector"><span>En este universo:</span><b>${c.sector[u]}</b></div>
+      </div></article>`;
+  }).join('');
+  bindTilt();
+  syncMods();
+}
+/* Arte de alta resolución: opt-in. Si el PNG no está, cae al SVG en silencio
+   y avisa una sola vez qué archivos faltan. */
+let artFails = [];
+function artMissing(img, id){
+  const p = img.parentNode; img.remove();
+  if(p) p.classList.add('svgfallback');
+  artFails.push(id);
+  clearTimeout(artMissing._t);
+  artMissing._t = setTimeout(() => {
+    toast('Falta el arte de: ' + artFails.join(', ') + ' — se usa el vectorial');
+    artFails = [];
+  }, 400);
+}
+function toggleHiRes(){
+  S.hiRes = !S.hiRes;
+  document.getElementById('artBtn').setAttribute('aria-pressed', S.hiRes);
+  renderChars(); save();
+  toast(S.hiRes ? 'Buscando arte en la carpeta arte/ (buho, zorro, castor, toro, ardilla .png)' : 'Arte vectorial');
+}
+function revealSecret(id, ev){
+  ev.stopPropagation();
+  S.secrets[id] = 1;
+  const box = document.querySelector(`.secretbox[data-secret="${id}"]`);
+  if(box) box.classList.add('open');
+  const c = CHARS.find(x => x.id === id);
+  logIt('sys', `🂡 ${c.emoji} <b>${c.name}</b> revela su objetivo secreto.`);
+  save();
+}
+function useAb(key, on){
+  if(on) S.used[key] = 1; else delete S.used[key];
+  renderChars(); save();
+}
+function pickPC(id, ev){
+  if(ev && ev.target.closest('label')) return;
+  document.getElementById('rPC').value = id;
+  const c = CHARS.find(x => x.id === id);
+  const top = Object.keys(c.mods).reduce((a,b) => c.mods[a] >= c.mods[b] ? a : b);
+  const opt = [...document.getElementById('rAttr').options].find(o => o.value.startsWith(top + '|'));
+  if(opt) document.getElementById('rAttr').value = opt.value;
+  syncMods();
+  document.getElementById('dice').scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+/* ============================================================
+   PRESTIGIO / PERFILES / HITOS / KAIZEN
+   ============================================================ */
+const RANKS = [[0,'Silo'],[3,'Aliado'],[6,'Referente'],[9,'Autoridad']];
+function rankOf(v){ let r = 'Silo'; RANKS.forEach(([n,l]) => { if(v >= n) r = l; }); return r; }
+
+function renderPrest(){
+  document.getElementById('prestBox').innerHTML = CHARS.map(c => {
+    const v = S.prest[c.id] || 0;
+    return `<div class="prow" style="--acc:${c.color}">
+      <div style="font-size:12.5px;font-weight:700">${c.emoji} ${c.name}</div>
+      <div class="pbar"><i style="width:${v*10}%"></i><div class="ticks">${'<span></span>'.repeat(10)}</div></div>
+      <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
+        <span class="prank">${rankOf(v)}</span>
+        <span class="pctrl"><button onclick="prest('${c.id}',-1)">−</button><button onclick="prest('${c.id}',1)">+</button></span>
+      </div></div>`;
+  }).join('');
+}
+function prest(id, d){
+  const o = S.prest[id] || 0;
+  S.prest[id] = Math.max(0, Math.min(10, o + d));
+  if(rankOf(o) !== rankOf(S.prest[id])){
+    const c = CHARS.find(x => x.id === id);
+    logIt('sys', `${c.emoji} <b>${c.name}</b> pasa a rango <b>${rankOf(S.prest[id])}</b> (prestigio ${S.prest[id]})`);
+    toast(c.name + ' → ' + rankOf(S.prest[id]));
+  }
+  renderPrest(); syncMods(); save();
+}
+
+function renderProfs(){
+  document.getElementById('profBox').innerHTML = PROFILES.map((p, i) => {
+    const on = !!S.profs['u'+i];
+    return `<label class="mile ${on?'done':''}">
+      <input type="checkbox" ${on?'checked':''} onchange="tick('profs','u${i}',this.checked)">
+      <span><b>${p.n}</b><span>${p.p}</span></span></label>`;
+  }).join('');
+}
+function renderMiles(){
+  const M = MODULES[S.mod];
+  document.getElementById('mileBox').innerHTML = M.miles.map((m, i) => {
+    const on = !!S.miles['h'+i];
+    return `<label class="mile ${on?'done':''}">
+      <input type="checkbox" ${on?'checked':''} onchange="tick('miles','h${i}',this.checked)">
+      <span><b>${m[0]}</b><span>${m[1]}</span></span></label>`;
+  }).join('');
+  document.getElementById('kaizenBox').innerHTML = KAIZEN.map((k, i) => {
+    const on = !!S.kaizen['k'+i];
+    return `<label class="mile ${on?'done':''}">
+      <input type="checkbox" ${on?'checked':''} onchange="tick('kaizen','k${i}',this.checked)">
+      <span><b>${k[0]}</b><span>${k[1]}</span></span></label>`;
+  }).join('');
+}
+function tick(bucket, key, on){
+  if(on){
+    S[bucket][key] = 1;
+    if(bucket === 'miles'){
+      const i = parseInt(key.slice(1), 10);
+      logIt('sys', '🏁 <b>Hito alcanzado:</b> ' + MODULES[S.mod].miles[i][0] + ' — el equipo repone un uso de habilidad.');
+      toast('Hito alcanzado · reponé un uso de habilidad');
+    }
+  } else delete S[bucket][key];
+  renderMiles(); renderProfs(); save();
+}
+
+/* ============================================================
+   GUION DEL MÓDULO
+   ============================================================ */
+function renderActs(){
+  const M = MODULES[S.mod];
+  document.getElementById('actBox').innerHTML = M.acts.map((a, ai) => {
+    const body = a.body.map(b => {
+      if(b.type === 'narr') return `<div class="narr"><b>${b.h}.</b> ${b.p}</div>`;
+      if(b.type === 'beat') return `<div class="beat"><h4>${b.h}</h4><p>${b.p}</p></div>`;
+      if(b.type === 'secrets') return `<div class="beat"><h4>Cartas secretas — repartir boca abajo</h4>` +
+        b.items.map(([w,t]) => `<details class="secret" style="margin-bottom:6px"><summary>${w}</summary><p>${t}</p></details>`).join('') + `</div>`;
+      if(b.type === 'scene') return `<div class="beat">
+        <h4>${b.h} <span class="cdtag">${b.cd}</span></h4>
+        <p class="hint" style="margin-bottom:6px">Tira: ${b.pc}</p>
+        <p>${b.p}</p>
+        <div class="outcomes">
+          <div class="outcome win"><b>Éxito</b>${b.win}</div>
+          <div class="outcome lose"><b>Fallo</b>${b.lose}</div>
+        </div></div>`;
+      return '';
+    }).join('');
+    return `<details class="act" ${ai < 2 ? 'open' : ''}>
+      <summary>${a.t}<span class="mins">${a.mins}</span></summary>
+      <div class="act-b">${body}</div></details>`;
+  }).join('');
+}
+
+/* ============================================================
+   RELOJ
+   ============================================================ */
+let tRem = 1200, tInt = null;
+function tFmt(s){ return String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0'); }
+function tPaint(){
+  const d = document.getElementById('tDisp');
+  d.textContent = tFmt(Math.max(0, tRem));
+  d.classList.toggle('low', tRem <= 60);
+}
+function tSet(min, label){
+  tRem = min * 60; document.getElementById('tLabel').textContent = label; tPaint();
+}
+function tToggle(){
+  const b = document.getElementById('tPlay');
+  if(tInt){ clearInterval(tInt); tInt = null; b.textContent = '▶'; return; }
+  b.textContent = '⏸';
+  tInt = setInterval(() => {
+    tRem--; tPaint();
+    if(tRem <= 0){ clearInterval(tInt); tInt = null; b.textContent = '▶'; toast('Se terminó el bloque.'); }
+  }, 1000);
+}
+function tReset(){ if(tInt){clearInterval(tInt); tInt=null; document.getElementById('tPlay').textContent='▶';} tRem = 1200; tPaint(); }
+
+/* ============================================================
+   TABLAS DEL MANUAL
+   ============================================================ */
+function renderManualTables(){
+  document.getElementById('skillTable').innerHTML =
+    `<table><thead><tr><th>Habilidad</th><th>Atributo</th><th>Qué permite hacer</th></tr></thead><tbody>` +
+    SKILLS.map(s => `<tr><td><strong>${s.n}</strong></td><td><span class="k">${ATTRS.find(a=>a.k===s.a).abbr}</span></td><td>${s.d}</td></tr>`).join('') +
+    `</tbody></table>`;
+
+  document.getElementById('charTable').innerHTML =
+    `<table><thead><tr><th>Departamento</th>${ATTRS.map(a=>`<th>${a.abbr}</th>`).join('')}<th>Debilidad</th></tr></thead><tbody>` +
+    CHARS.map(c => `<tr><td><strong>${c.emoji} ${c.name}</strong><br><span class="hint">${c.role}</span></td>` +
+      ATTRS.map(a => {
+        const v = c.mods[a.k] || 0;
+        return `<td${v===3?' style="font-weight:800;color:'+c.color+'"':''}>${v>=0?'+':''}${v}</td>`;
+      }).join('') +
+      `<td><strong>${c.weak.n}</strong><br><span class="hint">${c.weak.d}</span></td></tr>`).join('') +
+    `</tbody></table>`;
+
+  document.getElementById('abilTable').innerHTML =
+    `<table><thead><tr><th>Departamento</th><th>Habilidad</th><th>Uso</th><th>Efecto</th></tr></thead><tbody>` +
+    CHARS.map(c => c.ab.map((ab, i) =>
+      `<tr>${i===0?`<td rowspan="3"><strong>${c.emoji} ${c.name}</strong></td>`:''}<td><strong>${ab.n}</strong></td><td><span class="k">${ab.t}</span></td><td>${ab.d}</td></tr>`
+    ).join('')).join('') + `</tbody></table>`;
+
+  document.getElementById('objTable').innerHTML =
+    `<table><thead><tr><th>Departamento</th><th>Objetivo público</th><th>Objetivo secreto</th><th>Restricción de conducta</th></tr></thead><tbody>` +
+    CHARS.map(c => `<tr><td><strong>${c.emoji} ${c.name}</strong><br><span class="hint">${c.weak.n}</span></td>
+      <td>${c.obj.pub}</td><td>${c.obj.sec}</td><td><span class="hint">${c.obj.res}</span></td></tr>`).join('') +
+    `</tbody></table>`;
+
+  document.getElementById('profTable').innerHTML =
+    `<table><thead><tr><th>Perfil</th><th>Qué lo motiva</th><th>Palanca propia (1 por sesión)</th><th>Rol Lean natural</th></tr></thead><tbody>` +
+    PROFILES.map(p => `<tr><td><strong>${p.n}</strong></td><td>${p.d}</td><td>${p.p}</td><td>${p.lean}</td></tr>`).join('') +
+    `</tbody></table>`;
+}
+
+/* ============================================================
+   MOTOR CINEMATOGRÁFICO
+   Sin GSAP: CSS + Web Animations API + IntersectionObserver.
+   La mesa tiene que abrir sin internet, así que no hay CDN.
+   ============================================================ */
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const COARSE  = matchMedia('(pointer: coarse)').matches;
+
+/* --- Reveals direccionales al entrar en viewport --- */
+function initReveals(){
+  if(REDUCED){ document.querySelectorAll('[data-reveal]').forEach(el => el.classList.add('revealed')); return; }
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e, i) => {
+      if(!e.isIntersecting) return;
+      const el = e.target;
+      if(!el.style.getPropertyValue('--d')) el.style.setProperty('--d', (i * 70) + 'ms');
+      el.classList.add('revealed');
+      el.addEventListener('transitionend', () => el.classList.add('done'), {once:true});
+      io.unobserve(el);
+    });
+  }, {rootMargin:'0px 0px -12% 0px', threshold:.08});
+  document.querySelectorAll('[data-reveal]').forEach(el => io.observe(el));
+}
+
+/* --- Parallax de capas: scroll + mouse, con factores por profundidad --- */
+const PARALLAX = {0:0.10, 1:0.25, 2:0.50, 3:0.80, 4:1.00, 5:1.20};
+let mx = 0, my = 0, sy = 0, rafPending = false;
+function paintParallax(){
+  rafPending = false;
+  const scene = document.getElementById('heroScene');
+  if(!scene || scene.hidden || document.body.classList.contains('focus-mode')) return;
+  scene.querySelectorAll('.layer').forEach(l => {
+    const d = +l.dataset.depth;
+    const f = PARALLAX[d] ?? 1;
+    const ty = -sy * (f - 1) * 0.35;          // capas lejanas se quedan atrás
+    const px = mx * (f - 1) * 26;
+    const py = my * (f - 1) * 14;
+    l.style.transform = `translate3d(${px}px, ${ty + py}px, 0)`;
+  });
+}
+function queuePaint(){ if(!rafPending){ rafPending = true; requestAnimationFrame(paintParallax); } }
+function initParallax(){
+  if(REDUCED) return;
+  addEventListener('scroll', () => { sy = Math.min(scrollY, 700); queuePaint(); }, {passive:true});
+  if(!COARSE){
+    const scene = document.getElementById('heroScene');
+    scene.addEventListener('mousemove', e => {
+      const r = scene.getBoundingClientRect();
+      mx = (e.clientX - r.left) / r.width - .5;
+      my = (e.clientY - r.top) / r.height - .5;
+      queuePaint();
+    }, {passive:true});
+  }
+}
+
+/* --- Brasas de la capa 2 --- */
+function initEmbers(){
+  if(REDUCED || COARSE) return;
+  const box = document.getElementById('embers');
+  if(!box) return;
+  for(let i = 0; i < 16; i++){
+    const s = document.createElement('span');
+    s.className = 'ember';
+    s.style.left = (Math.random() * 100) + '%';
+    s.style.bottom = (-6 + Math.random() * 24) + '%';
+    s.style.setProperty('--dx', (Math.random() * 60 - 30) + 'px');
+    s.style.animationDuration = (9 + Math.random() * 11) + 's';
+    s.style.animationDelay = (-Math.random() * 14) + 's';
+    box.appendChild(s);
+  }
+}
+
+/* --- Tilt 3D + brillo especular en las fichas --- */
+function bindTilt(){
+  if(REDUCED || COARSE) return;
+  document.querySelectorAll('[data-tilt]').forEach(el => {
+    if(el._tilt) return; el._tilt = true;
+    el.addEventListener('pointermove', e => {
+      const r = el.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+      el.style.setProperty('--mx', (x * 100) + '%');
+      el.style.setProperty('--my', (y * 100) + '%');
+      el.style.transform = `perspective(1100px) rotateY(${(x - .5) * 7}deg) rotateX(${(.5 - y) * 7}deg) translateY(-5px)`;
+      el.style.willChange = 'transform';
+    });
+    el.addEventListener('pointerleave', () => {
+      el.style.transform = '';
+      el.style.willChange = 'auto';
+    });
+  });
+}
+
+/* --- Botones magnéticos --- */
+function initMagnetic(){
+  if(REDUCED || COARSE) return;
+  document.querySelectorAll('.rollbtn, .btn.primary').forEach(el => {
+    el.classList.add('magnetic');
+    el.addEventListener('pointermove', e => {
+      const r = el.getBoundingClientRect();
+      el.style.transform = `translate(${(e.clientX - r.left - r.width/2) * .07}px, ${(e.clientY - r.top - r.height/2) * .16}px)`;
+    });
+    el.addEventListener('pointerleave', () => { el.style.transform = ''; });
+  });
+}
+
+/* --- Volteo 3D del d12 --- */
+function tumbleDie(){
+  const d = document.getElementById('dice');
+  if(REDUCED || !d.animate) return;
+  d.animate([
+    {transform:'rotateX(0) rotateY(0) rotateZ(0) scale(1)'},
+    {transform:'rotateX(320deg) rotateY(-180deg) rotateZ(90deg) scale(1.14)', offset:.55},
+    {transform:'rotateX(720deg) rotateY(-360deg) rotateZ(0) scale(1)'}
+  ], {duration:620, easing:'cubic-bezier(.28,.9,.3,1)'});
+}
+
+/* --- Estallido de partículas en crítico / pifia --- */
+function burst(kind){
+  if(REDUCED) return;
+  const host = document.getElementById('dice');
+  const color = kind === 'crit' ? ['#f0d68a','#d4a939','#fff3cf'] : ['#e05f5f','#7a1f1f','#ffb3b3'];
+  for(let i = 0; i < (kind === 'crit' ? 26 : 14); i++){
+    const p = document.createElement('i');
+    p.className = 'burst';
+    p.style.background = color[i % color.length];
+    host.appendChild(p);
+    const a = Math.random() * Math.PI * 2, dist = 42 + Math.random() * 78;
+    p.animate([
+      {transform:'translate(-50%,-50%) scale(1)', opacity:1},
+      {transform:`translate(calc(-50% + ${Math.cos(a)*dist}px), calc(-50% + ${Math.sin(a)*dist}px)) scale(0)`, opacity:0}
+    ], {duration:620 + Math.random() * 420, easing:'cubic-bezier(.15,.7,.3,1)'})
+     .onfinish = () => p.remove();
+  }
+}
+
+/* --- Iluminado palabra por palabra en el manual --- */
+function initLightUp(){
+  document.querySelectorAll('.lightup').forEach(el => {
+    if(el._lit) return; el._lit = true;
+    el.innerHTML = el.textContent.trim().split(/\s+/).map(w => `<span>${w}</span>`).join(' ');
+  });
+  if(REDUCED){ document.querySelectorAll('.lightup span').forEach(s => s.classList.add('lit')); return; }
+  const words = [...document.querySelectorAll('.lightup span')];
+  if(!words.length) return;
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if(e.isIntersecting){ e.target.classList.add('lit'); io.unobserve(e.target); }
+  }), {rootMargin:'-38% 0px -38% 0px'});
+  words.forEach(w => io.observe(w));
+}
+
+/* ============================================================
+   ARRANQUE
+   ============================================================ */
+(function init(){
+  load();
+  if(S.theme) document.documentElement.setAttribute('data-theme', S.theme);
+  document.getElementById('modSel').value = S.mod;
+  document.getElementById('univSel').value = S.univ;
+  document.getElementById('modTitle').textContent = MODULES[S.mod].title;
+  document.getElementById('modMeta').textContent = MODULES[S.mod].meta;
+  buildRollSelects();
+  renderMarkers(); renderChars(); renderPrest(); renderProfs();
+  renderMiles(); renderActs(); renderLog(); renderManualTables();
+  tPaint();
+  if(S.focus){ document.body.classList.add('focus-mode'); document.getElementById('focusBtn').setAttribute('aria-pressed','true'); }
+  document.getElementById('artBtn').setAttribute('aria-pressed', !!S.hiRes);
+  initEmbers(); initParallax(); initReveals(); initMagnetic(); initLightUp();
+  flash('listo');
+})();
+</script>
+</body>
+</html>

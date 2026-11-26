@@ -12,7 +12,13 @@ export async function readParticipants(gameId: string, actorId: string) {
     const departments = await tx.select({ id: cards.id, name: cards.name, department: cards.department }).from(cards).where(eq(cards.gameId, gameId)).orderBy(asc(cards.department), asc(cards.id));
     const members = await tx.select({ id: assignments.id, cardId: assignments.cardId, name: profiles.displayName, revision: assignments.revision }).from(assignments).innerJoin(profiles, eq(profiles.id, assignments.profileId)).where(eq(assignments.gameId, gameId)).orderBy(asc(profiles.displayName), asc(assignments.id));
     const company = await requireCampaignInstitution(tx, game.campaignId, actorId);
-    return { departments, members, legacy: !company.institutionId, canManage: canManageAssignments(role, game.status) };
+    const canManage = canManageAssignments(role, game.status);
+    // Equipos picker: active members of the institution not yet in this game, with their e-mail. Only for whoever can
+    // edit the teams; the database function checks it again (0036) and returns nothing to anyone else.
+    const candidates = canManage && company.institutionId
+      ? [...await tx.execute<{ profile_id: string; display_name: string; email: string }>(sql`select * from public.game_assignment_candidates(${gameId}::uuid, ${actorId}::uuid)`)].map(c => ({ id: c.profile_id, name: c.display_name, email: c.email }))
+      : [];
+    return { departments, members, candidates, legacy: !company.institutionId, canManage };
   }, { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 
@@ -29,10 +35,16 @@ export async function changeAssignment(actorId: string, command: AssignmentComma
     if (command.operation === "add") {
       const company = await requireCampaignInstitution(tx, game.campaignId, actorId, true);
       if (!company.institutionId) throw new AssignmentError("La empresa está pendiente de vinculación institucional. No admite nuevos integrantes.");
-      const users = await tx.execute(sql`select f.profile_id from public.find_registered_profile_by_email(${command.email.trim()}) f join public.institution_members m on m.profile_id=f.profile_id where m.institution_id=${company.institutionId}::uuid and m.status='active'`);
+      // Chosen from the list (profileId) or typed (e-mail): in both cases an ACTIVE member of this institution.
+      const users = command.profileId
+        ? await tx.execute(sql`select m.profile_id from public.institution_members m where m.institution_id=${company.institutionId}::uuid and m.profile_id=${command.profileId}::uuid and m.status='active'`)
+        : await tx.execute(sql`select f.profile_id from public.find_registered_profile_by_email(${command.email.trim()}) f join public.institution_members m on m.profile_id=f.profile_id where m.institution_id=${company.institutionId}::uuid and m.status='active'`);
       if (users.length !== 1) throw new AssignmentError("No se encontró una cuenta con membresía aprobada en esta institución. La persona debe solicitar acceso primero.");
       const profileId = String(users[0].profile_id);
       await requireInstitutionMember(tx, company.institutionId, profileId, true);
+      // D-48: whoever has a role in the campaign (Master, Co-Master, Observer) is never a member of its games (the database refuses it too).
+      if ((await tx.execute(sql`select 1 from public.campaign_members where campaign_id=${game.campaignId}::uuid and profile_id=${profileId}::uuid`)).length)
+        throw new AssignmentError("Quien es Master, Co-Master u Observador de la campaña no puede ser integrante de sus partidas.");
       const [existing] = await tx.select().from(assignments).where(and(eq(assignments.gameId, game.id), eq(assignments.profileId, profileId)));
       if (existing?.cardId === command.cardId) return;
       if (existing) throw new AssignmentError("El participante ya tiene departamento. Usá Cambiar departamento para corregirlo.");
@@ -65,6 +77,8 @@ export async function copySuccessorAssignments(tx: Transaction, previousGameId: 
     join public.companies co on co.id = ca.company_id and co.institution_id is not null
     join public.institution_members m on m.institution_id = co.institution_id and m.profile_id = a.profile_id and m.status = 'active'
     where a.game_id = ${previousGameId}::uuid
+      -- D-48: someone who now has a role in the campaign is not carried over (same rule as adding a member).
+      and not exists (select 1 from public.campaign_members cm where cm.campaign_id = ${campaignId}::uuid and cm.profile_id = a.profile_id)
     returning id`);
   return copied.length;
 }

@@ -1,4 +1,5 @@
 import type { Ability, Weakness, Restriction, CardModifier } from "./card-structure";
+import type { Archetype } from "./archetype";
 import { PreparationError } from "@/features/preparation/domain/preparation";
 
 export class CardError extends PreparationError {}
@@ -8,7 +9,7 @@ export type CardFields = Record<typeof gameCardFields[number], string>;
 export const modifierKeys = ["ana", "vis", "neg", "ope", "ada"] as const;
 export type ModifierKey = typeof modifierKeys[number];
 export const modifierLabels = { ana: "ANA — Análisis", vis: "VIS — Visión", neg: "NEG — Negociación", ope: "OPE — Operaciones", ada: "ADA — Adaptabilidad" };
-export type CardView = Pick<CardFields, typeof publicCardFields[number]> & Partial<Pick<CardFields, "individualObjective" | "privateInformation" | "secretObjective">> & { secretRevealLimit?: number | null; secretRevealSeconds?: number | null; id: string; revision: number; selectedResponsibilities: string[] } & Record<ModifierKey, number | null> & { configuredModifiers: CardModifier[] | null; abilities: Ability[]; weaknesses: Weakness[]; restrictions: Restriction[] };
+export type CardView = Pick<CardFields, typeof publicCardFields[number]> & Partial<Pick<CardFields, "individualObjective" | "privateInformation" | "secretObjective">> & { secretRevealLimit?: number | null; secretRevealSeconds?: number | null; id: string; revision: number; selectedResponsibilities: string[] } & Record<ModifierKey, number | null> & { configuredModifiers: CardModifier[] | null; abilities: Ability[]; weaknesses: Weakness[]; restrictions: Restriction[] } & { archetype: Archetype };
 export type CardScope = { kind: "campaign" | "game"; id: string };
 export function validateCard(value: Record<string, unknown>, game: boolean) {
   const result: Record<string, string> = {};

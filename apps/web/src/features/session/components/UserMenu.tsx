@@ -7,8 +7,9 @@ import type { SessionArea } from "../domain/session";
 type Institution = { id: string; name: string };
 
 // #72 / D-32: user menu. Only the essentials for now: active institution (and changing it when the person belongs
-// to more than one), "Mis instituciones" and "Cerrar sesión". Mi perfil and Configuración come later.
-export function UserMenu({ area, name, role, active, institutions, nexusAdmin = false }: { area: SessionArea; name: string; role: string; active: Institution | null; institutions: Institution[]; nexusAdmin?: boolean }) {
+// to more than one), "Ir a" with every area the person can use (current one marked; decided on the server) and
+// "Cerrar sesión". Mi perfil and Configuración come later.
+export function UserMenu({ area, name, role, active, institutions, areas }: { area: SessionArea; name: string; role: string; active: Institution | null; institutions: Institution[]; areas: { area: SessionArea; label: string; href: string }[] }) {
   const menu = useRef<HTMLDetailsElement>(null);
   // Closes when clicking outside or pressing Escape.
   useEffect(() => {
@@ -38,8 +39,14 @@ export function UserMenu({ area, name, role, active, institutions, nexusAdmin = 
         </label>
         <button className="rounded-lg bg-sky-600 px-3 py-1.5 font-semibold text-white hover:bg-sky-500">Cambiar</button>
       </form>}
-      <Link href="/instituciones" className="block text-sky-300 hover:underline">Mis instituciones</Link>
-      {nexusAdmin && <Link href="/nexus" className="block text-sky-300 hover:underline">Administración de NEXUS</Link>}
+      <nav aria-label="Ir a">
+        <p className="text-xs uppercase tracking-wider text-slate-400">Ir a</p>
+        <ul className="mt-1 space-y-0.5">{areas.map(item => <li key={item.area}>
+          {item.area === area
+            ? <span aria-current="page" className="flex items-center justify-between rounded-lg bg-white/10 px-2 py-1 font-semibold text-white">{item.label}<span className="text-xs font-normal text-slate-400">Estás acá</span></span>
+            : <Link href={item.href} className="block rounded-lg px-2 py-1 text-sky-300 hover:bg-white/10">{item.label}</Link>}
+        </li>)}</ul>
+      </nav>
       <form action={signOut}><button className="text-sky-300 hover:underline">Cerrar sesión</button></form>
     </div>
   </details>;

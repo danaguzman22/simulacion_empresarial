@@ -81,7 +81,7 @@ async function main() {
  await migrate('0030_institutions.sql');
  await migrate('0031_card_secret_reveals.sql');
  // Not about D-33 (0033): games created here start with optional goals, as before 0033.
- await migrate('0032_rule_effect_messages.sql');await migrate('0033_section_requirements.sql');await sql.unsafe("ALTER TABLE games ALTER COLUMN goals_required SET DEFAULT false");
+ await migrate('0032_rule_effect_messages.sql');await migrate('0033_section_requirements.sql');await migrate('0035_card_archetype.sql');await sql.unsafe("ALTER TABLE games ALTER COLUMN goals_required SET DEFAULT false");
  const master=randomUUID(),co=randomUUID(),observer=randomUUID(),company=randomUUID();
  for(const id of [master,co,observer])await sql`INSERT INTO auth.users VALUES(${id},'goals@test.test','{}')`;
  const institution=await require('./institution-fixture.cjs')(sql,[master,co,observer],master);
@@ -209,7 +209,8 @@ async function main() {
 
  const presets=module('cards/domain/card-presets').cardPresets,domain=module('cards/domain/card');
  assert.equal(presets.length,5);assert.deepEqual(JSON.parse(JSON.stringify(presets.find(p=>p.id==='castor').modifiers)),{ana:3,vis:1,neg:0,ope:1,ada:0});
- for(const preset of presets) {assert.equal(preset.responsibilities.length,5);assert(!('secretObjective' in preset.fields));}
+ // D-47: templates bring public and secret objectives (the secret is only ever read by the Master).
+ for(const preset of presets) {assert.equal(preset.responsibilities.length,5);assert(preset.fields.individualObjective&&preset.fields.secretObjective);}
  const x=await fixture(),xs=campaignScope(x.campaign);
  const custom=await cards.createResponsibility(xs,master,'  Coordinar   la operacion. ');
  await cards.createResponsibility(xs,master,'COORDINAR LA OPERACION');
@@ -306,9 +307,91 @@ async function main() {
  assert.equal(JSON.stringify((await cards.readCards(gameScope(v.game),master)).cards),beforeV);
  assert.equal(presets.find(p=>p.id==='castor').configuredModifiers.length,3);
  assert(presets.find(p=>p.id==='castor').abilities.find(a=>a.name.startsWith('Filtro')).description.includes('CD 11'));
- assert(presets.every(p=>p.abilities.length===3&&p.weaknesses.length===0&&p.restrictions.length===0));
+ assert(presets.every(p=>p.abilities.length===3&&p.weaknesses.length===1&&p.restrictions.length===1),'D-47: one weakness and one restriction per template');
  for(const role of ['anon','authenticated'])assert.equal((await sql`select has_table_privilege(${role},'public.card_modifier_definitions','SELECT,INSERT,UPDATE,DELETE') allowed`)[0].allowed,false);
  console.log('PASS 0028: zero compatibility; selectable/custom modifiers; own catalogue; limited/passive abilities; weaknesses; private restrictions and SSR; presets; DB validation; stale revision; historical independence; Reset/successor.');
+
+ // #106 / D-46: archetype. Copied in every path (base -> game, successor, Reset, restart of a completed game), frozen
+ // with the rest of the card after Start, deduced on read only from the exact template text when it was never set.
+ const z=await fixture(),zs=campaignScope(z.campaign),castorPreset=presets.find(p=>p.id==='castor');
+ await cards.saveCard(zs,master,{fields:{...fields,...castorPreset.fields},archetype:'castor'});
+ await cards.saveCard(zs,master,{fields:{...fields,name:'Sin arquetipo',department:'Recursos Humanos',visualIdentity:'🧭'}});
+ await cards.saveCard(zs,master,{fields:{...fields,name:'Zorro previo',visualIdentity:'El Zorro'}});
+ await cards.saveCard(zs,master,{fields:{...fields,name:'Emoji solo',visualIdentity:'🐂'}});
+ await assert.rejects(cards.saveCard(zs,master,{fields,archetype:'leon'}),/Arquetipo inválido/);
+ await assert.rejects(sql`update campaign_role_cards set archetype='leon',revision=revision+1 where campaign_id=${z.campaign}`,/archetype_valid/);
+ const byName=list=>Object.fromEntries(list.map(c=>[c.name,c.archetype]));
+ const expected={[castorPreset.fields.name]:'castor','Sin arquetipo':'ninguno','Zorro previo':'zorro','Emoji solo':'toro'};
+ assert.deepEqual(byName((await cards.readCards(zs,master)).cards),expected,'campaign cards: explicit or deduced on read');
+ // Not set = stored null (never backfilled); the deduction only happens on read.
+ assert.deepEqual((await sql`select name,archetype from campaign_role_cards where campaign_id=${z.campaign} order by name`).map(r=>[r.name,r.archetype]),
+  [['Emoji solo',null],[castorPreset.fields.name,'castor'],['Sin arquetipo',null],['Zorro previo',null]]);
+ for(const c of (await cards.readCards(zs,master)).cards)await cards.addCardToGame(z.game,master,c.id);
+ const zg=()=>cards.readCards(gameScope(z.game),master);
+ assert.deepEqual(byName((await zg()).cards),expected,'base -> game copies the archetype');
+ assert.equal((await sql`select archetype from game_role_cards where game_id=${z.game} and name=${castorPreset.fields.name}`)[0].archetype,'castor');
+ for(const actor of [co,observer])assert.deepEqual(byName((await cards.readCards(gameScope(z.game),actor)).cards),expected,'every staff role sees the archetype');
+ // In preparation the game copy can change its archetype independently of the base.
+ const zc=(await zg()).cards.find(c=>c.name===castorPreset.fields.name);
+ await cards.saveCard(gameScope(z.game),master,{id:zc.id,revision:zc.revision,fields:{...fields,...castorPreset.fields},archetype:'buho'});
+ assert.equal((await zg()).cards.find(c=>c.id===zc.id).archetype,'buho');assert.equal(byName((await cards.readCards(zs,master)).cards)[castorPreset.fields.name],'castor');
+ const expectedGame={...expected,[castorPreset.fields.name]:'buho'};
+ // Frozen after Start: guard_role_card rejects the archetype like any other field.
+ await startGame(z.game);
+ await assert.rejects(sql`update game_role_cards set archetype='toro',revision=revision+1 where id=${zc.id}`,/ROLE_CARD_FROZEN/);
+ await assert.rejects(cards.saveCard(gameScope(z.game),master,{id:zc.id,revision:zc.revision+1,fields:{...fields,...castorPreset.fields},archetype:'toro'}));
+ assert.deepEqual(byName((await zg()).cards),expectedGame);
+ // Reset keeps the pre-Start archetypes.
+ await lifecycle.resetGame(master,{gameId:z.game,operationId:randomUUID()});assert.deepEqual(byName((await zg()).cards),expectedGame,'Reset keeps the archetype');
+ // Successor (next game) and restart of a completed game copy it from the previous game.
+ await startGame(z.game);await roundAction(z.game,'start');await roundAction(z.game,'finish');await lifecycle.finishGame(master,{gameId:z.game,operationId:randomUUID()});
+ const zNext=(await games.createGame({campaignId:z.campaign,profileId:master,name:'Arquetipo siguiente',type:'custom'})).game.id;
+ assert.deepEqual(byName((await cards.readCards(gameScope(zNext),master)).cards),expectedGame,'successor copies the archetype');
+ assert.deepEqual((await sql`select name,archetype from game_role_cards where game_id=${zNext} order by name`).map(r=>r.archetype),[null,'buho',null,null],'copies keep null (deduced on read), never backfilled');
+ await lifecycle.deleteGame(master,{gameId:zNext,operationId:randomUUID()});
+ const restarted=(await lifecycle.restartCompletedGame(master,{gameId:z.game,operationId:randomUUID()}));
+ const restartedId=restarted.gameId??restarted.game?.id??restarted.id;
+ assert.deepEqual(byName((await cards.readCards(gameScope(restartedId),master)).cards),expectedGame,'restarting a completed game copies the archetype');
+ console.log('PASS 0035: archetype copied base->game, successor, Reset and restart; frozen after Start; deduced on read only from template text; CHECK and server validation.');
+
+ // "Traer fichas de la campaña": base cards created after the game, all or some, only in preparation, never duplicated.
+ const y=await fixture(),ys=campaignScope(y.campaign),yg=gameScope(y.game);
+ assert.equal((await cards.readCards(yg,master)).cards.length,0,'the game was created before any base card');
+ for(const name of ['Base uno','Base dos','Base tres'])await cards.saveCard(ys,master,{fields:{...fields,name}});
+ const bases=Object.fromEntries((await cards.readCards(ys,master)).cards.map(c=>[c.name,c.id]));
+ const offered=()=>cards.readCards(yg,master).then(d=>JSON.parse(JSON.stringify(d.available)).map(c=>c.name).sort());
+ assert.deepEqual(await offered(),['Base dos','Base tres','Base uno']);
+ assert.deepEqual(JSON.parse(JSON.stringify((await cards.readCards(yg,master)).available[0])).department!==undefined,true,'the list shows the department');
+ assert.equal((await cards.addCampaignCardsToGame(y.game,master,[bases['Base uno']])).added,1);
+ const first=(await cards.readCards(yg,master)).cards[0];
+ await cards.saveCard(yg,master,{id:first.id,revision:first.revision,fields:{...fields,name:'Base uno',description:'Cambiada en la partida'}});
+ // Bringing again (all): only the missing ones; the one already in the game is not touched nor duplicated.
+ assert.equal((await cards.addCampaignCardsToGame(y.game,master,Object.values(bases))).added,2);
+ const inGame=(await cards.readCards(yg,master)).cards;
+ assert.equal(inGame.length,3);assert.equal(inGame.find(c=>c.id===first.id).description,'Cambiada en la partida');assert.equal(inGame.find(c=>c.id===first.id).revision,first.revision+1);
+ assert.deepEqual(await offered(),[]);
+ assert.equal((await cards.addCampaignCardsToGame(y.game,master,Object.values(bases))).added,0,'nothing left to bring');
+ // Who added each copy, when and from which base stays in the copy.
+ for(const row of await sql`select created_by,source_card_id from game_role_cards where game_id=${y.game}`){assert.equal(row.created_by,master);assert(Object.values(bases).includes(row.source_card_id));}
+ // Server validation: only base cards of this campaign, a list of valid ids, only the Master.
+ const foreign=(await cards.readCards(campaignScope(z.campaign),master)).cards[0].id;
+ await assert.rejects(cards.addCampaignCardsToGame(y.game,master,[foreign]),/Ficha base no disponible/);
+ for(const bad of [[],'x',['not-a-uuid'],null])await assert.rejects(cards.addCampaignCardsToGame(y.game,master,bad));
+ await cards.saveCard(ys,master,{fields:{...fields,name:'Base cuatro'}});const fourth=(await cards.readCards(ys,master)).cards.find(c=>c.name==='Base cuatro').id;
+ for(const actor of [co,observer])await assert.rejects(cards.addCampaignCardsToGame(y.game,actor,[fourth]));
+ // Never in a started game: the server refuses and the database too.
+ await startGame(y.game);
+ await assert.rejects(cards.addCampaignCardsToGame(y.game,master,[fourth]),/preparación/);
+ await assert.rejects(sql`insert into game_role_cards(game_id,campaign_id,source_card_id,name,created_by,updated_by) values(${y.game},${y.campaign},${fourth},'Directa',${master},${master})`,/ROLE_CARD_FROZEN/);
+ assert.equal((await cards.readCards(yg,master)).cards.length,3);
+ // The form action: "add_many" with several sourceId values.
+ const y2=await fixture(),y2s=campaignScope(y2.campaign);
+ for(const name of ['Accion uno','Accion dos'])await cards.saveCard(y2s,master,{fields:{...fields,name}});
+ const formData=new Map([['kind','game'],['scopeId',y2.game],['operation','add_many']]);
+ const ids=(await cards.readCards(y2s,master)).cards.map(c=>c.id);
+ sessionActor=master;const result=await actions.cardAction({},{get:k=>formData.get(k)??null,getAll:k=>k==='sourceId'?ids:[]});sessionActor=null;
+ assert.equal(result.success,'Se trajeron 2 fichas de la campaña.');assert.equal((await cards.readCards(gameScope(y2.game),master)).cards.length,2);
+ console.log('PASS bring campaign cards: missing ones only, all or some, never duplicated nor touched, Master only, never after Start (server and database).');
  console.log('PASS Fichas: base create/edit; independent copies; secret projection; membership/roles; revision concurrency; preparation/Start/evaluation/completed guards; Reset; successor; Delete; empty game; composite FK; RLS.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>sql.end());

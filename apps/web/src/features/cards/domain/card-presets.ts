@@ -1,8 +1,10 @@
 // Sources and classification decisions: docs/FICHAS_V2_FUENTES.md.
 // Presets are opt-in form defaults. No migration applies them to existing cards.
+// D-47: they also bring the C&D prototype's public and secret objectives, weakness and restriction (secret and the
+// restrictions tied to it are private: Solo Master).
 import type { ModifierKey } from "./card";
 import type { Ability, Weakness, Restriction, CardModifier } from "./card-structure";
-export type CardPreset = { id: string; label: string; fields: { name: string; department: string; description: string; visualIdentity: string; publicInformation: string }; responsibilities: string[]; modifiers: Record<ModifierKey, number>; configuredModifiers: CardModifier[]; abilities: Ability[]; weaknesses: Weakness[]; restrictions: Restriction[] };
+export type CardPreset = { id: string; label: string; fields: { name: string; department: string; description: string; visualIdentity: string; publicInformation: string; individualObjective: string; secretObjective: string }; responsibilities: string[]; modifiers: Record<ModifierKey, number>; configuredModifiers: CardModifier[]; abilities: Ability[]; weaknesses: Weakness[]; restrictions: Restriction[] };
 export const cardPresets: CardPreset[] = [
   {
     "id": "buho",
@@ -12,7 +14,9 @@ export const cardPresets: CardPreset[] = [
       "department": "Dirección",
       "description": "Tiene una mirada global de la empresa. Coordina las áreas, define prioridades y busca que las decisiones individuales estén alineadas con el resultado general.",
       "visualIdentity": "El Búho",
-      "publicInformation": "Foco: Resultado global de la empresa · Coordinación entre áreas · Riesgos · Prioridades · Cumplimiento de objetivos\n\nPensá en la empresa como un sistema completo. Una mejora en un área no siempre significa una mejora para toda la organización."
+      "publicInformation": "Foco: Resultado global de la empresa · Coordinación entre áreas · Riesgos · Prioridades · Cumplimiento de objetivos\n\nPensá en la empresa como un sistema completo. Una mejora en un área no siempre significa una mejora para toda la organización.",
+      "individualObjective": "Lead Time ≤ 15 días con un presupuesto ≤ $10.000 USD.",
+      "secretObjective": "Lograr el objetivo gastando ≤ $7.000 USD."
     },
     "responsibilities": [
       "Coordinar las distintas áreas de la empresa.",
@@ -74,8 +78,22 @@ export const cardPresets: CardPreset[] = [
         "useScope": "round"
       }
     ],
-    "weaknesses": [],
-    "restrictions": []
+    "weaknesses": [
+      {
+        "name": "Aversión al Riesgo",
+        "description": "",
+        "condition": "",
+        "consequence": "Desventaja en decisiones si el presupuesto disponible baja de $3.000 USD."
+      }
+    ],
+    "restrictions": [
+      {
+        "name": "Revelación tardía",
+        "description": "Revela su meta secreta recién en la Ronda 3.",
+        "condition": "",
+        "visibility": "private"
+      }
+    ]
   },
   {
     "id": "zorro",
@@ -85,7 +103,9 @@ export const cardPresets: CardPreset[] = [
       "department": "Comercial",
       "description": "Representa la relación con clientes y mercado. Busca generar oportunidades sin comprometer a la empresa con promesas que no pueda cumplir.",
       "visualIdentity": "El Zorro",
-      "publicInformation": "Foco: Cliente · Demanda · Ventas · Compromisos · Propuesta de valor\n\nPensá desde la mirada del cliente, pero teniendo en cuenta qué puede cumplir realmente la empresa."
+      "publicInformation": "Foco: Cliente · Demanda · Ventas · Compromisos · Propuesta de valor\n\nPensá desde la mirada del cliente, pero teniendo en cuenta qué puede cumplir realmente la empresa.",
+      "individualObjective": "Garantizar la satisfacción del cliente principal.",
+      "secretObjective": "El cliente tolera hasta 20 días de plazo si la calidad es consistente."
     },
     "responsibilities": [
       "Comprender las necesidades del cliente.",
@@ -135,14 +155,28 @@ export const cardPresets: CardPreset[] = [
       {
         "name": "Endulzar el Trato",
         "type": "passive",
-        "description": "Otorga Ventaja (tirar $2\\text{d}12$ y quedarse con el dado más alto) en cualquier tirada de Negociación frente a un cliente o proveedor externo exigente (NPC).",
+        "description": "Otorga Ventaja (tirar 2d12 y quedarse con el dado más alto) en cualquier tirada de Negociación frente a un cliente o proveedor externo exigente (NPC).",
         "condition": "",
         "useLimit": null,
         "useScope": null
       }
     ],
-    "weaknesses": [],
-    "restrictions": []
+    "weaknesses": [
+      {
+        "name": "Sobrevender",
+        "description": "",
+        "condition": "",
+        "consequence": "Penalización general de −2 si incumple un plazo que prometió."
+      }
+    ],
+    "restrictions": [
+      {
+        "name": "Tolerancia oculta",
+        "description": "Oculta la tolerancia de 20 días hasta que haya riesgo de quiebra en R4.",
+        "condition": "",
+        "visibility": "private"
+      }
+    ]
   },
   {
     "id": "castor",
@@ -152,7 +186,9 @@ export const cardPresets: CardPreset[] = [
       "department": "Ingeniería",
       "description": "Analiza problemas, estudia alternativas y evalúa la viabilidad técnica de las soluciones antes de implementarlas.",
       "visualIdentity": "El Castor",
-      "publicInformation": "Foco: Viabilidad técnica · Datos · Procesos · Mejora continua · Tecnología\n\nNo te quedes solamente con el síntoma de un problema. Intentá entender qué está ocurriendo antes de proponer una solución."
+      "publicInformation": "Foco: Viabilidad técnica · Datos · Procesos · Mejora continua · Tecnología\n\nNo te quedes solamente con el síntoma de un problema. Intentá entender qué está ocurriendo antes de proponer una solución.",
+      "individualObjective": "Modernizar la tecnología de la planta.",
+      "secretObjective": "Comprar el software ERP ($8.000 USD) en la Ronda 1 o 2."
     },
     "responsibilities": [
       "Analizar técnicamente los problemas.",
@@ -214,8 +250,22 @@ export const cardPresets: CardPreset[] = [
         "useScope": "game"
       }
     ],
-    "weaknesses": [],
-    "restrictions": []
+    "weaknesses": [
+      {
+        "name": "Perfeccionismo",
+        "description": "",
+        "condition": "",
+        "consequence": "−2 en Negociación si la mesa rechaza el ERP en R1 o R2."
+      }
+    ],
+    "restrictions": [
+      {
+        "name": "Rigor técnico",
+        "description": "Bloquea propuestas informales que no pasen una tirada de Análisis CD 9.",
+        "condition": "",
+        "visibility": "public"
+      }
+    ]
   },
   {
     "id": "toro",
@@ -225,7 +275,9 @@ export const cardPresets: CardPreset[] = [
       "department": "Producción",
       "description": "Representa la operación real de la empresa. Se preocupa por la capacidad, los recursos disponibles y que las soluciones puedan funcionar en la práctica.",
       "visualIdentity": "El Toro",
-      "publicInformation": "Foco: Producción · Capacidad · Recursos · Cuellos de botella · Aplicación práctica\n\nPensá en lo que realmente puede hacerse en la operación. Una solución puede ser buena en teoría y no funcionar en la práctica."
+      "publicInformation": "Foco: Producción · Capacidad · Recursos · Cuellos de botella · Aplicación práctica\n\nPensá en lo que realmente puede hacerse en la operación. Una solución puede ser buena en teoría y no funcionar en la práctica.",
+      "individualObjective": "Resolver la capacidad física del taller.",
+      "secretObjective": "Comprar el Adaptador CNC ($2.500 USD) en la Ronda 1 o 2."
     },
     "responsibilities": [
       "Gestionar la operación diaria.",
@@ -287,8 +339,22 @@ export const cardPresets: CardPreset[] = [
         "useScope": null
       }
     ],
-    "weaknesses": [],
-    "restrictions": []
+    "weaknesses": [
+      {
+        "name": "Intolerancia a la burocracia",
+        "description": "",
+        "condition": "",
+        "consequence": "−2 en sus tiradas si la mesa debate sobre software más de 3 minutos."
+      }
+    ],
+    "restrictions": [
+      {
+        "name": "Rechazo al gasto en software",
+        "description": "Vota en contra de todo gasto en software superior a $5.000 USD.",
+        "condition": "",
+        "visibility": "public"
+      }
+    ]
   },
   {
     "id": "ardilla",
@@ -298,7 +364,9 @@ export const cardPresets: CardPreset[] = [
       "department": "Finanzas",
       "description": "Evalúa el impacto económico de las decisiones y busca mantener la sostenibilidad financiera de la empresa.",
       "visualIdentity": "La Ardilla",
-      "publicInformation": "Foco: Presupuesto · Costos · Ingresos · Liquidez · Riesgo financiero\n\nNo mires solamente cuánto cuesta una decisión. Pensá también qué beneficio puede generar, cuándo se recupera el dinero y qué impacto tiene sobre la caja."
+      "publicInformation": "Foco: Presupuesto · Costos · Ingresos · Liquidez · Riesgo financiero\n\nNo mires solamente cuánto cuesta una decisión. Pensá también qué beneficio puede generar, cuándo se recupera el dinero y qué impacto tiene sobre la caja.",
+      "individualObjective": "Mantener el flujo de caja positivo.",
+      "secretObjective": "Reducir el inventario ($1.000 USD por semana) mediante un sistema Pull."
     },
     "responsibilities": [
       "Controlar el presupuesto.",
@@ -360,7 +428,21 @@ export const cardPresets: CardPreset[] = [
         "useScope": "game"
       }
     ],
-    "weaknesses": [],
-    "restrictions": []
+    "weaknesses": [
+      {
+        "name": "Resistencia al cambio",
+        "description": "",
+        "condition": "",
+        "consequence": "−2 en sus tiradas durante la ronda siguiente a un evento financiero imprevisto."
+      }
+    ],
+    "restrictions": [
+      {
+        "name": "Tope de gasto",
+        "description": "Bloquea todo gasto superior a $5.000 USD, salvo que Dirección use Visión Sistémica.",
+        "condition": "",
+        "visibility": "public"
+      }
+    ]
   }
 ];

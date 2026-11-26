@@ -246,6 +246,20 @@
       "when": 1795359214899,
       "tag": "0034_nexus_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1795585400163,
+      "tag": "0035_card_archetype",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1795626753462,
+      "tag": "0036_assignment_candidates",
+      "breakpoints": true
     }
   ]
 }

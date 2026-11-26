@@ -59,6 +59,8 @@ async function main() {
  // Not about D-33 (0033): games created here start with optional goals, as before 0033.
  await migrate('0032_rule_effect_messages.sql');await migrate('0033_section_requirements.sql');await sql.unsafe("ALTER TABLE games ALTER COLUMN goals_required SET DEFAULT false");
  assert.deepEqual(await sql`select to_jsonb(c)-'secret_reveal_limit'-'secret_reveal_seconds' as row from game_role_cards c where id=${oldCard}`,before31);
+ // #106: 0035 after the 0031 upgrade check, which compares the whole old row.
+ await migrate('0035_card_archetype.sql');
  assert.equal((await sql`select secret_reveal_limit from game_role_cards where id=${oldCard}`)[0].secret_reveal_limit,null);
  console.log('PASS upgrade 0030 -> 0031 preserves every existing card field and revision; no retrospective configuration');
  const module=name=>load(base+'/src/features/'+name+'.ts');

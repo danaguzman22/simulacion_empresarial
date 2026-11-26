@@ -15,6 +15,10 @@ const content = () => ({
   name: text("name").notNull(), department: text("department").notNull().default(""),
   description: text("description").notNull().default(""), responsibilities: text("responsibilities").notNull().default(""),
   publicInformation: text("public_information").notNull().default(""), visualIdentity: text("visual_identity").notNull().default(""),
+  // #106 / D-46: buho, zorro, castor, toro, ardilla or ninguno. Null = not set yet (cards created before 0035): the app
+  // deduces it only from the exact visual identity of a NEXUS template, otherwise "ninguno". Never backfilled with
+  // UPDATE: started games' cards are frozen by guard_role_card.
+  archetype: text("archetype"),
   revision: integer("revision").notNull().default(0),
   createdBy: uuid("created_by").notNull().references(() => profiles.id),
   updatedBy: uuid("updated_by").notNull().references(() => profiles.id),
@@ -30,6 +34,7 @@ export const campaignRoleCards = pgTable("campaign_role_cards", {
   secretObjective: text("secret_objective").notNull().default(""),
 }, t => [uniqueIndex("campaign_role_cards_identity_unique").on(t.id, t.campaignId),
   check("campaign_role_cards_valid", sql`length(trim(${t.name})) between 1 and 160 and length(${t.department})<=160 and length(${t.visualIdentity})<=160 and length(${t.description})<=5000 and length(${t.responsibilities})<=5000 and length(${t.publicInformation})<=5000 and ${t.revision}>=0`),
+  check("campaign_role_cards_archetype_valid", sql`${t.archetype} is null or ${t.archetype} in ('buho', 'zorro', 'castor', 'toro', 'ardilla', 'ninguno')`),
 ]).enableRLS();
 export const gameRoleCards = pgTable("game_role_cards", {
   secretRevealLimit: integer("secret_reveal_limit"),
@@ -45,6 +50,7 @@ export const gameRoleCards = pgTable("game_role_cards", {
   foreignKey({ name: "game_role_cards_game_fk", columns: [t.gameId, t.campaignId], foreignColumns: [games.id, games.campaignId] }).onDelete("cascade"),
   foreignKey({ name: "game_role_cards_source_fk", columns: [t.sourceCardId, t.campaignId], foreignColumns: [campaignRoleCards.id, campaignRoleCards.campaignId] }).onDelete("restrict"),
   check("game_role_cards_valid", sql`length(trim(${t.name})) between 1 and 160 and length(${t.department})<=160 and length(${t.visualIdentity})<=160 and length(${t.description})<=5000 and length(${t.responsibilities})<=5000 and length(${t.publicInformation})<=5000 and length(${t.privateInformation})<=5000 and length(${t.individualObjective})<=5000 and length(${t.secretObjective})<=5000 and ${t.revision}>=0`),
+  check("game_role_cards_archetype_valid", sql`${t.archetype} is null or ${t.archetype} in ('buho', 'zorro', 'castor', 'toro', 'ardilla', 'ninguno')`),
 ]).enableRLS();
 
 // Personal catalogue, reusable across the owner's companies/campaigns. Card copies

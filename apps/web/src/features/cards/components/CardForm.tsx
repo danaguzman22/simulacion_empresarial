@@ -7,6 +7,7 @@ import { gameCardFields, responsibilityKey, selectedResponsibilities, type CardS
 import { CardStructureEditor, type StructureSection } from "./CardStructureEditor";
 import { effectiveModifiers, type CardStructure, type ModifierDefinition } from "../domain/card-structure";
 import { cardPresets } from "../domain/card-presets";
+import { archetypeInfo, archetypeLabels, archetypes, isArchetype, type Archetype } from "../domain/archetype";
 
 const labels = { name: "Nombre del rol", department: "Departamento", description: "Descripción", responsibilities: "Responsabilidades", publicInformation: "Información pública", visualIdentity: "Identificación visual (texto o emoji)", individualObjective: "Objetivo individual o del departamento", privateInformation: "Información privada · Solo Master", secretObjective: "Objetivo secreto · Solo Master" };
 type Section = "identidad" | "responsabilidades" | StructureSection | "objetivos";
@@ -16,6 +17,8 @@ export function CardForm({ scope, card, catalogue, modifierCatalogue, doneHref }
   const [state, action, pending] = useActionState(cardAction, {});
   const router = useRouter();
   const [section, setSection] = useState<Section>("identidad");
+  // #106 / D-46: existing cards come with their archetype already resolved (deduced if it was never set).
+  const [archetype, setArchetype] = useState<Archetype>(card?.archetype ?? "ninguno");
   // After saving, back to the list of cards (it shows the saved card).
   useEffect(() => { if (state.success) router.push(doneHref); }, [state, router, doneHref]);
   const [fields, setFields] = useState(() => Object.fromEntries(gameCardFields.map(key => [key, card?.[key] ?? ""])));
@@ -48,6 +51,8 @@ export function CardForm({ scope, card, catalogue, modifierCatalogue, doneHref }
     const preset = cardPresets.find(p => p.id === id);
     if (!preset) return;
     setFields(old => ({ ...old, ...preset.fields }));
+    // NEXUS templates are named after their archetype (buho, zorro, castor, toro, ardilla).
+    setArchetype(isArchetype(preset.id) ? preset.id : "ninguno");
     setStructure({ configuredModifiers: preset.configuredModifiers.map(m=>({...m})), abilities: preset.abilities.map(a=>({...a})), weaknesses: preset.weaknesses.map(w=>({...w})), restrictions: preset.restrictions.map(r=>({...r})) });
     setSelected([...preset.responsibilities]);
   }
@@ -68,7 +73,7 @@ export function CardForm({ scope, card, catalogue, modifierCatalogue, doneHref }
     <input type="hidden" name="kind" value={scope.kind} /><input type="hidden" name="scopeId" value={scope.id} /><input type="hidden" name="operation" value="save" />
     <input type="hidden" name="cardId" value={card?.id ?? ""} /><input type="hidden" name="revision" value={card?.revision ?? 0} />
     <label className="block text-sm">Ficha prediseñada<select defaultValue="" onChange={e => applyPreset(e.target.value)} className="mt-1 block w-full rounded-xl border border-white/15 bg-slate-950 p-3"><option value="">Elegir una plantilla…</option>{cardPresets.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
-    <p className="text-xs text-slate-400">Elegir una plantilla completa los campos públicos, responsabilidades, modificadores y habilidades de todas las secciones. Podés editarlos antes de guardar.</p>
+    <p className="text-xs text-slate-400">Elegir una plantilla completa todas las secciones: identidad, responsabilidades, modificadores, habilidades, debilidad, restricción y objetivos (el secreto queda como Solo Master). Podés editarlos antes de guardar.</p>
     <div className="grid gap-6 md:grid-cols-[14rem_1fr]">
     <nav aria-label="Secciones de la ficha" className="overflow-x-auto md:overflow-visible">
       <ul className="flex min-w-max gap-2 border-b border-white/10 pb-2 md:min-w-0 md:flex-col md:border-b-0 md:border-r md:pb-0 md:pr-4">
@@ -80,6 +85,12 @@ export function CardForm({ scope, card, catalogue, modifierCatalogue, doneHref }
     </nav>
     <div className="min-w-0 space-y-4">
     <section hidden={section !== "identidad"} data-section="identidad" className="space-y-3 rounded-xl border border-white/15 p-4"><h3 className="text-lg font-bold">Identidad e información</h3>
+    <label className="block text-sm text-slate-300">Arquetipo
+      <select name="archetype" value={archetype} onChange={e => setArchetype(e.target.value as Archetype)} className="mt-1 block w-full rounded-xl border border-white/15 bg-slate-950 p-3 text-white">
+        {archetypes.map(key => <option key={key} value={key}>{key === "ninguno" ? "Ninguno (se usa la identificación visual)" : `${archetypeInfo[key].emoji} ${archetypeLabels[key]}`}</option>)}
+      </select>
+      <span className="mt-1 block text-xs text-slate-400">En la carta, el arquetipo pone el dibujo y el color. Sin arquetipo se usa el emoji de la identificación visual.</span>
+    </label>
     {gameCardFields.filter(field => !["responsibilities", "individualObjective", "secretObjective"].includes(field)).map(field => <label key={field} className="block text-sm text-slate-300">{labels[field]}
       <textarea name={field} value={fields[field]} onChange={e => setFields(old => ({ ...old, [field]: e.target.value }))} required={field === "name"} maxLength={["name", "department", "visualIdentity"].includes(field) ? 160 : 5000} rows={["name", "department", "visualIdentity"].includes(field) ? 1 : 3} className="mt-1 block w-full rounded-xl border border-white/15 bg-slate-950 p-3 text-white" />
     </label>)}
@@ -106,14 +117,5 @@ export function CardForm({ scope, card, catalogue, modifierCatalogue, doneHref }
       <button disabled={pending || adding} className="rounded-xl bg-sky-400 px-4 py-2 font-bold text-slate-950 disabled:opacity-50">{pending ? "Guardando…" : card ? "Guardar ficha" : "Crear ficha base"}</button>
       <Link href={doneHref} className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/10">Cancelar</Link>
     </div>
-  </form>;
-}
-export function AddCardForm({ gameId, available }: { gameId: string; available: { id: string; name: string }[] }) {
-  const [state, action, pending] = useActionState(cardAction, {});
-  return <form action={action} className="mt-4 space-y-3">
-    <input type="hidden" name="kind" value="game" /><input type="hidden" name="scopeId" value={gameId} /><input type="hidden" name="operation" value="add" />
-    <label className="block text-sm">Agregar ficha de campaña<select name="sourceId" required className="ml-3 rounded-xl border border-white/15 bg-slate-950 p-2"><option value="">Seleccionar ficha…</option>{available.map(c => <option value={c.id} key={c.id}>{c.name}</option>)}</select></label>
-    {state.error && <p role="alert" className="text-red-300">{state.error}</p>}{state.success && <p role="status">{state.success}</p>}
-    <button disabled={pending} className="rounded-xl border border-sky-400 px-4 py-2 disabled:opacity-50">Agregar copia a esta partida</button>
   </form>;
 }

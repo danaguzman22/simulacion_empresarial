@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { getAuthenticatedUserId } from "@/features/auth/application/get-authenticated-user-id";
 import { PreparationError } from "@/features/preparation/domain/preparation";
 import { gameCardFields, type CardScope } from "../domain/card";
-import { createModifierDefinition, createResponsibility, addCardToGame, readCards, saveCard } from "../repositories/card.repository";
+import { createModifierDefinition, createResponsibility, addCardToGame, addCampaignCardsToGame, readCards, saveCard } from "../repositories/card.repository";
 
 export type CardActionState = { error?: string; success?: string };
 export async function getCards(scope: CardScope) {
@@ -19,11 +19,16 @@ export async function cardAction(_previous: CardActionState, form: FormData): Pr
   if (kind !== "campaign" && kind !== "game") return { error: "Configuración inválida." };
   try {
     if (form.get("operation") === "add" && kind === "game") await addCardToGame(id, actor, String(form.get("sourceId") ?? ""));
+    else if (form.get("operation") === "add_many" && kind === "game") {
+      const { added } = await addCampaignCardsToGame(id, actor, form.getAll("sourceId"));
+      revalidatePath(`/master/partidas/${id}`, "layout");
+      return { success: added === 1 ? "Se trajo 1 ficha de la campaña." : `Se trajeron ${added} fichas de la campaña.` };
+    }
     else if (form.get("operation") === "save") {
       const cardId = String(form.get("cardId") ?? "");
       let structure: unknown;
       try { structure = JSON.parse(String(form.get("structure") ?? "")); } catch { return { error: "Configuración de ficha inválida." }; }
-      await saveCard({ kind, id }, actor, { id: cardId || undefined, revision: Number(form.get("revision")), selectedResponsibilities: form.getAll("responsibility"), structure, fields: Object.fromEntries(gameCardFields.map(field => [field, String(form.get(field) ?? "")])) });
+      await saveCard({ kind, id }, actor, { id: cardId || undefined, revision: Number(form.get("revision")), selectedResponsibilities: form.getAll("responsibility"), structure, archetype: form.has("archetype") ? String(form.get("archetype")) : undefined, fields: Object.fromEntries(gameCardFields.map(field => [field, String(form.get(field) ?? "")])) });
     } else return { error: "Operación inválida." };
     // "layout": also the screens inside (the card list and the card's own screen, #78).
     revalidatePath(kind === "game" ? `/master/partidas/${id}` : `/master/campanas/${id}`, "layout");
