@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { gameStatusLabels, gameTypeLabels, type GameListItem } from "../domain/game";
+import { gameNumber, gameStatusLabels, gameTypeLabels, type GameListItem } from "../domain/game";
 
 export function GameList({ games }: { games: GameListItem[] }) {
   if (games.length === 0) {
@@ -14,7 +14,7 @@ export function GameList({ games }: { games: GameListItem[] }) {
             href={`/master/partidas/${game.id}`}
             className="block rounded-3xl border border-white/10 bg-white/[0.05] p-5 transition hover:border-white/20 hover:bg-white/[0.08] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-400"
           >
-            <p className="text-xs font-black uppercase tracking-widest text-sky-400">Partida {game.sequence}</p>
+            <p className="text-xs font-black uppercase tracking-widest text-sky-400">Partida {gameNumber(game.sequence)}</p>
             <h3 className="mt-2 break-words text-xl font-black">{game.name}</h3>
             <p className="mt-2 text-sm text-slate-300">{gameTypeLabels[game.type]} · {gameStatusLabels[game.status]}</p>
             {game.description && <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-slate-400">{game.description}</p>}
