@@ -1,10 +1,10 @@
 import "server-only";
 
-import { getMasterCompany } from "@/features/companies/application/get-master-company";
+import { loadMasterCompany } from "@/features/companies/application/get-master-company";
 import { findCampaignsByCompany } from "../repositories/campaign.repository";
 
 export async function listCompanyCampaigns(companyId: string) {
-  const result = await getMasterCompany(companyId);
+  const result = await loadMasterCompany(companyId);
 
   if (result.status !== "found") {
     return result;

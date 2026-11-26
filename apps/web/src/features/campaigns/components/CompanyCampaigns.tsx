@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CampaignList, type CampaignListItem } from "./CampaignList";
 import { CreateCampaignForm } from "./CreateCampaignForm";
 
@@ -9,11 +10,11 @@ type CompanyCampaignsProps = {
 
 export function CompanyCampaigns({ companyId, campaigns, canCreate }: CompanyCampaignsProps) {
   return (
-    <section aria-label="Campañas de la empresa" className="mt-10 grid gap-8 lg:grid-cols-[380px_1fr]">
+    <section aria-label="Campañas de la empresa" className="grid gap-8 lg:grid-cols-[380px_1fr]">
       <div className="rounded-3xl border border-white/10 bg-white/[0.05] p-6">
         <h2 className="text-2xl font-black">Crear campaña</h2>
         <div className="mt-6">
-          {canCreate ? <CreateCampaignForm companyId={companyId} /> : <p className="text-amber-300">Vinculá la empresa a una institución para crear nuevas campañas.</p>}
+          {canCreate ? <CreateCampaignForm companyId={companyId} /> : <p className="text-amber-300">Vinculá la empresa a una institución para crear nuevas campañas: <Link href={`/master/empresas/${companyId}/datos`} className="font-bold underline">ir a Datos</Link>.</p>}
         </div>
       </div>
 

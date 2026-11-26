@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
+import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 import { notFound, redirect } from "next/navigation";
 import { getAuthenticatedUserId } from "@/features/auth/application/get-authenticated-user-id";
 import { loadDashboard } from "@/features/dashboard/application/get-dashboard";
@@ -25,12 +25,12 @@ export default async function StudentGameLayout({ children, params }: { children
     const pending = isUuid(id) ? await readPendingAssignedGame(id, actor) : null;
     if (!pending) notFound();
     return <main className="min-h-screen bg-slate-950 px-5 py-8 text-white"><div className="mx-auto max-w-6xl">
-      <Link href="/alumno" className="text-sky-300">Volver a mis partidas</Link>
+      <Breadcrumbs items={[{ label: "Mis partidas", href: "/alumno" }, { label: pending.name }]} />
       <section className="mt-6 rounded-3xl border border-white/10 p-6"><h1 className="text-xl font-bold">{pending.name}</h1><PendingGameNotice periods={pending} /></section>
     </div></main>;
   }
   return <main className="min-h-screen bg-slate-950 px-5 py-8 text-white"><div className="mx-auto max-w-6xl">
-    <Link href="/alumno" className="text-sky-300">Volver a mis partidas</Link>
+    <Breadcrumbs items={[{ label: "Mis partidas", href: "/alumno" }, { label: data.game.name }]} />
     <p className="mt-6 text-slate-400">{data.game.name} · {gameStatusLabels[data.game.status]}</p>
     <StudentGameTabs gameId={data.game.id} />
     {children}

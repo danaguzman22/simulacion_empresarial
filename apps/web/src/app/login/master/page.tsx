@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { backButtonClass } from "@/components/shared/Breadcrumbs";
 
 import {
   MasterLoginForm,
@@ -10,12 +11,7 @@ export default function MasterLoginPage() {
 
       <div className="w-full max-w-md">
 
-        <Link
-          href="/"
-          className="mb-8 inline-block text-xs font-bold uppercase tracking-widest text-slate-500 transition hover:text-white"
-        >
-          ← Volver
-        </Link>
+        <Link href="/" className={`mb-8 ${backButtonClass}`}>← Volver a la portada</Link>
 
         <header className="mb-7">
           <p className="text-xs font-black uppercase tracking-[0.35em] text-sky-400">

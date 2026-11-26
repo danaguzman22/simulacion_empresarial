@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 
 import {
   getAuthenticatedUserId,
@@ -44,3 +45,6 @@ export async function getMasterCompany(
 
   return { status: "found", company };
 }
+
+// #100: the company layout (header and tabs) and its Campañas tab read the company once per request.
+export const loadMasterCompany = cache(getMasterCompany);

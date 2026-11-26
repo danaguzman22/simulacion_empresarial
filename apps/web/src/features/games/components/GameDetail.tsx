@@ -1,4 +1,4 @@
-import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
+import { GameCrumbs } from "./GameCrumbs";
 import type { ReactNode } from "react";
 import type { getGameDetail } from "../application/get-game-detail";
 import { gameNumber, gameStatusLabels, gameTypeLabels } from "../domain/game";
@@ -12,7 +12,7 @@ export function GameDetail({ game, children, actions, nav }: GameDetailProps) {
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
       <div className="mx-auto max-w-6xl">
-        <Breadcrumbs items={[{ label: "Panel", href: "/master" }, { label: game.companyName, href: game.canOpenCompany ? `/master/empresas/${game.companyId}` : undefined }, { label: game.campaignName, href: `/master/campanas/${game.campaignId}` }, { label: game.name }]} />
+        <GameCrumbs gameBase={`/master/partidas/${game.id}`} items={[{ label: "Panel", href: "/master" }, { label: game.companyName, href: game.canOpenCompany ? `/master/empresas/${game.companyId}` : undefined }, { label: game.campaignName, href: `/master/campanas/${game.campaignId}` }, { label: game.name }]} />
 
         <article className="mt-8 rounded-3xl border border-white/10 bg-white/[0.05] p-6 md:p-8">
           <header>
