@@ -1,7 +1,7 @@
 -- 0036: who can be added to a game's teams, for the Equipos picker (name and e-mail), and D-48: the Master,
--- Co-Master and Observer of a campaign are never members of its games.
--- No table, column or row changes: it ADDS one read-only function and REPLACES the assignment guard (0029) with
--- the same rules plus one more check on INSERT. Rows that already exist are not touched.
+-- Co-Master and Observer of a campaign are never members of its games, in both directions.
+-- No table, column or row changes: it ADDS one read-only function, REPLACES the assignment guard (0029) with the
+-- same rules plus one more check on INSERT, and ADDS one guard on campaign_members. Existing rows are not touched.
 --
 -- game_assignment_candidates: the e-mail lives in auth.users, which the app cannot read; like
 -- find_registered_profile_by_email (0029), a narrow SECURITY DEFINER function returns only what the picker needs,
@@ -60,3 +60,21 @@ BEGIN
   IF TG_OP='DELETE' THEN RETURN OLD; END IF;
   RETURN NEW;
 END $$;
+--> statement-breakpoint
+-- D-48, the other direction: a person who is a member of any game of the campaign (any status) cannot get a role
+-- in it (Master, Co-Master or Observer). Checked when a role row is added or moved to another person or campaign;
+-- changing only the role of an existing row is not affected. Same lock as the assignment guard (the campaign row),
+-- so a role and an assignment for the same person cannot slip in at the same time.
+CREATE FUNCTION public.guard_campaign_staff_not_member() RETURNS trigger
+LANGUAGE plpgsql SET search_path = '' AS $$
+BEGIN
+  IF TG_OP='UPDATE' AND NEW.campaign_id=OLD.campaign_id AND NEW.profile_id=OLD.profile_id THEN RETURN NEW; END IF;
+  PERFORM 1 FROM public.campaigns WHERE id=NEW.campaign_id FOR UPDATE;
+  IF EXISTS (SELECT 1 FROM public.game_card_assignments a WHERE a.campaign_id=NEW.campaign_id AND a.profile_id=NEW.profile_id) THEN
+    RAISE EXCEPTION 'GAME_MEMBER_CANNOT_BE_CAMPAIGN_STAFF';
+  END IF;
+  RETURN NEW;
+END $$;
+--> statement-breakpoint
+CREATE TRIGGER campaign_members_not_game_member BEFORE INSERT OR UPDATE ON public.campaign_members
+FOR EACH ROW EXECUTE FUNCTION public.guard_campaign_staff_not_member();

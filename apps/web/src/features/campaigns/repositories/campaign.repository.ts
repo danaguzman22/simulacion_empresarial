@@ -6,6 +6,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { campaigns, campaignMembers, companies } from "@/db/schema";
 import type { CreateCampaignInput } from "../domain/campaign";
+import { requireNotGameMember } from "./campaign-roles.repository";
 
 export async function createCampaign(input: CreateCampaignInput) {
   return db.transaction(async (tx) => {
@@ -25,6 +26,8 @@ export async function createCampaign(input: CreateCampaignInput) {
       throw new Error("No se pudo obtener la campaña creada.");
     }
 
+    // D-48: same check as any other campaign role (a new campaign has no games yet, so it always passes).
+    await requireNotGameMember(tx, campaign.id, input.createdBy);
     await tx.insert(campaignMembers).values({
       campaignId: campaign.id,
       profileId: input.createdBy,

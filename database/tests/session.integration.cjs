@@ -77,8 +77,13 @@ async function main() {
   return {company,campaign,game};
  };
  const a=await world(A,masterA,'A',true),b=await world(B,masterB,'B',false),c=await world(C,masterC,'C',true);
- // The person is also Observador in A and Master in C, and created companies in A and C.
- await sql`INSERT INTO campaign_members(campaign_id,profile_id,role) VALUES(${a.campaign},${person},'observer'),(${c.campaign},${person},'master')`;
+ // The person is also Observador in A and Master in C, and created companies in A and C. The roles are in other
+ // campaigns of the same companies: D-48, nobody has a role in a campaign where they are a member of a game.
+ const a2=randomUUID(),c2=randomUUID();
+ await sql`INSERT INTO campaigns(id,company_id,name,created_by) VALUES(${a2},${a.company},'CAMPAIGN-A2',${masterA}),(${c2},${c.company},'CAMPAIGN-C2',${masterC})`;
+ await sql`INSERT INTO campaign_members(campaign_id,profile_id,role) VALUES(${a2},${masterA},'master'),(${c2},${masterC},'master')`;
+ await sql`INSERT INTO campaign_members(campaign_id,profile_id,role) VALUES(${a2},${person},'observer'),(${c2},${person},'master')`;
+ await assert.rejects(sql`INSERT INTO campaign_members(campaign_id,profile_id,role) VALUES(${a.campaign},${person},'observer')`,/GAME_MEMBER_CANNOT_BE_CAMPAIGN_STAFF/);
  await sql`INSERT INTO companies(id,name,created_by,institution_id) VALUES(${randomUUID()},'OWN-A',${person},${A}),(${randomUUID()},'OWN-C',${person},${C})`;
  // Revoked from C after everything was set up.
  const [membership]=await sql`select id,revision from institution_members where institution_id=${C} and profile_id=${person}`;

@@ -44,7 +44,8 @@ function load(file) {
 async function main() {
  await sql.unsafe('CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY,email text,raw_user_meta_data jsonb);');
  const migrate=async file=>sql.begin(async tx=>{for(const statement of fs.readFileSync(root+'/database/migrations/'+file,'utf8').replace(/^\uFEFF/,'').split('--> statement-breakpoint'))if(statement.trim())await tx.unsafe(statement);});
- for(const file of fs.readdirSync(root+'/database/migrations').filter(f=>f.endsWith('.sql')).sort())await migrate(file);
+ // 0036 (D-48) is applied below, after creating data that only existed before it.
+ for(const file of fs.readdirSync(root+'/database/migrations').filter(f=>f.endsWith('.sql')&&Number(f.slice(0,4))<36).sort())await migrate(file);
  // Not about D-33 (0033): games created here start with optional goals, as before 0033.
  await sql.unsafe("ALTER TABLE games ALTER COLUMN goals_required SET DEFAULT false");
  const master=randomUUID(),co=randomUUID(),observer=randomUUID(),company=randomUUID();
@@ -95,6 +96,11 @@ async function main() {
   await cards.addCardToGame(f.game,master,base.id);
   return (await cards.readCards({kind:'game',id:f.game},master)).cards.find(c=>c.name===name).id;
  }
+ // Before 0036 a Master could be a member of their own campaign's games (as in real local databases). The old guard
+ // allowed this INSERT; then 0036 and every later migration are applied on top.
+ const legacy=await fixture(),legacyCard=await makeCard(legacy,'Legacy');
+ await sql`insert into game_card_assignments(game_id,campaign_id,card_id,profile_id,updated_by) values(${legacy.game},${legacy.campaign},${legacyCard},${master},${master})`;
+ for(const file of fs.readdirSync(root+'/database/migrations').filter(f=>f.endsWith('.sql')&&Number(f.slice(0,4))>=36).sort())await migrate(file);
  const engineering=await makeCard(a,'Engineering'),finance=await makeCard(a,'Finance'),other=await makeCard(b,'Other');
  // #71: departments without members are a non-blocking warning next to the start button.
  const setupRepo=module('games/repositories/game-setup.repository');const teamWarnings=async()=>{const r=await setupRepo.readGameSetup(a.game,master);return {warnings:[...r.warnings],missing:[...r.missing],equipos:r.complete.equipos};};
@@ -251,18 +257,24 @@ async function main() {
  assert(!JSON.parse(JSON.stringify((await assignments.readParticipants(q.game,master)).candidates)).some(c=>c.id===pickA),'observer of q is not offered in q');
  await assert.rejects(assignments.changeAssignment(master,{gameId:q.game,cardId:qCard,email:'',profileId:pickA,operation:'add',assignmentId:'',expectedRevision:0}),/Master, Co-Master u Observador/);
  assert.equal((await sql`select * from game_card_assignments where game_id=${p.game} and profile_id=${pickA}`).length,1,'still a member of p, where pickA has no role');
- // A role given after joining: the existing row stays (the Master removes it in Equipos), moving it still works,
- // and it is not inherited by the next game.
- await sql`insert into campaign_members(campaign_id,profile_id,role) values(${p.campaign},${pickB},'observer')`;
- const [bRow]=await sql`select id,revision from game_card_assignments where game_id=${p.game} and profile_id=${pickB}`;
- assert(bRow,'existing row kept');
- const pickCard2=await makeCard(p,'Picker two');
- await assignments.changeAssignment(master,{gameId:p.game,cardId:pickCard2,email:'',assignmentId:bRow.id,expectedRevision:bRow.revision,operation:'move'});
- const next=randomUUID();await sql`insert into games(id,campaign_id,sequence,name) values(${next},${p.campaign},99,'Next')`;
- for(const name of ['Picker','Picker two']){const base=(await cards.readCards({kind:'campaign',id:p.campaign},master)).cards.find(c=>c.name===name);await cards.addCardToGame(next,master,base.id);}
- assert.equal(await db.transaction(tx=>assignments.copySuccessorAssignments(tx,p.game,next,p.campaign,master)),1,'only pickA follows');
- assert.deepEqual((await sql`select profile_id from game_card_assignments where game_id=${next}`).map(r=>r.profile_id),[pickA]);
- console.log('PASS D-48: campaign staff is never offered nor added (server and database), a role elsewhere does not matter, existing rows stay, not inherited');
+ // The other direction: a member of any game of the campaign cannot get a role in it (server and database).
+ const roles=module('campaigns/repositories/campaign-roles.repository');
+ await assert.rejects(db.transaction(tx=>roles.requireNotGameMember(tx,p.campaign,pickA)),/Primero quitala de los equipos de las partidas de esta campaña/);
+ await db.transaction(tx=>roles.requireNotGameMember(tx,p.campaign,pickOutsider));
+ for(const role of ['master','co_master','observer'])await assert.rejects(sql`insert into campaign_members(campaign_id,profile_id,role) values(${p.campaign},${pickA},${role})`,/GAME_MEMBER_CANNOT_BE_CAMPAIGN_STAFF/);
+ await assert.rejects(sql`update campaign_members set profile_id=${pickA} where campaign_id=${p.campaign} and profile_id=${observer}`,/GAME_MEMBER_CANNOT_BE_CAMPAIGN_STAFF/,'moving a role to a member is refused too');
+ await sql`update campaign_members set role='observer' where campaign_id=${p.campaign} and profile_id=${co}`;await sql`update campaign_members set role='co_master' where campaign_id=${p.campaign} and profile_id=${co}`;
+ // Rows from before 0036 stay (the Master removes them in Equipos), can still be moved, and are not inherited.
+ const [legacyRow]=await sql`select id,revision from game_card_assignments where game_id=${legacy.game} and profile_id=${master}`;
+ assert(legacyRow,'the old row is kept');
+ const legacyCard2=await makeCard(legacy,'Legacy two');
+ await assignments.changeAssignment(master,{gameId:legacy.game,cardId:legacyCard2,email:'',assignmentId:legacyRow.id,expectedRevision:legacyRow.revision,operation:'move'});
+ await assignments.changeAssignment(master,{gameId:legacy.game,cardId:legacyCard,email:'',profileId:pickB,operation:'add',assignmentId:'',expectedRevision:0});
+ const next=randomUUID();await sql`insert into games(id,campaign_id,sequence,name) values(${next},${legacy.campaign},99,'Next')`;
+ for(const name of ['Legacy','Legacy two']){const base=(await cards.readCards({kind:'campaign',id:legacy.campaign},master)).cards.find(c=>c.name===name);await cards.addCardToGame(next,master,base.id);}
+ assert.equal(await db.transaction(tx=>assignments.copySuccessorAssignments(tx,legacy.game,next,legacy.campaign,master)),1,'only pickB follows, not the Master');
+ assert.deepEqual((await sql`select profile_id from game_card_assignments where game_id=${next}`).map(r=>r.profile_id),[pickB]);
+ console.log('PASS D-48: campaign staff is never offered nor added, a member never gets a campaign role (server and database), a role elsewhere does not matter, old rows stay, not inherited');
 
  // Portal: a game that did not start yet says so (with its periods), and its URL is readable only by its own members.
  const listed=JSON.parse(JSON.stringify(await students.listAssignedGames(pickA))).find(g=>g.id===p.game);

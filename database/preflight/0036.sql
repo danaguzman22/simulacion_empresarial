@@ -1,8 +1,10 @@
 -- Read-only preflight for 0036_assignment_candidates. It changes nothing.
--- 0036 ADDS the read-only function game_assignment_candidates and REPLACES guard_game_card_assignment (D-48).
+-- 0036 ADDS the read-only function game_assignment_candidates, REPLACES guard_game_card_assignment and ADDS the
+-- campaign_members guard guard_campaign_staff_not_member (D-48).
 -- No table, column or row changes.
--- 1. Expected empty: the function does not exist yet.
-SELECT proname FROM pg_proc WHERE pronamespace = 'public'::regnamespace AND proname = 'game_assignment_candidates';
+-- 1. Expected empty: the new functions and the new trigger do not exist yet.
+SELECT proname FROM pg_proc WHERE pronamespace = 'public'::regnamespace AND proname IN ('game_assignment_candidates', 'guard_campaign_staff_not_member');
+SELECT tgname FROM pg_trigger WHERE tgname = 'campaign_members_not_game_member';
 -- 2. What it reads must exist (expected: 6 rows) and the roles of the grants (expected: anon, authenticated, service_role).
 SELECT table_schema || '.' || table_name AS needed FROM information_schema.tables
 WHERE (table_schema, table_name) IN (('public','games'),('public','campaigns'),('public','companies'),('public','institution_members'),('public','profiles'),('public','game_card_assignments'))
@@ -13,7 +15,7 @@ SELECT rolname FROM pg_roles WHERE rolname IN ('anon', 'authenticated', 'service
 SELECT tgname FROM pg_trigger WHERE tgfoid = 'public.guard_game_card_assignment()'::regprocedure AND NOT tgisinternal;
 SELECT md5(prosrc) AS guard_md5 FROM pg_proc WHERE oid = 'public.guard_game_card_assignment()'::regprocedure;
 -- 4. Informative: members who today have a role in the campaign of their game. 0036 does NOT touch them (new
---    additions are refused; existing rows stay until the Master removes them in Equipos).
+--    additions and new roles are refused; existing rows stay until the Master removes them in Equipos).
 SELECT g.name AS game, g.status::text AS status, cm.role::text AS campaign_role, count(*) AS members
 FROM public.game_card_assignments a
 JOIN public.games g ON g.id = a.game_id
