@@ -78,3 +78,6 @@ END $$;
 --> statement-breakpoint
 CREATE TRIGGER campaign_members_not_game_member BEFORE INSERT OR UPDATE ON public.campaign_members
 FOR EACH ROW EXECUTE FUNCTION public.guard_campaign_staff_not_member();
+--> statement-breakpoint
+-- Like every other guard: not executable by the browser roles (0029 never revoked it from guard_game_card_assignment).
+REVOKE ALL ON FUNCTION public.guard_campaign_staff_not_member(), public.guard_game_card_assignment() FROM PUBLIC, anon, authenticated;

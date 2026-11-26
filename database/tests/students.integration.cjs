@@ -241,6 +241,7 @@ async function main() {
  for(const actor of [co,observer]){const r=await assignments.readParticipants(p.game,actor);assert.equal(r.canManage,false);assert.equal(r.candidates.length,0);}
  for(const actor of [co,observer,pickB,pickOutsider])assert.equal((await sql`select * from public.game_assignment_candidates(${p.game}::uuid,${actor}::uuid)`).length,0,'no candidates for '+actor);
  for(const role of ['anon','authenticated'])assert.equal((await sql`select has_function_privilege(${role},'public.game_assignment_candidates(uuid,uuid)','EXECUTE') as allowed`)[0].allowed,false);
+ for(const role of ['anon','authenticated'])for(const fn of ['public.guard_campaign_staff_not_member()','public.guard_game_card_assignment()'])assert.equal((await sql`select has_function_privilege(${role},${fn},'EXECUTE') as allowed`)[0].allowed,false,fn+' not executable by '+role);
  console.log('PASS Equipos picker: active members not in the game with e-mail, Master only, add by id or by e-mail with the same checks');
 
  // D-48: the Master, Co-Master and Observer of the campaign are never members of its games: not offered, refused by
