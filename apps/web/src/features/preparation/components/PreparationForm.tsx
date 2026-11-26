@@ -15,6 +15,8 @@ import type {
   readPreparation,
 } from "../repositories/preparation.repository";
 
+import { gameNumber } from "@/features/games/domain/game";
+
 export type PreparationData =
   Awaited<
     ReturnType<
@@ -216,9 +218,9 @@ export function PreparationForm({
                         }
                       >
                         Partida{" "}
-                        {
+                        {gameNumber(
                           source.sequence
-                        }
+                        )}
                         :{" "}
                         {
                           source.name

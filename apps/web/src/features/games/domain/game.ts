@@ -24,6 +24,11 @@ export const gameStatusLabels: Record<GameStatus, string> = {
   cancelled: "Cancelada",
 };
 
+// #111: the database numbers a campaign's games from 0 (games.sequence, unchanged); screens count from 1.
+export function gameNumber(sequence: number) {
+  return sequence + 1;
+}
+
 export function isGameType(value: string): value is GameType {
   return Object.prototype.hasOwnProperty.call(gameTypeLabels, value);
 }
