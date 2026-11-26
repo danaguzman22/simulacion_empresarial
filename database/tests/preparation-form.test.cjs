@@ -13,6 +13,7 @@ const code = ts.transpileModule(fs.readFileSync(base + '/src/features/preparatio
 vm.runInNewContext(code,{exports:exportsObject,require(name) {
   if(name === 'react') return {useActionState:()=>[{},()=>{},false],useRef:()=>({current:null}),useState:initial=>[initial,()=>{}]};
   if(name === '../application/preparation-actions') return {savePreparationAction:()=>{}};
+  if(name === '@/features/games/domain/game') {const gameExports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(base+'/src/features/games/domain/game.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports:gameExports,Object});return gameExports;}
   return requireWeb(name);
 }});
 const definitions = [
