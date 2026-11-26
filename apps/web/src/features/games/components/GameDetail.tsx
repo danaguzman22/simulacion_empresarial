@@ -1,7 +1,7 @@
 import { GameCrumbs } from "./GameCrumbs";
 import type { ReactNode } from "react";
 import type { getGameDetail } from "../application/get-game-detail";
-import { gameStatusLabels, gameTypeLabels } from "../domain/game";
+import { gameNumber, gameStatusLabels, gameTypeLabels } from "../domain/game";
 
 type GameDetailProps = Pick<
   Extract<Awaited<ReturnType<typeof getGameDetail>>, { status: "found" }>,
@@ -17,7 +17,7 @@ export function GameDetail({ game, children, actions, nav }: GameDetailProps) {
         <article className="mt-8 rounded-3xl border border-white/10 bg-white/[0.05] p-6 md:p-8">
           <header>
             <p className="text-xs font-black uppercase tracking-[0.35em] text-sky-400">
-              Partida {game.sequence}
+              Partida {gameNumber(game.sequence)}
             </p>
             <h1 className="mt-3 break-words text-4xl font-black tracking-tight">
               {game.name}
